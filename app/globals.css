@@ -24,3 +24,20 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.trip-list-item:hover {
+  background: #27272a !important;
+}
+
+/* Extra breathing room at the bottom of modals */
+.ant-modal-wrap {
+  padding-bottom: 60px !important;
+}
+.ant-modal-content {
+  padding-bottom: 24px !important;
+}
+
+/* Extra breathing room at the bottom of drawer content */
+.ant-drawer-body {
+  padding-bottom: 40px !important;
+}
