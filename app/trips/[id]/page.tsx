@@ -8,11 +8,12 @@ import {
 } from "antd";
 import {
   ArrowLeftOutlined, EditOutlined, DeleteOutlined,
-  PictureOutlined, PlusOutlined, FormOutlined,
+  PlusOutlined, FormOutlined,
 } from "@ant-design/icons";
 import EditTripModal from "@/app/components/EditTripModal";
 import AddSegmentModal from "@/app/components/AddSegmentModal";
 import EditSegmentModal from "@/app/components/EditSegmentModal";
+import PhotoWall from "@/app/components/PhotoWall";
 
 interface Trip {
   ID: string;
@@ -213,11 +214,7 @@ export default function TripPage() {
         )}
 
         {trip["Photo Album ID"] && (
-          <div style={{ marginTop: 32 }}>
-            <a href={trip["Photo Album ID"]} target="_blank" rel="noopener noreferrer">
-              <Button icon={<PictureOutlined />} size="large" block>查看 Google Photos 相簿</Button>
-            </a>
-          </div>
+          <PhotoWall albumUrl={trip["Photo Album ID"]} />
         )}
       </Layout.Content>
 
