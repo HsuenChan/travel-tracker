@@ -50,7 +50,7 @@ export default function Home() {
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showAllTracks, setShowAllTracks] = useState(false);
-  const [sortKey, setSortKey] = useState<"added" | "date">("added");
+  const [sortKey, setSortKey] = useState<"added" | "date">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,7 +89,7 @@ export default function Home() {
 
   if (authenticated === null) {
     return (
-      <div style={{ minHeight: "100vh", background: "#09090b", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100dvh", background: "#09090b", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Spin size="large" />
       </div>
     );
@@ -97,7 +97,7 @@ export default function Home() {
 
   if (!authenticated) {
     return (
-      <div style={{ minHeight: "100vh", background: "#09090b", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
+      <div style={{ minHeight: "100dvh", background: "#09090b", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
         <Typography.Title style={{ color: "#fff", margin: 0 }}>Travel Tracker</Typography.Title>
         <Typography.Text style={{ color: "#71717a" }}>記錄你走過的每一段旅程</Typography.Text>
         <a href="/api/auth/google">
@@ -230,7 +230,7 @@ export default function Home() {
   );
 
   return (
-    <Layout style={{ height: "100vh", background: "#09090b" }}>
+    <Layout style={{ height: "100dvh", background: "#09090b" }}>
       <Layout.Header style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         borderBottom: "1px solid #27272a", paddingLeft: isMobile ? 12 : 24, paddingRight: isMobile ? 12 : 24,
@@ -277,7 +277,7 @@ export default function Home() {
               icon={<UnorderedListOutlined />}
               onClick={() => setDrawerOpen(true)}
               style={{
-                position: "absolute", bottom: 24, right: 16, zIndex: 10,
+                position: "absolute", bottom: "calc(24px + env(safe-area-inset-bottom, 0px))", right: 16, zIndex: 10,
                 background: "rgba(24,24,27,0.92)", borderColor: "#3f3f46",
                 color: "#f4f4f5", borderRadius: 24,
                 boxShadow: "0 4px 16px rgba(0,0,0,0.5)",

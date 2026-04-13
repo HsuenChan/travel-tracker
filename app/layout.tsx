@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   description: "記錄你走過的每一段旅程",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

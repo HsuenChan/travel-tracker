@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { parseCountriesToPoints, getCountryFlags } from "@/lib/countries";
 import { preResolveLocations } from "@/lib/geocode";
 import {
@@ -38,6 +38,9 @@ interface Props {
 }
 
 const COLORS = ["#60a5fa", "#34d399", "#f472b6", "#fbbf24", "#a78bfa", "#f87171", "#38bdf8", "#4ade80"];
+
+// Stable constant — never recreated
+const HOME_POINT = { lat: 23.6978, lng: 120.9605, isHome: true, isVehicle: false, isLabel: false, deg: 0, scale: 0, icon: '' };
 
 // Great-circle interpolation
 function greatCirclePoint(lat1: number, lng1: number, lat2: number, lng2: number, t: number) {
@@ -85,7 +88,16 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
   const [GlobeComponent, setGlobeComponent] = useState<any>(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 500 });
   const [arcProgresses, setArcProgresses] = useState<number[]>([]);
-  const [vehicle, setVehicle] = useState<{ lat: number; lng: number; icon: string; deg: number; scale: number } | null>(null);
+  // Vehicle state: new object each frame so globe.gl creates the element at the correct
+  // lat/lng position with correct scale/rotation baked into the initial innerHTML.
+  // null = no vehicle visible.
+  const [vehicleState, setVehicleState] = useState<{
+    lat: number; lng: number; icon: string; deg: number; scale: number;
+  } | null>(null);
+  const [activeLabel, setActiveLabel] = useState<{
+    fromLabel: string; fromPt: { lat: number; lng: number };
+    toLabel: string; toPt: { lat: number; lng: number };
+  } | null>(null);
   const [locationMap, setLocationMap] = useState<Map<string, { lat: number; lng: number } | null>>(new Map());
   const [allLocationMap, setAllLocationMap] = useState<Map<string, { lat: number; lng: number } | null>>(new Map());
   const animFrameRef = useRef<number | null>(null);
@@ -129,7 +141,8 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
   // Animation controller
   useEffect(() => {
     setArcProgresses([]);
-    setVehicle(null);
+    setVehicleState(null);
+    setActiveLabel(null);
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -161,6 +174,7 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
       tripSegs.forEach((seg, i) => {
         const t0 = setTimeout(() => {
           if (cancelled) return;
+          setActiveLabel(null);
           const fromKey = (seg["From IATA"] || "").trim() || seg.From;
           const toKey = (seg["To IATA"] || "").trim() || seg.To;
           const from = resolved.get(fromKey) ?? null;
@@ -208,7 +222,9 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
                 ? (t < 0.12 ? t / 0.12 : t > 0.88 ? (1 - t) / 0.12 : 1)
                 : 1;
 
-              setVehicle({ lat: pos.lat, lng: pos.lng, icon, deg: rawBearing - iconOffset, scale });
+              // A new object every frame forces globe.gl to position the element at the
+              // current lat/lng and call htmlElement with the correct scale/deg baked in.
+              setVehicleState({ lat: pos.lat, lng: pos.lng, icon, deg: rawBearing - iconOffset, scale });
               setArcProgresses((prev) => {
                 const next = [...prev];
                 while (next.length <= i) next.push(0);
@@ -220,7 +236,14 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
               if (t < 1) {
                 animFrameRef.current = requestAnimationFrame(animate);
               } else {
-                setVehicle(null);
+                setVehicleState(null);
+                const fromLabel = (seg["From IATA"] && seg.From && seg["From IATA"] !== seg.From)
+                  ? `${seg["From IATA"]} · ${seg.From}`
+                  : seg["From IATA"] || seg.From;
+                const toLabel = (seg["To IATA"] && seg.To && seg["To IATA"] !== seg.To)
+                  ? `${seg["To IATA"]} · ${seg.To}`
+                  : seg["To IATA"] || seg.To;
+                setActiveLabel({ fromLabel, fromPt, toLabel, toPt });
               }
             }
 
@@ -247,73 +270,122 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
     ? COLORS[trips.findIndex((t) => t.ID === selectedTripId) % COLORS.length]
     : "#60a5fa";
 
-  const selectedSegs = selectedTripId
-    ? segments
-      .filter((s) => s["Trip ID"] === selectedTripId)
-      .sort((a, b) => parseInt(a.Order) - parseInt(b.Order))
-      .slice(0, arcProgresses.length)
-    : [];
+  // Memoize: only recompute when trips or selection changes, not on every animation frame
+  const flagPoints = useMemo(() =>
+    trips.flatMap((trip, i) =>
+      parseCountriesToPoints(trip.Countries, trip.ID, trip.Name, COLORS[i % COLORS.length]).map((p) => ({
+        ...p, flag: getCountryFlags(p.country), isVehicle: false, isHome: false,
+        isSelected: trip.ID === selectedTripId, deg: 0, scale: 0, icon: '',
+      }))
+    ), [trips, selectedTripId]);
 
-  const arcs = selectedSegs
-    .map((seg, idx) => {
-      const fromKey = (seg["From IATA"] || "").trim() || seg.From;
-      const toKey = (seg["To IATA"] || "").trim() || seg.To;
-      const from = locationMap.get(fromKey) ?? null;
-      const to = locationMap.get(toKey) ?? null;
-      if (!from || !to) return null;
-      const progress = arcProgresses[idx] ?? 0;
-      return {
-        startLat: from.lat, startLng: from.lng,
-        endLat: to.lat, endLng: to.lng,
-        color: tripColor,
-        alt: getArcAltitude(toTransportKey(seg.Type), from, to),
-        dashLength: progress,
-        dashGap: progress >= 1 ? 0 : 100,
-        initialGap: progress >= 1 ? 0 : 1 - progress,
-      };
-    })
-    .filter(Boolean);
+  // Memoize: only changes when a new segment starts (arcProgresses.length), not every frame
+  const selectedSegs = useMemo(() =>
+    selectedTripId
+      ? segments
+        .filter((s) => s["Trip ID"] === selectedTripId)
+        .sort((a, b) => parseInt(a.Order) - parseInt(b.Order))
+        .slice(0, arcProgresses.length)
+      : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [segments, selectedTripId, arcProgresses.length]);
 
-  const staticArcs = showAllTracks
-    ? segments.flatMap((seg) => {
-        const tripIdx = trips.findIndex((t) => t.ID === seg["Trip ID"]);
-        if (tripIdx === -1) return [];
-        const color = COLORS[tripIdx % COLORS.length];
+  const arcs = useMemo(() =>
+    selectedSegs
+      .map((seg, idx) => {
         const fromKey = (seg["From IATA"] || "").trim() || seg.From;
         const toKey = (seg["To IATA"] || "").trim() || seg.To;
-        const from = allLocationMap.get(fromKey) ?? null;
-        const to = allLocationMap.get(toKey) ?? null;
-        if (!from || !to) return [];
-        return [{
+        const from = locationMap.get(fromKey) ?? null;
+        const to = locationMap.get(toKey) ?? null;
+        if (!from || !to) return null;
+        const progress = arcProgresses[idx] ?? 0;
+        return {
           startLat: from.lat, startLng: from.lng,
           endLat: to.lat, endLng: to.lng,
-          color,
+          color: tripColor,
           alt: getArcAltitude(toTransportKey(seg.Type), from, to),
-          dashLength: 1, dashGap: 0, initialGap: 0,
-          isStatic: true,
-        }];
+          dashLength: progress,
+          dashGap: progress >= 1 ? 0 : 100,
+          initialGap: progress >= 1 ? 0 : 1 - progress,
+        };
       })
-    : [];
+      .filter(Boolean),
+    [selectedSegs, locationMap, arcProgresses, tripColor]);
 
-  const allArcs = [...staticArcs, ...arcs];
+  // Memoize: only recompute when showAllTracks / data changes
+  const staticArcs = useMemo(() =>
+    showAllTracks
+      ? segments.flatMap((seg) => {
+          const tripIdx = trips.findIndex((t) => t.ID === seg["Trip ID"]);
+          if (tripIdx === -1) return [];
+          const color = COLORS[tripIdx % COLORS.length];
+          const fromKey = (seg["From IATA"] || "").trim() || seg.From;
+          const toKey = (seg["To IATA"] || "").trim() || seg.To;
+          const from = allLocationMap.get(fromKey) ?? null;
+          const to = allLocationMap.get(toKey) ?? null;
+          if (!from || !to) return [];
+          return [{
+            startLat: from.lat, startLng: from.lng,
+            endLat: to.lat, endLng: to.lng,
+            color,
+            alt: getArcAltitude(toTransportKey(seg.Type), from, to),
+            dashLength: 1, dashGap: 0, initialGap: 0,
+            isStatic: true,
+          }];
+        })
+      : [],
+    [showAllTracks, segments, trips, allLocationMap]);
 
-  const flagPoints = trips.flatMap((trip, i) =>
-    parseCountriesToPoints(trip.Countries, trip.ID, trip.Name, COLORS[i % COLORS.length]).map((p) => ({
-      ...p, flag: getCountryFlags(p.country), isVehicle: false, isHome: false,
-      isSelected: trip.ID === selectedTripId, deg: 0,
-    }))
-  );
+  const allArcs = useMemo(() => [...staticArcs, ...arcs], [staticArcs, arcs]);
 
-  // Permanent Taiwan home marker
-  const homePoint = { lat: 23.6978, lng: 120.9605, isHome: true, isVehicle: false, deg: 0 };
+  const labelPoints = useMemo(() => activeLabel ? [
+    { lat: activeLabel.fromPt.lat, lng: activeLabel.fromPt.lng, isLabel: true, isVehicle: false, isHome: false, labelText: activeLabel.fromLabel, deg: 0, scale: 0, icon: '' },
+    { lat: activeLabel.toPt.lat, lng: activeLabel.toPt.lng, isLabel: true, isVehicle: false, isHome: false, labelText: activeLabel.toLabel, deg: 0, scale: 0, icon: '' },
+  ] : [], [activeLabel]);
+
+  // Vehicle becomes a fresh object each frame so globe.gl positions it at the
+  // current lat/lng and calls htmlElement with the correct scale/deg baked in.
+  // All other points (flagPoints, labelPoints, HOME_POINT) are stable refs, so
+  // globe.gl reuses their existing DOM elements without recreating them.
+  const vehiclePoint = vehicleState
+    ? { ...vehicleState, isVehicle: true, isHome: false, isLabel: false }
+    : null;
 
   const allPoints = [
-    homePoint,
+    HOME_POINT,
     ...flagPoints,
-    ...(vehicle
-      ? [{ lat: vehicle.lat, lng: vehicle.lng, icon: vehicle.icon, deg: vehicle.deg, scale: vehicle.scale, isVehicle: true, isHome: false }]
-      : []),
+    ...labelPoints,
+    ...(vehiclePoint ? [vehiclePoint] : []),
   ];
+
+  // Stable function: globe.gl reuses DOM elements for stable data objects (flags, home, labels).
+  // Called for vehicle on every frame (new object) — creates element with correct scale/deg
+  // already baked into innerHTML, so no post-render DOM patching needed.
+  const htmlElementCallback = useCallback((d: object) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = d as any;
+    const el = document.createElement("div");
+
+    if (p.isHome) {
+      el.style.cssText = "pointer-events:none;transform:translate(-50%,-50%)";
+      el.innerHTML = `<div style="font-size:18px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9))">🇹🇼</div>`;
+    } else if (p.isLabel) {
+      el.style.cssText = "pointer-events:none;transform:translate(-50%,-140%);opacity:0;transition:opacity 0.4s ease";
+      el.innerHTML = `<div style="background:rgba(0,0,0,0.85);color:#f4f4f5;font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;white-space:nowrap;border:1px solid rgba(255,255,255,0.18);box-shadow:0 2px 12px rgba(0,0,0,0.7);letter-spacing:0.3px">${p.labelText}</div>`;
+      requestAnimationFrame(() => { el.style.opacity = "1"; });
+    } else if (p.isVehicle) {
+      el.style.cssText = 'pointer-events:none';
+      // Scale and rotation baked directly into the initial HTML — no querySelector needed
+      el.innerHTML = `<div style="font-size:32px;line-height:1;transform:scale(${p.scale}) rotate(${p.deg}deg);filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9)) drop-shadow(0 0 10px rgba(255,255,255,0.5))">${p.icon}</div>`;
+    } else {
+      el.style.cssText = "cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transform:translate(-50%,-50%)";
+      el.innerHTML = `
+        <div style="font-size:${p.isSelected ? 28 : 22}px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9));transition:font-size 0.3s">${p.flag || "📍"}</div>
+        <div style="background:rgba(0,0,0,0.75);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">${p.tripName}</div>`;
+      el.addEventListener("click", () => onTripClick(p.tripId));
+    }
+    return el;
+  }, [onTripClick]);
 
   return (
     <div ref={containerRef} className="w-full h-full">
@@ -328,31 +400,7 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
           htmlLat="lat"
           htmlLng="lng"
           htmlAltitude={0.02}
-          htmlElement={(d: object) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const p = d as any;
-            const el = document.createElement("div");
-
-            if (p.isHome) {
-              el.style.cssText = "pointer-events:none;transform:translate(-50%,-50%)";
-              el.innerHTML = `<div style="font-size:18px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9))">🇹🇼</div>`;
-            } else if (p.isVehicle) {
-              el.style.cssText = `pointer-events:none;transform:translate(-50%,-50%) scale(${p.scale ?? 1})`;
-              el.innerHTML = `
-                <div style="
-                  font-size:32px;line-height:1;
-                  transform:rotate(${p.deg}deg);
-                  filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9)) drop-shadow(0 0 10px rgba(255,255,255,0.5));
-                ">${p.icon}</div>`;
-            } else {
-              el.style.cssText = "cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transform:translate(-50%,-50%)";
-              el.innerHTML = `
-                <div style="font-size:${p.isSelected ? 28 : 22}px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9));transition:font-size 0.3s">${p.flag || "📍"}</div>
-                <div style="background:rgba(0,0,0,0.75);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">${p.tripName}</div>`;
-              el.addEventListener("click", () => onTripClick(p.tripId));
-            }
-            return el;
-          }}
+          htmlElement={htmlElementCallback}
           arcsData={allArcs}
           arcStartLat="startLat"
           arcStartLng="startLng"
