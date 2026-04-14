@@ -84,8 +84,12 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
           <Input.TextArea rows={3} />
         </Form.Item>
 
-        <Form.Item name="photoAlbumId" label="Google Photos 相簿連結">
-          <Input placeholder="https://photos.app.goo.gl/..." />
+        <Form.Item
+          name="photoAlbumId"
+          label="Google Photos 相簿連結"
+          extra="請從瀏覽器網址列複製完整連結（非 photos.app.goo.gl 短網址）"
+        >
+          <Input placeholder="https://photos.google.com/share/... 或 /album/..." />
         </Form.Item>
 
         <Form.Item style={{ marginBottom: 0, marginTop: 8 }}>

@@ -2,7 +2,6 @@ import { google } from "googleapis";
 import { cookies } from "next/headers";
 
 export const SCOPES = [
-  "https://www.googleapis.com/auth/photoslibrary.readonly",
   "https://www.googleapis.com/auth/spreadsheets",
 ];
 
