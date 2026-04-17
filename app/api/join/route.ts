@@ -16,10 +16,15 @@ export async function POST(request: NextRequest) {
     .from("trips")
     .select("id, user_id, name")
     .eq("invite_token", token)
-    .single();
+    .maybeSingle(); // Use maybeSingle to avoid 500 error when no rows match
 
-  if (tripError) return NextResponse.json({ error: "Server error", detail: tripError.message }, { status: 500 });
-  if (!trip) return NextResponse.json({ error: "Invalid invite link" }, { status: 404 });
+  if (tripError) {
+    return NextResponse.json({ error: "Server error", detail: tripError.message }, { status: 500 });
+  }
+  
+  if (!trip) {
+    return NextResponse.json({ error: "Invalid invite link (Token not found)" }, { status: 404 });
+  }
 
   // Already the owner
   if (trip.user_id === user.id) {
