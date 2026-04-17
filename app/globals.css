@@ -43,3 +43,139 @@ body {
 .ant-drawer-body {
   padding-bottom: 40px !important;
 }
+
+/* 
+  Cute & Premium Tabs 
+*/
+.cute-tabs .ant-tabs-nav {
+  background: rgba(24, 24, 27, 0.4) !important;
+  backdrop-filter: blur(12px);
+  border-radius: 100px !important;
+  padding: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  margin-bottom: 24px !important;
+}
+
+.cute-tabs .ant-tabs-nav::before {
+  display: none !important;
+}
+
+.cute-tabs .ant-tabs-tab {
+  border-radius: 100px !important;
+  padding: 8px 16px !important;
+  margin: 0 2px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.cute-tabs .ant-tabs-tab-active {
+  background: rgba(139, 92, 246, 0.15) !important;
+}
+
+.cute-tabs .ant-tabs-ink-bar {
+  display: none !important;
+}
+
+.cute-tabs .ant-tabs-tab-btn {
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+
+/* 
+  Custom Rich Text Editor (Quill) Dark Mode 
+*/
+.custom-quill {
+  border: none !important;
+}
+
+.custom-quill .ql-toolbar {
+  background: rgba(39, 39, 42, 0.5) !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.custom-quill .ql-container {
+  border: none !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  min-height: 120px;
+}
+
+.custom-quill .ql-editor {
+  color: #e4e4e7 !important;
+}
+
+.custom-quill .ql-editor.ql-blank::before {
+  color: #71717a !important;
+  font-style: normal !important;
+}
+
+.custom-quill .ql-stroke {
+  stroke: #a1a1aa !important;
+}
+
+.custom-quill .ql-fill {
+  fill: #a1a1aa !important;
+}
+
+.custom-quill .ql-picker {
+  color: #a1a1aa !important;
+}
+
+.custom-quill .ql-picker-options {
+  background: #18181b !important;
+  border: 1px solid #3f3f46 !important;
+  border-radius: 12px !important;
+}
+
+/* Notes display rendered HTML styles */
+.notes-content h1 { @apply text-2xl font-bold mb-4 text-zinc-100; }
+.notes-content h2 { @apply text-xl font-bold mb-3 text-zinc-100; }
+.notes-content p { @apply mb-2; }
+.notes-content ul { @apply list-disc ml-5 mb-4; }
+.notes-content ol { @apply list-decimal ml-5 mb-4; }
+.notes-content strong { @apply font-bold text-zinc-100; }
+
+/* 
+  Premium Glassmorphism Backdrop Blur 
+*/
+.glass-premium {
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  ) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 
+    0 8px 32px 0 rgba(0, 0, 0, 0.37),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+}
+
+.glass-heavy {
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
+  background: linear-gradient(
+    135deg,
+    rgba(39, 39, 42, 0.7) 0%,
+    rgba(24, 24, 27, 0.5) 100%
+  ) !important;
+  backdrop-filter: blur(40px) saturate(210%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(210%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 
+    0 12px 48px 0 rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.glass-premium-light {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+

@@ -348,8 +348,12 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
     const el = document.createElement("div");
 
     if (p.isHome) {
-      el.style.cssText = "pointer-events:none;transform:translate(-50%,-50%)";
-      el.innerHTML = `<div style="font-size:18px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9))">🇹🇼</div>`;
+      el.style.cssText = "pointer-events:none;transform:translate(-50%,-50%);";
+      el.innerHTML = `
+        <div class="relative flex items-center justify-center">
+          <div class="absolute w-4 h-4 bg-white/40 rounded-full animate-ping"></div>
+          <div class="relative w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_12px_rgba(255,255,255,1)]"></div>
+        </div>`;
     } else if (p.isLabel) {
       el.style.cssText = "pointer-events:none;transform:translate(-50%,-140%);opacity:0;transition:opacity 0.4s ease";
       el.innerHTML = `<div style="background:rgba(0,0,0,0.85);color:#f4f4f5;font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;white-space:nowrap;border:1px solid rgba(255,255,255,0.18);box-shadow:0 2px 12px rgba(0,0,0,0.7);letter-spacing:0.3px">${p.labelText}</div>`;
@@ -358,10 +362,15 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
       el.style.cssText = 'pointer-events:none';
       el.innerHTML = `<div style="font-size:32px;line-height:1;transform:scale(${p.scale}) rotate(${p.deg}deg);filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9)) drop-shadow(0 0 10px rgba(255,255,255,0.5))">${p.icon}</div>`;
     } else {
-      el.style.cssText = "cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transform:translate(-50%,-50%)";
+      const color = p.color || "#8b5cf6";
+      const size = p.isSelected ? "12px" : "8px";
+      el.style.cssText = "cursor:pointer;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%)";
       el.innerHTML = `
-        <div style="font-size:${p.isSelected ? 28 : 22}px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.9));transition:font-size 0.3s">${p.flag || "📍"}</div>
-        <div style="background:rgba(0,0,0,0.75);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">${p.tripName}</div>`;
+        <div style="position:relative;width:${size};height:${size};display:flex;items-center;justify-content:center;">
+          <div style="position:absolute;inset:-4px;background:${color};opacity:0.4;border-radius:50%;filter:blur(4px);display:${p.isSelected ? 'block' : 'none'}"></div>
+          <div style="width:100%;height:100%;background:${color};border-radius:50%;box-shadow:0 0 8px ${color}, 0 0 16px ${color};border:1.5px solid #fff;"></div>
+        </div>
+        <div style="margin-top:6px;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);color:#fff;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;white-space:nowrap;border:1px solid rgba(255,255,255,0.15);box-shadow:0 4px 12px rgba(0,0,0,0.5);">${p.tripName}</div>`;
       el.addEventListener("click", () => onTripClick(p.tripId));
     }
     return el;

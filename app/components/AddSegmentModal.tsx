@@ -298,8 +298,14 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
           </Form.Item>
         )}
 
-        <Form.Item className="!mb-0 !mt-2">
-          <Button type="primary" htmlType="submit" block loading={saving}>
+        <Form.Item className="!mb-0 !mt-6">
+          <Button 
+            type="primary" 
+            htmlType="submit" 
+            block 
+            loading={saving}
+            className="!rounded-full !h-12 !text-base !font-bold bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none shadow-[0_8px_25px_rgba(139,92,246,0.3)] hover:scale-[1.02] transition-all"
+          >
             新增段落
           </Button>
         </Form.Item>

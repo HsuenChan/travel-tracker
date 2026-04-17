@@ -4,6 +4,11 @@ import { useState, useEffect } from "react";
 import { Modal, Form, Input, DatePicker, Button, Row, Col, Select } from "antd";
 import dayjs from "dayjs";
 
+import dynamic from "next/dynamic";
+import "react-quill-new/dist/quill.snow.css";
+
+const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
+
 interface Props {
   onClose: () => void;
   onSaved: () => void;
@@ -18,6 +23,15 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const [currencyOptions, setCurrencyOptions] = useState<CurrencyOption[]>([]);
+
+  const quillModules = {
+    toolbar: [
+      [{ header: [1, 2, false] }],
+      ["bold", "italic", "underline", "strike"],
+      [{ list: "ordered" }, { list: "bullet" }],
+      ["clean"],
+    ],
+  };
 
   useEffect(() => {
     fetch("https://openexchangerates.org/api/currencies.json")
@@ -73,14 +87,14 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
       open
       onCancel={onClose}
       footer={null}
-      width={520}
+      width={600}
       styles={{ wrapper: { paddingBottom: 32 } }}
     >
       <Form
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        className="mt-4"
+        className="mt-4 cute-form"
         initialValues={{ currency: ["TWD"] }}
       >
         <Form.Item name="name" label="旅程名稱" rules={[{ required: true, message: "請輸入旅程名稱" }]}>
@@ -126,7 +140,12 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
         </Form.Item>
 
         <Form.Item name="notes" label="備注">
-          <Input.TextArea rows={3} placeholder="這趟旅程的心得或備忘..." />
+          <ReactQuill
+             theme="snow"
+             modules={quillModules}
+             placeholder="這趟旅程的心得或備忘..."
+             className="custom-quill"
+           />
         </Form.Item>
 
         <Form.Item
@@ -137,8 +156,14 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
           <Input placeholder="https://photos.app.goo.gl/..." />
         </Form.Item>
 
-        <Form.Item className="!mb-0 !mt-2">
-          <Button type="primary" htmlType="submit" block loading={saving}>
+        <Form.Item className="!mb-0 !mt-6">
+          <Button 
+            type="primary" 
+            htmlType="submit" 
+            block 
+            loading={saving}
+            className="!rounded-full !h-12 !text-base !font-bold bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none shadow-[0_8px_25px_rgba(139,92,246,0.3)] hover:scale-[1.02] transition-all"
+          >
             儲存旅程
           </Button>
         </Form.Item>
