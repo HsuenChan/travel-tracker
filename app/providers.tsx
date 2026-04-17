@@ -10,11 +10,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       theme={{
         algorithm: theme.darkAlgorithm,
         token: {
-          colorPrimary: "#3b82f6",
+          colorPrimary: "#8b5cf6",
           colorBgBase: "#09090b",
           colorBgContainer: "#18181b",
           colorBorder: "#27272a",
-          borderRadius: 10,
+          borderRadius: 20,
           fontFamily: "var(--font-geist-sans), sans-serif",
         },
         components: {
@@ -27,6 +27,14 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           Modal: {
             contentBg: "#18181b",
             headerBg: "#18181b",
+            borderRadiusLG: 28,
+          },
+          Button: {
+            borderRadius: 100, // 可愛圓潤按鈕
+            fontWeight: 600,
+          },
+          Tag: {
+             borderRadiusSM: 10,
           },
           List: {
             itemPaddingSM: "10px 16px",

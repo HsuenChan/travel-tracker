@@ -4,6 +4,26 @@ import { useState, useEffect } from "react";
 import { Modal, Form, Input, DatePicker, Button, Row, Col, Select } from "antd";
 import dayjs from "dayjs";
 
+import dynamic from "next/dynamic";
+import "react-quill-new/dist/quill.snow.css";
+
+const ReactQuill = dynamic(() => import("react-quill-new"), { 
+  ssr: false,
+  loading: () => <div className="h-[150px] w-full bg-zinc-900/50 rounded-2xl animate-pulse border border-white/5" />
+});
+
+// Wrapper to ensure props are passed correctly to dynamic component
+const QuillEditor = ({ value, onChange, modules, className, placeholder }: any) => (
+  <ReactQuill
+    theme="snow"
+    value={value || ""}
+    onChange={onChange}
+    modules={modules}
+    className={className}
+    placeholder={placeholder}
+  />
+);
+
 interface Trip {
   id: string;
   name: string;
@@ -31,6 +51,15 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const [currencyOptions, setCurrencyOptions] = useState<CurrencyOption[]>([]);
+
+  const quillModules = {
+    toolbar: [
+      [{ header: [1, 2, false] }],
+      ["bold", "italic", "underline", "strike"],
+      [{ list: "ordered" }, { list: "bullet" }],
+      ["clean"],
+    ],
+  };
 
   useEffect(() => {
     fetch("https://openexchangerates.org/api/currencies.json")
@@ -87,14 +116,14 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
       open
       onCancel={onClose}
       footer={null}
-      width={520}
+      width={600}
       styles={{ wrapper: { paddingBottom: 32 } }}
     >
       <Form
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        className="mt-4"
+        className="mt-4 cute-form"
         initialValues={{
           name: trip.name,
           startDate: trip.start_date ? dayjs(trip.start_date) : null,
@@ -149,7 +178,10 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
         </Form.Item>
 
         <Form.Item name="notes" label="備注">
-          <Input.TextArea rows={3} />
+          <QuillEditor
+             modules={quillModules}
+             className="custom-quill"
+           />
         </Form.Item>
 
         <Form.Item
@@ -160,8 +192,14 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
           <Input placeholder="https://photos.google.com/share/... 或 /album/..." />
         </Form.Item>
 
-        <Form.Item className="!mb-0 !mt-2">
-          <Button type="primary" htmlType="submit" block loading={saving}>
+        <Form.Item className="!mb-0 !mt-6">
+          <Button 
+            type="primary" 
+            htmlType="submit" 
+            block 
+            loading={saving}
+            className="!rounded-full !h-12 !text-base !font-bold bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none shadow-[0_8px_25px_rgba(139,92,246,0.3)] hover:scale-[1.02] transition-all"
+          >
             儲存變更
           </Button>
         </Form.Item>

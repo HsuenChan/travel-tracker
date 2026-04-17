@@ -305,55 +305,65 @@ export default function TripPage() {
         className="max-w-[720px] mx-auto w-full"
         style={{ padding: isMobile ? "20px 12px 60px" : "32px 24px 80px" }}
       >
-        <div className="bg-gradient-to-br from-[#18181b] to-[#1c1c1e] border border-[#27272a] rounded-2xl mb-7"
-          style={{ padding: isMobile ? "22px 20px 20px" : "28px 28px 24px" }}
+        <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-[2rem] mb-8 overflow-hidden relative shadow-2xl"
+          style={{ padding: isMobile ? "24px 20px" : "32px 32px" }}
         >
-          <Typography.Title
-            level={isMobile ? 3 : 2}
-            className="!text-zinc-100 !m-0 !mb-4 !leading-[1.25]"
-          >
-            {trip.name}
-          </Typography.Title>
+          {/* 背景裝飾光點 */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#8b5cf6]/5 blur-3xl -mr-16 -mt-16"></div>
+          
+          <div className="relative">
+            <Typography.Title
+              level={isMobile ? 3 : 2}
+              className="!text-zinc-100 !m-0 !mb-5 !leading-tight !font-black tracking-tight"
+            >
+              {trip.name}
+            </Typography.Title>
 
-          <div className="flex flex-wrap gap-2 items-center">
-            {trip.start_date && trip.end_date && (
-              <span className="bg-blue-500/10 border border-blue-500/25 text-blue-300 rounded-full px-3 py-[3px] text-[13px]">
-                {trip.start_date} → {trip.end_date}
-              </span>
+            <div className="flex flex-wrap gap-2.5 items-center">
+              {trip.start_date && trip.end_date && (
+                <span className="bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 text-[#a78bfa] rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5 shadow-[0_0_15px_rgba(139,92,246,0.1)]">
+                  <span className="opacity-60 text-sm">🗓️</span> {trip.start_date} → {trip.end_date}
+                </span>
+              )}
+              {duration !== null && (
+                <span className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-300 rounded-full px-3.5 py-1 text-[13px] font-medium">
+                   {duration} 天
+                </span>
+              )}
+              {countries.map((c) => (
+                <span key={c} className="bg-teal-400/10 border border-teal-400/20 text-teal-300 rounded-full px-3.5 py-1 text-[13px] font-medium shadow-[0_0_15px_rgba(45,212,191,0.1)]">
+                  📍 {c}
+                </span>
+              ))}
+              {people.length > 0 && (
+                <span className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-400 rounded-full px-3.5 py-1 text-[13px] font-medium">
+                  👥 {people.join("、")}
+                </span>
+              )}
+              {currencies.map((curr) => (
+                <span key={curr} className="bg-amber-400/10 border border-amber-400/20 text-amber-300 rounded-full px-3.5 py-1 text-[13px] font-medium">
+                  💰 {curr}
+                </span>
+              ))}
+            </div>
+
+            {trip.notes && (
+              <div className="bg-white/5 rounded-2xl p-5 mt-6 text-zinc-300 text-[14px] leading-relaxed border border-white/5 shadow-inner overflow-hidden">
+                <div 
+                  className="notes-content"
+                  dangerouslySetInnerHTML={{ __html: trip.notes }}
+                />
+              </div>
             )}
-            {duration !== null && (
-              <span className="bg-indigo-400/10 border border-indigo-400/25 text-indigo-300 rounded-full px-3 py-[3px] text-[13px]">
-                {duration} 天
-              </span>
-            )}
-            {countries.map((c) => (
-              <Tag key={c} color="blue" className="!rounded-full !m-0 !text-[13px] !px-2.5 !py-[2px]">{c}</Tag>
-            ))}
-            {people.length > 0 && (
-              <span className="bg-green-400/[0.08] border border-green-400/20 text-green-300 rounded-full px-3 py-[3px] text-[13px]">
-                👥 {people.join("、")}
-              </span>
-            )}
-            {currencies.map((curr) => (
-              <span key={curr} className="bg-amber-400/[0.08] border border-amber-400/20 text-amber-300 rounded-full px-3 py-[3px] text-[13px]">
-                {curr}
-              </span>
-            ))}
           </div>
-
-          {trip.notes && (
-            <Typography.Text className="text-zinc-500 text-[13px] mt-3.5 block whitespace-pre-wrap">
-              {trip.notes}
-            </Typography.Text>
-          )}
         </div>
 
         <Tabs
           defaultActiveKey="transport"
-          className="mb-7"
+          className="cute-tabs mb-7"
           items={[
             { key: "transport", label: "✈️ 交通", children: transportContent },
-            { key: "itinerary", label: "🗓️ 每日行程", children: <ItineraryTab tripId={id} /> },
+            { key: "itinerary", label: "🗓️ 行程", children: <ItineraryTab tripId={id} /> },
             {
               key: "expenses",
               label: "💸 費用",

@@ -105,7 +105,7 @@ export default function Home() {
             trips={[]}
             segments={[]}
             selectedTripId={null}
-            onTripClick={() => {}}
+            onTripClick={() => { }}
             showAllTracks={false}
           />
         </div>
@@ -188,7 +188,11 @@ export default function Home() {
                   if (sortKey === key) setSortDir((d) => d === "desc" ? "asc" : "desc");
                   else { setSortKey(key); setSortDir("desc"); }
                 }}
-                className={`flex-1 py-[3px] text-[11px] rounded-md cursor-pointer transition-all duration-150 ${active ? "bg-[#1e3a5f] border-[#3b82f6] text-[#93c5fd]" : "bg-[#27272a] border-[#3f3f46] text-[#71717a]"}`}
+                className={`flex-1 py-[6px] text-[11px] rounded-full cursor-pointer transition-all duration-200 font-bold border ${
+                  active 
+                    ? "bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none text-white shadow-[0_4px_12px_rgba(139,92,246,0.3)]" 
+                    : "bg-white/5 border-white/5 text-zinc-500 hover:bg-white/10 hover:text-zinc-400"
+                }`}
               >
                 {label}{arrow}
               </button>
@@ -233,36 +237,45 @@ export default function Home() {
                   longPressTimer.current = null;
                 }
               }}
-              className="cursor-pointer py-1 px-3"
+              className="cursor-pointer py-1.5 px-3"
             >
-              <div className={`relative rounded-[10px] py-3 pr-[14px] transition-all duration-150 ease-in-out overflow-hidden ${selected ? "bg-slate-900 border-blue-500 pl-[18px]" : "bg-[#1c1c1e] border-[#27272a] pl-[14px]"}`}>
-                {/* Left accent bar */}
+              <div className={`relative rounded-[24px] py-4 pr-4 transition-all duration-300 ease-in-out overflow-hidden border ${selected ? "bg-zinc-800/80 border-[#8b5cf6]/50 pl-5 shadow-[0_0_20px_rgba(139,92,246,0.15)] scale-[1.01]" : "bg-zinc-900/40 border-white/5 pl-4 hover:bg-zinc-800/40"}`}>
+                {/* 選中時的紫色光條 */}
                 {selected && (
-                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-blue-500 to-indigo-400 rounded-l-[10px]" />
+                  <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#8b5cf6] shadow-[0_0_10px_#8b5cf6]" />
                 )}
-                {(flags || trip.start_date) && (
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="text-xl tracking-widest">{flags}</div>
-                    {trip.start_date && (
-                      <Tag className="text-[10px] leading-4 px-1 shrink-0" color="default">
-                        {trip.start_date.substring(0, 4)}
-                      </Tag>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    {(flags || trip.start_date) && (
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-xl tracking-widest filter drop-shadow-sm">{flags}</div>
+                        {trip.start_date && (
+                          <Tag className="!rounded-full border-none bg-zinc-800 text-zinc-500 text-[10px] px-2" color="default">
+                            {trip.start_date.substring(0, 4)}
+                          </Tag>
+                        )}
+                      </div>
                     )}
+                    <Typography.Text strong className={`block text-[14px] leading-tight ${selected ? "text-white" : "text-zinc-200"}`}>
+                      {trip.name}
+                    </Typography.Text>
                   </div>
-                )}
-                <Typography.Text strong className="text-zinc-100 block text-[13px]">
-                  {trip.name}
-                </Typography.Text>
-                {(trip.start_date || trip.end_date) && (
-                  <Typography.Text className="text-zinc-500 text-[11px] block mt-[3px]">
-                    {trip.start_date}{trip.end_date && ` → ${trip.end_date}`}
-                  </Typography.Text>
-                )}
-                {trip.countries && (
-                  <Typography.Text className="text-zinc-500 text-[11px] block mt-[2px]">
-                    {trip.countries}
-                  </Typography.Text>
-                )}
+                </div>
+
+                <div className="space-y-1">
+                  {(trip.start_date || trip.end_date) && (
+                    <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
+                      <span className="opacity-70">📅</span>
+                      <span>{trip.start_date}{trip.end_date && ` → ${trip.end_date}`}</span>
+                    </div>
+                  )}
+                  {trip.countries && (
+                    <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
+                      <span className="opacity-70">📍</span>
+                      <span className="truncate">{trip.countries}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -272,84 +285,107 @@ export default function Home() {
   );
 
   return (
-    <Layout className="h-[100dvh] bg-[#09090b]">
-      <Layout.Header className={`flex items-center justify-between border-b border-[#27272a] px-3 md:px-6`}>
-        <Typography.Text strong className="text-white text-[15px] md:text-lg">
-          ✈️ Travel Tracker
-        </Typography.Text>
-        <div className="flex gap-2">
-          <Button
-            icon={<GlobalOutlined />}
-            onClick={() => setShowAllTracks((v) => !v)}
-            size={isMobile ? "small" : "middle"}
-            type={showAllTracks ? "primary" : "default"}
-          >
-            {isMobile ? "" : (showAllTracks ? "隱藏航跡" : "全部航跡")}
-          </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setShowModal(true)}
-            size={isMobile ? "small" : "middle"}
-          >
-            {isMobile ? "" : "新增旅程"}
-          </Button>
-          <a href="/api/auth/logout" className="flex">
-            <Button icon={<LogoutOutlined />} size={isMobile ? "small" : "middle"} title="登出" />
-          </a>
-        </div>
-      </Layout.Header>
+    <div className="h-[100dvh] w-full bg-[#09090b] relative overflow-hidden">
+      {/* 1. Global Background Globe */}
+      <div className="absolute inset-0 z-0">
+        <TripGlobe
+          trips={trips}
+          segments={segments}
+          selectedTripId={selectedTripId}
+          onTripClick={(id) => setSelectedTripId((prev) => prev === id ? null : id)}
+          showAllTracks={showAllTracks}
+        />
+      </div>
 
-      <Layout className="flex-1 overflow-hidden">
-        <Layout.Content className="relative">
-          <TripGlobe
-            trips={trips}
-            segments={segments}
-            selectedTripId={selectedTripId}
-            onTripClick={(id) => setSelectedTripId((prev) => prev === id ? null : id)}
-            showAllTracks={showAllTracks}
-          />
-
-          {/* 手機版：旅程列表浮動按鈕 */}
-          {isMobile && (
+      {/* 2. Main UI Layer */}
+      <Layout className="relative z-10 h-full w-full !bg-transparent flex flex-col pointer-events-none">
+        {/* Header - Glassmorphism */}
+        <Layout.Header 
+          style={{ background: 'transparent' }}
+          className="flex items-center justify-between glass-premium px-3 md:px-6 h-16 border-none shadow-none shrink-0 pointer-events-auto"
+        >
+          <Typography.Text strong className="text-white text-[16px] md:text-lg font-black tracking-tight">
+            ✈️ Travel Tracker
+          </Typography.Text>
+          <div className="flex gap-2.5">
             <Button
-              icon={<UnorderedListOutlined />}
-              onClick={() => setDrawerOpen(true)}
-              className="!bg-zinc-900/92 !border-[#3f3f46] !text-[#f4f4f5] rounded-3xl shadow-[0_4px_16px_rgba(0,0,0,0.5)] leading-none"
-              style={{
-                position: "absolute",
-                right: 16,
-                zIndex: 100,
-                bottom: "calc(24px + env(safe-area-inset-bottom, 0px))"
-              }}
+              icon={<GlobalOutlined />}
+              onClick={() => setShowAllTracks((v) => !v)}
+              size={isMobile ? "small" : "middle"}
+              type={showAllTracks ? "primary" : "default"}
+              className="!rounded-full border-white/10"
             >
-              旅程列表
+              {isMobile ? "" : (showAllTracks ? "隱藏航跡" : "全部航跡")}
             </Button>
-          )}
-        </Layout.Content>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setShowModal(true)}
+              size={isMobile ? "small" : "middle"}
+              className="!rounded-full bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none shadow-lg shadow-purple-500/20"
+            >
+              {isMobile ? "" : "新增旅程"}
+            </Button>
+            <a href="/api/auth/logout" className="flex">
+              <Button
+                icon={<LogoutOutlined />}
+                size={isMobile ? "small" : "middle"}
+                title="登出"
+                className="!rounded-full border-white/10"
+              />
+            </a>
+          </div>
+        </Layout.Header>
 
-        {/* 桌面版：側欄 */}
-        {!isMobile && (
-          <Layout.Sider
-            width={300}
-            className="bg-[#18181b] border-l border-[#27272a] overflow-auto h-full"
-          >
-            {tripListContent}
-          </Layout.Sider>
-        )}
+        {/* Content Area */}
+        <Layout className="flex-1 !bg-transparent overflow-hidden flex flex-row">
+          <Layout.Content className="relative flex-1 !bg-transparent">
+            {/* Mobile List Toggle Button */}
+            {isMobile && (
+              <Button
+                icon={<UnorderedListOutlined />}
+                onClick={() => setDrawerOpen(true)}
+                className="glass-premium !text-[#f4f4f5] !rounded-full shadow-2xl leading-none px-6 h-12 border-white/10 pointer-events-auto"
+                style={{
+                  position: "absolute",
+                  right: 20,
+                  bottom: "calc(24px + env(safe-area-inset-bottom, 0px))"
+                }}
+              >
+                旅程列表
+              </Button>
+            )}
+          </Layout.Content>
+
+          {/* Desktop Sidebar */}
+          {!isMobile && (
+            <Layout.Sider
+              width={340}
+              style={{ background: 'transparent' }}
+              className="glass-heavy !m-4 !rounded-[2rem] overflow-hidden border-none shadow-2xl pointer-events-auto"
+            >
+              <div className="h-full overflow-auto custom-scrollbar">
+                {tripListContent}
+              </div>
+            </Layout.Sider>
+          )}
+        </Layout>
       </Layout>
 
-      {/* 手機版：底部抽屜 */}
+      {/* 3. Overlays (Modals and Drawers) */}
       {isMobile && (
         <Drawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           placement="bottom"
           height="85vh"
-          title={<span className="text-[#f4f4f5]">我的旅程</span>}
+          title={<span className="text-[#f4f4f5] font-bold">我的旅程</span>}
+          className="glass-premium-drawer"
           styles={{
-            header: { background: "#18181b", borderBottom: "1px solid #27272a" },
-            body: { background: "#18181b", padding: 0, overflowY: "auto" },
+            header: { background: "transparent", borderBottom: "1px solid rgba(255,255,255,0.05)" },
+            body: { background: "transparent", padding: 0, overflowY: "auto" },
+            mask: { backdropFilter: "blur(4px)" },
+            content: { borderRadius: '24px 24px 0 0' }
           }}
           closeIcon={<span className="text-[#a1a1aa]">✕</span>}
         >
@@ -363,7 +399,8 @@ export default function Home() {
           onSaved={() => { setShowModal(false); fetchTrips(); }}
         />
       )}
-    </Layout>
+    </div>
+
   );
 }
 
