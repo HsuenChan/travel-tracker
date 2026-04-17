@@ -6,19 +6,18 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { searchParams } = new URL(request.url);
-  const tripId = searchParams.get("tripId");
+  const tripId = request.nextUrl.searchParams.get("tripId");
+  if (!tripId) return NextResponse.json({ error: "tripId required" }, { status: 400 });
 
-  let query = supabase
-    .from("segments")
+  const { data: expenses, error } = await supabase
+    .from("expenses")
     .select("*")
-    .order("order", { ascending: true });
+    .eq("trip_id", tripId)
+    .order("date", { ascending: true })
+    .order("created_at", { ascending: true });
 
-  if (tripId) query = query.eq("trip_id", tripId);
-
-  const { data: segments, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ segments: segments ?? [] });
+  return NextResponse.json({ expenses: expenses ?? [] });
 }
 
 export async function POST(request: NextRequest) {
@@ -27,29 +26,25 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { tripId, order, from, fromIata, to, toIata, type, date, time, flightNo, aircraft } = body;
+  const { tripId, date, category, description, amount, currency, paid_by, split_with, notes } = body;
 
-  const { data, error } = await supabase
-    .from("segments")
+  const { error } = await supabase
+    .from("expenses")
     .insert({
-      user_id: user.id,
       trip_id: tripId,
-      order: order ?? 0,
-      from_city: from,
-      from_iata: fromIata || null,
-      to_city: to,
-      to_iata: toIata || null,
-      type,
+      user_id: user.id,
       date: date || null,
-      time: time || null,
-      flight_no: flightNo || null,
-      aircraft: aircraft || null,
-    })
-    .select()
-    .single();
+      category: category || null,
+      description,
+      amount,
+      currency,
+      paid_by: paid_by || null,
+      split_with: split_with ?? [],
+      notes: notes || null,
+    });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true, id: data.id });
+  return NextResponse.json({ success: true });
 }
 
 export async function PUT(request: NextRequest) {
@@ -58,20 +53,19 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, from, fromIata, to, toIata, type, date, time, flightNo, aircraft } = body;
+  const { id, date, category, description, amount, currency, paid_by, split_with, notes } = body;
 
   const { error } = await supabase
-    .from("segments")
+    .from("expenses")
     .update({
-      from_city: from,
-      from_iata: fromIata || null,
-      to_city: to,
-      to_iata: toIata || null,
-      type,
       date: date || null,
-      time: time || null,
-      flight_no: flightNo || null,
-      aircraft: aircraft || null,
+      category: category || null,
+      description,
+      amount,
+      currency,
+      paid_by: paid_by || null,
+      split_with: split_with ?? [],
+      notes: notes || null,
     })
     .eq("id", id);
 
@@ -87,7 +81,7 @@ export async function DELETE(request: NextRequest) {
   const { id } = await request.json();
 
   const { error } = await supabase
-    .from("segments")
+    .from("expenses")
     .delete()
     .eq("id", id);
 

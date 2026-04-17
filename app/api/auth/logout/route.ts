@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies();
-  cookieStore.delete("google_access_token");
-  cookieStore.delete("google_refresh_token");
+  const supabase = await createClient();
+  await supabase.auth.signOut();
   return NextResponse.redirect(new URL("/", request.url));
 }

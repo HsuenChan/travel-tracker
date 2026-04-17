@@ -6,19 +6,19 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { searchParams } = new URL(request.url);
-  const tripId = searchParams.get("tripId");
+  const tripId = request.nextUrl.searchParams.get("tripId");
+  if (!tripId) return NextResponse.json({ error: "tripId required" }, { status: 400 });
 
-  let query = supabase
-    .from("segments")
+  const { data: items, error } = await supabase
+    .from("itinerary_items")
     .select("*")
-    .order("order", { ascending: true });
+    .eq("trip_id", tripId)
+    .order("date", { ascending: true })
+    .order("time", { ascending: true, nullsFirst: true })
+    .order("sort_order", { ascending: true });
 
-  if (tripId) query = query.eq("trip_id", tripId);
-
-  const { data: segments, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ segments: segments ?? [] });
+  return NextResponse.json({ items: items ?? [] });
 }
 
 export async function POST(request: NextRequest) {
@@ -27,29 +27,14 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { tripId, order, from, fromIata, to, toIata, type, date, time, flightNo, aircraft } = body;
+  const { tripId, date, title, category, time, end_date, end_time, location, notes } = body;
 
-  const { data, error } = await supabase
-    .from("segments")
-    .insert({
-      user_id: user.id,
-      trip_id: tripId,
-      order: order ?? 0,
-      from_city: from,
-      from_iata: fromIata || null,
-      to_city: to,
-      to_iata: toIata || null,
-      type,
-      date: date || null,
-      time: time || null,
-      flight_no: flightNo || null,
-      aircraft: aircraft || null,
-    })
-    .select()
-    .single();
+  const { error } = await supabase
+    .from("itinerary_items")
+    .insert({ trip_id: tripId, user_id: user.id, date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true, id: data.id });
+  return NextResponse.json({ success: true });
 }
 
 export async function PUT(request: NextRequest) {
@@ -58,21 +43,11 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, from, fromIata, to, toIata, type, date, time, flightNo, aircraft } = body;
+  const { id, date, title, category, time, end_date, end_time, location, notes } = body;
 
   const { error } = await supabase
-    .from("segments")
-    .update({
-      from_city: from,
-      from_iata: fromIata || null,
-      to_city: to,
-      to_iata: toIata || null,
-      type,
-      date: date || null,
-      time: time || null,
-      flight_no: flightNo || null,
-      aircraft: aircraft || null,
-    })
+    .from("itinerary_items")
+    .update({ date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes })
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -87,7 +62,7 @@ export async function DELETE(request: NextRequest) {
   const { id } = await request.json();
 
   const { error } = await supabase
-    .from("segments")
+    .from("itinerary_items")
     .delete()
     .eq("id", id);
 

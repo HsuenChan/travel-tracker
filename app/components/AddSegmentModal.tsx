@@ -142,7 +142,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
         ref={fileInputRef}
         type="file"
         accept="image/*,.pdf"
-        style={{ display: "none" }}
+        className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleFileImport(file);
@@ -153,7 +153,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
         icon={<UploadOutlined />}
         onClick={() => fileInputRef.current?.click()}
         loading={parsing}
-        style={{ width: "100%", marginBottom: 16 }}
+        className="w-full mb-4"
         disabled={parsing}
       >
         {parsing ? "AI 解析中…" : "📄 從圖片 / PDF 匯入航班資訊"}
@@ -166,24 +166,24 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
     return (
       <Modal title="匯入多段航程" open onCancel={onClose} footer={null} width={520} styles={{ wrapper: { marginBottom: 32 } }}>
         {importButton}
-        <Typography.Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+        <Typography.Text type="secondary" className="block mb-3">
           偵測到 {parsedSegments.length} 段航班，確認後一次新增：
         </Typography.Text>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+        <div className="flex flex-col gap-2 mb-4">
           {parsedSegments.map((seg, i) => (
             <div
               key={i}
-              style={{ background: "#1c1c1e", border: "1px solid #2c2c2e", borderRadius: 8, padding: "10px 14px" }}
+              className="bg-[#1c1c1e] border border-[#2c2c2e] rounded-lg px-[14px] py-2.5"
             >
               <Space wrap>
-                <span style={{ fontSize: 16 }}>{VEHICLE_ICON[toTransportKey(seg.type || "飛機")]}</span>
-                <Typography.Text strong style={{ color: "#f4f4f5" }}>
+                <span className="text-base">{VEHICLE_ICON[toTransportKey(seg.type || "飛機")]}</span>
+                <Typography.Text strong className="text-zinc-100">
                   {seg.from || "?"}{seg.fromIata && ` (${seg.fromIata})`}
                   {" → "}
                   {seg.to || "?"}{seg.toIata && ` (${seg.toIata})`}
                 </Typography.Text>
               </Space>
-              <div style={{ marginTop: 4 }}>
+              <div className="mt-1">
                 <Space size={4} wrap>
                   {seg.date && <Tag color="geekblue">{seg.date}{seg.time && ` ${seg.time}`}</Tag>}
                   {seg.flightNo && <Tag color="purple">{seg.flightNo}</Tag>}
@@ -193,7 +193,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="flex flex-col gap-2">
           <Button
             type="primary"
             icon={<CheckCircleOutlined />}
@@ -267,12 +267,12 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item name="date" label="出發日期">
-              <DatePicker style={{ width: "100%" }} />
+              <DatePicker className="w-full" />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item name="time" label="出發時間">
-              <TimePicker style={{ width: "100%" }} format="HH:mm" />
+              <TimePicker className="w-full" format="HH:mm" />
             </Form.Item>
           </Col>
         </Row>
@@ -298,7 +298,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
           </Form.Item>
         )}
 
-        <Form.Item style={{ marginBottom: 0, marginTop: 8 }}>
+        <Form.Item className="!mb-0 !mt-2">
           <Button type="primary" htmlType="submit" block loading={saving}>
             新增段落
           </Button>

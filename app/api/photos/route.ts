@@ -62,8 +62,22 @@ interface Ds1Result {
 
 function parseDs1(html: string): Ds1Result | null {
   try {
-    const marker = "AF_initDataCallback({key: 'ds:1'";
-    const start = html.indexOf(marker);
+    const CANDIDATE_MARKERS = [
+      "AF_initDataCallback({key: 'ds:1'",
+      'AF_initDataCallback({key: "ds:1"',
+      "AF_initDataCallback({key: 'ds:0'",
+      'AF_initDataCallback({key: "ds:0"',
+      "AF_initDataCallback({key: 'ds:2'",
+      'AF_initDataCallback({key: "ds:2"',
+      "AF_initDataCallback({key: 'ds:3'",
+      'AF_initDataCallback({key: "ds:3"',
+    ];
+
+    let start = -1;
+    for (const marker of CANDIDATE_MARKERS) {
+      start = html.indexOf(marker);
+      if (start >= 0) break;
+    }
     if (start < 0) return null;
 
     const dataStart = html.indexOf("data:", start) + 5;
@@ -158,7 +172,7 @@ function parseDs1(html: string): Ds1Result | null {
 function extractCdnUrls(html: string): MediaItem[] {
   const seen = new Set<string>();
   const items: MediaItem[] = [];
-  const regex = /https:\/\/lh3\.googleusercontent\.com\/pw\/([A-Za-z0-9_\-]{60,})/g;
+  const regex = /https:\/\/lh3\.googleusercontent\.com\/pw\/([A-Za-z0-9_\-]{40,})/g;
   let m: RegExpExecArray | null;
   while ((m = regex.exec(html)) !== null) {
     const baseUrl = `https://lh3.googleusercontent.com/pw/${m[1]}`;
@@ -213,7 +227,6 @@ function extractBatchChunks(text: string): unknown[][] {
 function parseSnAcKcResponse(text: string): { items: MediaItem[]; nextCt: string | null } | null {
   try {
     const chunks = extractBatchChunks(text);
-    console.log("[photos] snAcKc chunks:", chunks.length);
 
     // Find wrb.fr entry for snAcKc
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -221,22 +234,16 @@ function parseSnAcKcResponse(text: string): { items: MediaItem[]; nextCt: string
     for (const outer of chunks) {
       for (const chunk of outer) {
         if (Array.isArray(chunk) && chunk[0] === "wrb.fr" && chunk[1] === "snAcKc") {
-          console.log("[photos] snAcKc wrb.fr found, data[2] type:", typeof chunk[2], "data[5]:", JSON.stringify(chunk[5])?.slice(0, 40));
           if (typeof chunk[2] === "string") { dataStr = chunk[2] as string; break; }
         }
       }
       if (dataStr) break;
     }
 
-    if (!dataStr) {
-      console.log("[photos] snAcKc: no data string in response");
-      return null;
-    }
+    if (!dataStr) return null;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = JSON.parse(dataStr);
-    console.log("[photos] snAcKc data.length:", Array.isArray(data) ? data.length : "not array",
-      "data[0] type:", typeof data[0], "data[1] isArray:", Array.isArray(data[1]));
 
     // Response structure mirrors ds:1:
     // data[0] = null, data[1] = photo array, data[2] = next continuation token
@@ -260,35 +267,30 @@ function parseSnAcKcResponse(text: string): { items: MediaItem[]; nextCt: string
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const entryAny = entry as any;
-      // entry[8]===2 alone is unreliable (photos can also have it).
-      // Videos additionally have entry[4] > 0 (duration) AND entry[9] as an object.
-      const isVideo =
-        entryAny[8] === 2 &&
-        entryAny[4] != null && entryAny[4] > 0 &&
-        entryAny[9] != null && typeof entryAny[9] === "object";
 
+      // A true video has entry[9]["76647426"] — same detection logic as parseDs1.
       let videoUrl: string | undefined;
-      if (isVideo) {
-        try {
-          const v9 = entryAny[9];
-          if (v9 && typeof v9 === "object") {
-            const videoMeta = v9["76647426"];
-            if (Array.isArray(videoMeta)) {
-              for (const part of videoMeta) {
-                if (Array.isArray(part)) {
-                  const found = (part as unknown[]).find(
-                    (x): x is string => typeof x === "string" && x.startsWith("https://lh3"),
-                  );
-                  if (found) { videoUrl = found; break; }
-                } else if (typeof part === "string" && part.startsWith("https://lh3")) {
-                  videoUrl = part; break;
-                }
+      try {
+        const v9 = entryAny[9];
+        if (v9 && typeof v9 === "object") {
+          const videoMeta = v9["76647426"];
+          if (Array.isArray(videoMeta)) {
+            for (const part of videoMeta) {
+              if (Array.isArray(part)) {
+                const found = (part as unknown[]).find(
+                  (x): x is string => typeof x === "string" && x.startsWith("https://lh3"),
+                );
+                if (found) { videoUrl = found; break; }
+              } else if (typeof part === "string" && part.startsWith("https://lh3")) {
+                videoUrl = part; break;
               }
             }
+            if (!videoUrl) videoUrl = `${cdnUrl}=m22`;
           }
-        } catch { /* ignore */ }
-        if (!videoUrl) videoUrl = `${cdnUrl}=m22`;
-      }
+        }
+      } catch { /* ignore */ }
+
+      const isVideo = videoUrl !== undefined;
 
       items.push({
         id,
@@ -304,10 +306,8 @@ function parseSnAcKcResponse(text: string): { items: MediaItem[]; nextCt: string
       });
     }
 
-    console.log("[photos] snAcKc parsed:", items.length, "photos, nextCt:", nextCt ? nextCt.slice(0, 20) + "…" : null);
     return { items, nextCt };
-  } catch (e) {
-    console.log("[photos] snAcKc parse error:", e);
+  } catch {
     return null;
   }
 }
@@ -350,10 +350,7 @@ async function fetchNextPage(state: PageState): Promise<{ items: MediaItem[]; ne
     body: body.toString(),
   });
 
-  console.log("[photos] snAcKc status:", res.status);
   const text = await res.text();
-  console.log("[photos] snAcKc raw:", text.slice(0, 400));
-
   if (!res.ok) return null;
   return parseSnAcKcResponse(text);
 }

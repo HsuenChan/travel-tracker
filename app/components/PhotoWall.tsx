@@ -99,10 +99,34 @@ export default function PhotoWall({ albumUrl }: Props) {
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
+    // 固定的假比例，避免每次 render 算出來不一樣
+    const ratios = [4/3, 1, 3/4, 16/9, 4/3, 3/4, 1, 4/3, 16/9, 4/3];
+    const ROW_HEIGHT = 150;
+
     return (
-      <div style={{ marginTop: 32, padding: "40px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-        <Spin size="large" />
-        <Typography.Text style={{ color: "#71717a", fontSize: 13 }}>載入照片中…</Typography.Text>
+      <div className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <Typography.Text strong className="text-zinc-100 text-[15px]">
+            照片
+          </Typography.Text>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {ratios.map((ratio, i) => {
+            const flexBasis = Math.round(ratio * ROW_HEIGHT);
+            return (
+              <div
+                key={i}
+                className="rounded-md bg-[#1c1c1e] animate-pulse"
+                style={{
+                  flexGrow: 1,
+                  flexBasis: `${flexBasis}px`,
+                  maxWidth: `${flexBasis * 2}px`,
+                  height: ROW_HEIGHT,
+                }}
+              />
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -111,11 +135,11 @@ export default function PhotoWall({ albumUrl }: Props) {
   if (errorCode) {
     const isShortUrl = errorCode === "short_url";
     return (
-      <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="mt-8 flex flex-col gap-2.5">
         {isShortUrl && (
-          <Typography.Text style={{ color: "#a1a1aa", fontSize: 13 }}>
+          <Typography.Text className="text-zinc-400 text-[13px]">
             短網址（photos.app.goo.gl）無法在伺服器讀取。<br />
-            請在 Google Photos 開啟相簿，從瀏覽器網址列複製完整連結（<code style={{ color: "#71717a" }}>https://photos.google.com/album/...</code>），再至「編輯旅程」更新。
+            請在 Google Photos 開啟相簿，從瀏覽器網址列複製完整連結（<code className="text-zinc-500">https://photos.google.com/album/...</code>），再至「編輯旅程」更新。
           </Typography.Text>
         )}
         <a href={albumUrl} target="_blank" rel="noopener noreferrer">
@@ -129,8 +153,8 @@ export default function PhotoWall({ albumUrl }: Props) {
 
   if (photos.length === 0) {
     return (
-      <div style={{ marginTop: 32 }}>
-        <Typography.Text style={{ color: "#71717a" }}>相簿中沒有照片</Typography.Text>
+      <div className="mt-8">
+        <Typography.Text className="text-zinc-500">相簿中沒有照片</Typography.Text>
       </div>
     );
   }
@@ -138,34 +162,34 @@ export default function PhotoWall({ albumUrl }: Props) {
   const currentPhoto = lightboxIndex !== null ? photos[lightboxIndex] : null;
 
   return (
-    <div style={{ marginTop: 32 }}>
+    <div className="mt-8">
       {/* Header */}
-      <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Typography.Text strong style={{ color: "#f4f4f5", fontSize: 15 }}>
+      <div className="mb-3 flex items-center justify-between">
+        <Typography.Text strong className="text-zinc-100 text-[15px]">
           照片（{photos.length}）
         </Typography.Text>
-        <a href={albumUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#71717a", fontSize: 12 }}>
+        <a href={albumUrl} target="_blank" rel="noopener noreferrer" className="text-zinc-500 text-xs">
           在 Google Photos 開啟 ↗
         </a>
       </div>
 
       {/* Justified gallery — same row height, width varies by aspect ratio, fills left-to-right */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+      <div className="flex flex-wrap gap-1">
         {photos.map((photo, index) => (
           <LazyPhoto key={photo.id} photo={photo} index={index} onClick={openLightbox} />
         ))}
       </div>
 
       {nextPageToken ? (
-        <div style={{ textAlign: "center", marginTop: 16 }}>
+        <div className="text-center mt-4">
           <Button onClick={loadMore} loading={loadingMore}>載入更多</Button>
         </div>
       ) : (
-        <div style={{ textAlign: "center", marginTop: 20, paddingBottom: 8 }}>
-          <Typography.Text style={{ color: "#52525b", fontSize: 12 }}>
+        <div className="text-center mt-5 pb-2">
+          <Typography.Text className="text-zinc-600 text-xs">
             已顯示全部 {photos.length} 張・
           </Typography.Text>
-          <a href={albumUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#52525b", fontSize: 12 }}>
+          <a href={albumUrl} target="_blank" rel="noopener noreferrer" className="text-zinc-600 text-xs">
             在 Google Photos 開啟 ↗
           </a>
         </div>
@@ -175,11 +199,7 @@ export default function PhotoWall({ albumUrl }: Props) {
       {currentPhoto && (
         <div
           onClick={closeLightbox}
-          style={{
-            position: "fixed", inset: 0, zIndex: 2000,
-            background: "rgba(0,0,0,0.96)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
+          className="fixed inset-0 z-[2000] bg-black/[0.96] flex items-center justify-center"
         >
           {/* Full-resolution image / video */}
           {currentPhoto.isVideo ? (
@@ -187,21 +207,18 @@ export default function PhotoWall({ albumUrl }: Props) {
               /* Fallback: video URL failed — show thumbnail + link */
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}
+                className="flex flex-col items-center gap-3"
               >
                 <img
                   src={`${currentPhoto.baseUrl}=w800`}
                   alt={currentPhoto.filename}
-                  style={{ maxWidth: "82vw", maxHeight: "72vh", objectFit: "contain", borderRadius: 6, opacity: 0.7 }}
+                  className="max-w-[82vw] max-h-[72vh] object-contain rounded-md opacity-70"
                 />
                 <a
                   href={albumUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{
-                    color: "#fff", background: "rgba(255,255,255,0.15)",
-                    padding: "8px 20px", borderRadius: 20, fontSize: 14, textDecoration: "none",
-                  }}
+                  className="text-white bg-white/15 px-5 py-2 rounded-full text-sm no-underline"
                 >
                   ▶ 在 Google Photos 播放影片 ↗
                 </a>
@@ -215,10 +232,7 @@ export default function PhotoWall({ albumUrl }: Props) {
                 autoPlay
                 onClick={(e) => e.stopPropagation()}
                 onError={() => setVideoError(true)}
-                style={{
-                  maxWidth: "92vw", maxHeight: "90vh",
-                  borderRadius: 6,
-                }}
+                className="max-w-[92vw] max-h-[90vh] rounded-md"
               />
             )
           ) : (
@@ -226,18 +240,14 @@ export default function PhotoWall({ albumUrl }: Props) {
               src={`${currentPhoto.baseUrl}=w1600`}
               alt={currentPhoto.filename}
               onClick={(e) => e.stopPropagation()}
-              style={{
-                maxWidth: "92vw", maxHeight: "90vh",
-                objectFit: "contain", borderRadius: 6,
-                userSelect: "none",
-              }}
+              className="max-w-[92vw] max-h-[90vh] object-contain rounded-md select-none"
             />
           )}
 
           {/* Close */}
           <button
             onClick={closeLightbox}
-            style={iconBtn({ top: 16, right: 16 })}
+            className="absolute top-4 right-4 bg-white/[0.12] border-none rounded-full w-[42px] h-[42px] text-white cursor-pointer text-lg flex items-center justify-center"
           >
             ✕
           </button>
@@ -246,7 +256,7 @@ export default function PhotoWall({ albumUrl }: Props) {
           {photos.length > 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); prevPhoto(); }}
-              style={iconBtn({ top: "50%", left: 12, transform: "translateY(-50%)", fontSize: 24 })}
+              className="absolute top-1/2 left-3 -translate-y-1/2 bg-white/[0.12] border-none rounded-full w-[42px] h-[42px] text-white cursor-pointer text-[24px] flex items-center justify-center"
             >
               ‹
             </button>
@@ -256,17 +266,14 @@ export default function PhotoWall({ albumUrl }: Props) {
           {photos.length > 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); nextPhoto(); }}
-              style={iconBtn({ top: "50%", right: 12, transform: "translateY(-50%)", fontSize: 24 })}
+              className="absolute top-1/2 right-3 -translate-y-1/2 bg-white/[0.12] border-none rounded-full w-[42px] h-[42px] text-white cursor-pointer text-[24px] flex items-center justify-center"
             >
               ›
             </button>
           )}
 
           {/* Counter */}
-          <div style={{
-            position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)",
-            color: "rgba(255,255,255,0.45)", fontSize: 13, pointerEvents: "none",
-          }}>
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/45 text-[13px] pointer-events-none">
             {lightboxIndex! + 1} / {photos.length}
           </div>
         </div>
@@ -305,49 +312,23 @@ function LazyPhoto({
     <div
       ref={ref}
       onClick={() => onClick(index)}
+      className="rounded-md overflow-hidden cursor-pointer bg-[#1c1c1e] relative"
       style={{
         flexGrow: 1,
         flexBasis: `${flexBasis}px`,
         maxWidth: `${flexBasis * 2}px`,
         height: ROW_HEIGHT,
-        borderRadius: 6,
-        overflow: "hidden",
-        cursor: "pointer",
-        background: "#1c1c1e",
-        position: "relative",
       }}
     >
       {inView && (
         <img
           src={`${photo.baseUrl}=w600`}
           alt={photo.filename}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-            opacity: loaded ? 1 : 0,
-            transition: "opacity 0.3s ease",
-          }}
+          className="w-full h-full object-cover block transition-opacity duration-300 ease-in-out"
+          style={{ opacity: loaded ? 1 : 0 }}
           onLoad={() => setLoaded(true)}
         />
       )}
     </div>
   );
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-function iconBtn(extra: React.CSSProperties): React.CSSProperties {
-  return {
-    position: "absolute",
-    background: "rgba(255,255,255,0.12)",
-    border: "none",
-    borderRadius: "50%",
-    width: 42, height: 42,
-    color: "#fff",
-    cursor: "pointer",
-    fontSize: 18,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    ...extra,
-  };
 }

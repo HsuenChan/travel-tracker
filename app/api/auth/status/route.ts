@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const hasToken =
-    !!cookieStore.get("google_access_token") ||
-    !!cookieStore.get("google_refresh_token");
-  return NextResponse.json({ authenticated: hasToken });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return NextResponse.json({ authenticated: !!user, userId: user?.id ?? null });
 }

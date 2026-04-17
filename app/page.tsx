@@ -8,9 +8,9 @@ import {
   Button,
   Typography,
   Spin,
-  Empty,
   Drawer,
   Tag,
+  Skeleton,
 } from "antd";
 import { UnorderedListOutlined, PlusOutlined, GlobalOutlined, LogoutOutlined } from "@ant-design/icons";
 import AddTripModal from "./components/AddTripModal";
@@ -19,24 +19,25 @@ import { getCountryFlags } from "@/lib/countries";
 const TripGlobe = dynamic(() => import("./components/TripGlobe"), { ssr: false });
 
 interface Trip {
-  ID: string;
-  Name: string;
-  "Start Date": string;
-  "End Date": string;
-  Countries: string;
-  Notes: string;
-  "Photo Album ID": string;
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  countries: string;
+  notes: string;
+  photo_album_id: string;
+  created_at: string;
 }
 
 interface Segment {
-  ID: string;
-  "Trip ID": string;
-  Order: string;
-  From: string;
-  "From IATA": string;
-  To: string;
-  "To IATA": string;
-  Type: string;
+  id: string;
+  trip_id: string;
+  order: number;
+  from_city: string;
+  from_iata: string;
+  to_city: string;
+  to_iata: string;
+  type: string;
 }
 
 export default function Home() {
@@ -89,7 +90,7 @@ export default function Home() {
 
   if (authenticated === null) {
     return (
-      <div style={{ minHeight: "100dvh", background: "#09090b", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div className="min-h-[100dvh] bg-[#09090b] flex items-center justify-center">
         <Spin size="large" />
       </div>
     );
@@ -97,37 +98,85 @@ export default function Home() {
 
   if (!authenticated) {
     return (
-      <div style={{ minHeight: "100dvh", background: "#09090b", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
-        <Typography.Title style={{ color: "#fff", margin: 0 }}>Travel Tracker</Typography.Title>
-        <Typography.Text style={{ color: "#71717a" }}>記錄你走過的每一段旅程</Typography.Text>
-        <a href="/api/auth/google">
-          <Button size="large" style={{ background: "#fff", color: "#09090b", borderColor: "#fff", borderRadius: 24, fontWeight: 600 }}>
-            <GoogleIcon /> 使用 Google 登入
-          </Button>
-        </a>
+      <div className="relative min-h-[100dvh] bg-[#09090b] overflow-hidden flex items-center justify-center">
+        {/* Globe background */}
+        <div className="absolute inset-0 opacity-55 pointer-events-none">
+          <TripGlobe
+            trips={[]}
+            segments={[]}
+            selectedTripId={null}
+            onTripClick={() => {}}
+            showAllTracks={false}
+          />
+        </div>
+
+        {/* Glassmorphism login card */}
+        <div className="relative z-10 bg-[#09090b]/55 backdrop-blur-[24px] border border-white/10 rounded-3xl py-12 px-[52px] flex flex-col items-center gap-4 max-w-[380px] w-[88%] shadow-[0_24px_64px_rgba(0,0,0,0.5)]">
+          <div className="text-4xl mb-1">✈️</div>
+          <Typography.Title level={2} className="!text-white !m-0 !tracking-[-0.5px]">
+            Travel Tracker
+          </Typography.Title>
+          <Typography.Text className="text-zinc-400 text-sm text-center">
+            記錄你走過的每一段旅程
+          </Typography.Text>
+          <div className="w-full h-px bg-white/10 my-2" />
+          <a href="/api/auth/google" className="w-full">
+            <Button
+              size="large"
+              className="w-full !bg-white !text-[#09090b] !border-white rounded-xl font-semibold h-12 text-[15px]"
+            >
+              <GoogleIcon /> 使用 Google 登入
+            </Button>
+          </a>
+        </div>
       </div>
     );
   }
 
+  const uniqueCountries = Array.from(
+    new Set(
+      trips.flatMap((t) =>
+        t.countries ? t.countries.split(/[,，、]/).map((c) => c.trim()).filter(Boolean) : []
+      )
+    )
+  ).length;
+
   const tripListContent = loading ? (
-    <div style={{ display: "flex", justifyContent: "center", padding: 40 }}>
-      <Spin />
+    <div className="pt-3 px-3">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="bg-[#1c1c1e] rounded-[10px] p-[14px] mb-2">
+          <Skeleton active paragraph={{ rows: 1 }} title={{ width: "60%" }} />
+        </div>
+      ))}
     </div>
   ) : trips.length === 0 ? (
-    <div style={{ padding: 32 }}>
-      <Empty description={<span style={{ color: "#71717a" }}>還沒有旅程記錄</span>}>
-        <Button type="primary" onClick={() => { setShowModal(true); setDrawerOpen(false); }}>
-          新增第一筆
-        </Button>
-      </Empty>
+    <div className="py-[60px] px-8 flex flex-col items-center gap-3">
+      <div className="text-5xl">🗺️</div>
+      <Typography.Text className="text-zinc-500 text-sm">還沒有旅程記錄</Typography.Text>
+      <Button type="primary" onClick={() => { setShowModal(true); setDrawerOpen(false); }}>
+        新增第一筆旅程
+      </Button>
     </div>
   ) : (
     <>
-      <div style={{ padding: "10px 12px 8px", borderBottom: "1px solid #27272a" }}>
-        <Typography.Text style={{ color: "#71717a", fontSize: 12, display: "block", marginBottom: 8 }}>
-          共 {trips.length} 筆旅程 · 點擊查看路線 · {isMobile ? "長按進入詳情" : "雙擊進入詳情"}
+      {/* Stats summary */}
+      <div className="pt-4 px-4 pb-3 border-b border-[#27272a]">
+        <div className="flex gap-2 mb-3">
+          {[
+            { value: trips.length, label: "旅程" },
+            { value: uniqueCountries, label: "國家" },
+            { value: segments.length, label: "段落" },
+          ].map(({ value, label }) => (
+            <div key={label} className="flex-1 bg-[#1c1c1e] rounded-[10px] py-2.5 text-center border border-[#2c2c2e]">
+              <div className="text-zinc-100 text-xl font-bold leading-none">{value}</div>
+              <div className="text-zinc-600 text-[11px] mt-[3px]">{label}</div>
+            </div>
+          ))}
+        </div>
+        <Typography.Text className="text-zinc-700 text-[11px] block mb-2">
+          {isMobile ? "長按進入詳情" : "雙擊進入詳情"}
         </Typography.Text>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div className="flex gap-[6px]">
           {(["added", "date"] as const).map((key) => {
             const active = sortKey === key;
             const label = key === "added" ? "新增時間" : "行程日期";
@@ -139,13 +188,7 @@ export default function Home() {
                   if (sortKey === key) setSortDir((d) => d === "desc" ? "asc" : "desc");
                   else { setSortKey(key); setSortDir("desc"); }
                 }}
-                style={{
-                  flex: 1, padding: "3px 0", fontSize: 11, borderRadius: 6, cursor: "pointer",
-                  background: active ? "#1e3a5f" : "#27272a",
-                  border: `1px solid ${active ? "#3b82f6" : "#3f3f46"}`,
-                  color: active ? "#93c5fd" : "#71717a",
-                  transition: "all 0.15s",
-                }}
+                className={`flex-1 py-[3px] text-[11px] rounded-md cursor-pointer transition-all duration-150 ${active ? "bg-[#1e3a5f] border-[#3b82f6] text-[#93c5fd]" : "bg-[#27272a] border-[#3f3f46] text-[#71717a]"}`}
               >
                 {label}{arrow}
               </button>
@@ -157,25 +200,25 @@ export default function Home() {
         {[...trips].sort((a, b) => {
           let cmp = 0;
           if (sortKey === "added") {
-            cmp = parseInt(a.ID || "0") - parseInt(b.ID || "0");
+            cmp = (a.created_at || "").localeCompare(b.created_at || "");
           } else {
-            cmp = (a["Start Date"] || "").localeCompare(b["Start Date"] || "");
+            cmp = (a.start_date || "").localeCompare(b.start_date || "");
           }
           return sortDir === "asc" ? cmp : -cmp;
         }).map((trip) => {
-          const flags = getCountryFlags(trip.Countries);
-          const selected = selectedTripId === trip.ID;
+          const flags = getCountryFlags(trip.countries ?? "");
+          const selected = selectedTripId === trip.id;
           return (
             <div
-              key={trip.ID}
+              key={trip.id}
               onClick={() => {
-                setSelectedTripId((prev) => prev === trip.ID ? null : trip.ID);
+                setSelectedTripId((prev) => prev === trip.id ? null : trip.id);
                 if (isMobile) setDrawerOpen(false);
               }}
-              onDoubleClick={!isMobile ? () => router.push(`/trips/${trip.ID}`) : undefined}
+              onDoubleClick={!isMobile ? () => router.push(`/trips/${trip.id}`) : undefined}
               onTouchStart={() => {
                 longPressTimer.current = setTimeout(() => {
-                  router.push(`/trips/${trip.ID}`);
+                  router.push(`/trips/${trip.id}`);
                 }, 500);
               }}
               onTouchEnd={() => {
@@ -190,35 +233,34 @@ export default function Home() {
                   longPressTimer.current = null;
                 }
               }}
-              style={{ cursor: "pointer", padding: "6px 12px" }}
+              className="cursor-pointer py-1 px-3"
             >
-              <div style={{
-                position: "relative",
-                background: selected ? "#1e293b" : "#1c1c1e",
-                border: `1px solid ${selected ? "#3b82f6" : "#2c2c2e"}`,
-                borderRadius: 10,
-                padding: "12px 14px",
-                transition: "all 0.2s",
-              }}>
-                {trip["Start Date"] && (
-                  <Tag style={{ position: "absolute", top: 8, right: 8, fontSize: 10, lineHeight: "16px", padding: "0 4px" }} color="default">
-                    {trip["Start Date"].substring(0, 4)}
-                  </Tag>
+              <div className={`relative rounded-[10px] py-3 pr-[14px] transition-all duration-150 ease-in-out overflow-hidden ${selected ? "bg-slate-900 border-blue-500 pl-[18px]" : "bg-[#1c1c1e] border-[#27272a] pl-[14px]"}`}>
+                {/* Left accent bar */}
+                {selected && (
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-blue-500 to-indigo-400 rounded-l-[10px]" />
                 )}
-                {flags && (
-                  <div style={{ fontSize: 20, marginBottom: 6, letterSpacing: 2 }}>{flags}</div>
+                {(flags || trip.start_date) && (
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-xl tracking-widest">{flags}</div>
+                    {trip.start_date && (
+                      <Tag className="text-[10px] leading-4 px-1 shrink-0" color="default">
+                        {trip.start_date.substring(0, 4)}
+                      </Tag>
+                    )}
+                  </div>
                 )}
-                <Typography.Text strong style={{ color: "#f4f4f5", display: "block", fontSize: 13 }}>
-                  {trip.Name}
+                <Typography.Text strong className="text-zinc-100 block text-[13px]">
+                  {trip.name}
                 </Typography.Text>
-                {(trip["Start Date"] || trip["End Date"]) && (
-                  <Typography.Text style={{ color: "#71717a", fontSize: 11, display: "block", marginTop: 3 }}>
-                    {trip["Start Date"]}{trip["End Date"] && ` → ${trip["End Date"]}`}
+                {(trip.start_date || trip.end_date) && (
+                  <Typography.Text className="text-zinc-500 text-[11px] block mt-[3px]">
+                    {trip.start_date}{trip.end_date && ` → ${trip.end_date}`}
                   </Typography.Text>
                 )}
-                {trip.Countries && (
-                  <Typography.Text style={{ color: "#52525b", fontSize: 11, display: "block", marginTop: 2 }}>
-                    {trip.Countries}
+                {trip.countries && (
+                  <Typography.Text className="text-zinc-500 text-[11px] block mt-[2px]">
+                    {trip.countries}
                   </Typography.Text>
                 )}
               </div>
@@ -230,15 +272,12 @@ export default function Home() {
   );
 
   return (
-    <Layout style={{ height: "100dvh", background: "#09090b" }}>
-      <Layout.Header style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        borderBottom: "1px solid #27272a", paddingLeft: isMobile ? 12 : 24, paddingRight: isMobile ? 12 : 24,
-      }}>
-        <Typography.Text strong style={{ color: "#fff", fontSize: isMobile ? 15 : 18 }}>
+    <Layout className="h-[100dvh] bg-[#09090b]">
+      <Layout.Header className={`flex items-center justify-between border-b border-[#27272a] px-3 md:px-6`}>
+        <Typography.Text strong className="text-white text-[15px] md:text-lg">
           ✈️ Travel Tracker
         </Typography.Text>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="flex gap-2">
           <Button
             icon={<GlobalOutlined />}
             onClick={() => setShowAllTracks((v) => !v)}
@@ -255,14 +294,14 @@ export default function Home() {
           >
             {isMobile ? "" : "新增旅程"}
           </Button>
-          <a href="/api/auth/logout" style={{ display: "flex" }}>
+          <a href="/api/auth/logout" className="flex">
             <Button icon={<LogoutOutlined />} size={isMobile ? "small" : "middle"} title="登出" />
           </a>
         </div>
       </Layout.Header>
 
-      <Layout style={{ flex: 1, overflow: "hidden" }}>
-        <Layout.Content style={{ position: "relative" }}>
+      <Layout className="flex-1 overflow-hidden">
+        <Layout.Content className="relative">
           <TripGlobe
             trips={trips}
             segments={segments}
@@ -276,11 +315,12 @@ export default function Home() {
             <Button
               icon={<UnorderedListOutlined />}
               onClick={() => setDrawerOpen(true)}
+              className="!bg-zinc-900/92 !border-[#3f3f46] !text-[#f4f4f5] rounded-3xl shadow-[0_4px_16px_rgba(0,0,0,0.5)] leading-none"
               style={{
-                position: "absolute", bottom: "calc(24px + env(safe-area-inset-bottom, 0px))", right: 16, zIndex: 10,
-                background: "rgba(24,24,27,0.92)", borderColor: "#3f3f46",
-                color: "#f4f4f5", borderRadius: 24,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+                position: "absolute",
+                right: 16,
+                zIndex: 100,
+                bottom: "calc(24px + env(safe-area-inset-bottom, 0px))"
               }}
             >
               旅程列表
@@ -292,7 +332,7 @@ export default function Home() {
         {!isMobile && (
           <Layout.Sider
             width={300}
-            style={{ background: "#18181b", borderLeft: "1px solid #27272a", overflow: "auto" }}
+            className="bg-[#18181b] border-l border-[#27272a] overflow-auto h-full"
           >
             {tripListContent}
           </Layout.Sider>
@@ -306,12 +346,12 @@ export default function Home() {
           onClose={() => setDrawerOpen(false)}
           placement="bottom"
           height="85vh"
-          title={<span style={{ color: "#f4f4f5" }}>我的旅程</span>}
+          title={<span className="text-[#f4f4f5]">我的旅程</span>}
           styles={{
             header: { background: "#18181b", borderBottom: "1px solid #27272a" },
             body: { background: "#18181b", padding: 0, overflowY: "auto" },
           }}
-          closeIcon={<span style={{ color: "#a1a1aa" }}>✕</span>}
+          closeIcon={<span className="text-[#a1a1aa]">✕</span>}
         >
           {tripListContent}
         </Drawer>
@@ -329,7 +369,7 @@ export default function Home() {
 
 function GoogleIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 18 18" style={{ marginRight: 6, verticalAlign: "middle" }}>
+    <svg width="16" height="16" viewBox="0 0 18 18" className="mr-1.5 align-middle">
       <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
       <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
       <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" />

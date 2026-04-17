@@ -8,7 +8,7 @@
 
 A personal travel journal with an interactive 3D globe. Log your trips, visualize flight routes, and import tickets with AI.
 
-**Live:** https://my-travel-tracker.vercel.app/
+**Live:** https://travel-tracker-nine-delta.vercel.app/
 
 ### Features
 
@@ -111,7 +111,7 @@ npm run dev
 
 用互動式 3D 地球儀記錄個人旅程，視覺化飛行航線，並支援 AI 自動匯入機票資訊。
 
-**線上版本：** https://my-travel-tracker.vercel.app/
+**線上版本：** https://travel-tracker-nine-delta.vercel.app/
 
 ### 功能特色
 

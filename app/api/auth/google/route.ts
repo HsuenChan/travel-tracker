@@ -1,12 +1,20 @@
-import { NextResponse } from "next/server";
-import { createOAuthClient, SCOPES } from "@/lib/google-oauth";
+import { type NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
-export async function GET() {
-  const client = createOAuthClient();
-  const url = client.generateAuthUrl({
-    access_type: "offline",
-    scope: SCOPES,
-    prompt: "consent",
+export async function GET(request: NextRequest) {
+  const { origin, searchParams } = new URL(request.url);
+  const next = searchParams.get("next") ?? "/";
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/api/auth/google/callback?next=${encodeURIComponent(next)}`,
+    },
   });
-  return NextResponse.redirect(url);
+
+  if (error || !data.url) {
+    return NextResponse.redirect(new URL("/?auth=error", request.url));
+  }
+
+  return NextResponse.redirect(data.url);
 }

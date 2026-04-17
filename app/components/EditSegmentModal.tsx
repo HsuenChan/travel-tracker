@@ -12,18 +12,18 @@ const AIRPORT_OPTIONS = Object.entries(AIRPORT_COORDS).map(([iata, info]) => ({
 }));
 
 interface Segment {
-  ID: string;
-  "Trip ID": string;
-  Order: string;
-  From: string;
-  "From IATA": string;
-  To: string;
-  "To IATA": string;
-  Type: string;
-  Date: string;
-  Time: string;
-  "Flight No": string;
-  Aircraft: string;
+  id: string;
+  trip_id: string;
+  order: number;
+  from_city: string;
+  from_iata: string;
+  to_city: string;
+  to_iata: string;
+  type: string;
+  date: string;
+  time: string;
+  flight_no: string;
+  aircraft: string;
 }
 
 interface Props {
@@ -35,7 +35,7 @@ interface Props {
 export default function EditSegmentModal({ segment, onClose, onSaved }: Props) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
-  const [type, setType] = useState(segment.Type || "飛機");
+  const [type, setType] = useState(segment.type || "飛機");
 
   async function handleSubmit(values: Record<string, unknown>) {
     setSaving(true);
@@ -43,7 +43,7 @@ export default function EditSegmentModal({ segment, onClose, onSaved }: Props) {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        id: segment.ID,
+        id: segment.id,
         from: values.from,
         fromIata: (values.fromIata as string) ?? "",
         to: values.to,
@@ -60,15 +60,15 @@ export default function EditSegmentModal({ segment, onClose, onSaved }: Props) {
   }
 
   const initialValues = {
-    type: segment.Type || "飛機",
-    from: segment.From,
-    fromIata: segment["From IATA"],
-    to: segment.To,
-    toIata: segment["To IATA"],
-    date: segment.Date ? dayjs(segment.Date) : undefined,
-    time: segment.Time ? dayjs(segment.Time, "HH:mm") : undefined,
-    flightNo: segment["Flight No"],
-    aircraft: segment.Aircraft,
+    type: segment.type || "飛機",
+    from: segment.from_city,
+    fromIata: segment.from_iata,
+    to: segment.to_city,
+    toIata: segment.to_iata,
+    date: segment.date ? dayjs(segment.date) : undefined,
+    time: segment.time ? dayjs(segment.time, "HH:mm") : undefined,
+    flightNo: segment.flight_no,
+    aircraft: segment.aircraft,
   };
 
   return (
@@ -78,7 +78,7 @@ export default function EditSegmentModal({ segment, onClose, onSaved }: Props) {
         layout="vertical"
         onFinish={handleSubmit}
         initialValues={initialValues}
-        style={{ marginTop: 16 }}
+        className="mt-4"
       >
         <Form.Item name="type" label="交通方式">
           <Select options={TRANSPORT_OPTIONS} onChange={setType} />
@@ -127,12 +127,12 @@ export default function EditSegmentModal({ segment, onClose, onSaved }: Props) {
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item name="date" label="出發日期">
-              <DatePicker style={{ width: "100%" }} />
+              <DatePicker className="w-full" />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item name="time" label="出發時間">
-              <TimePicker style={{ width: "100%" }} format="HH:mm" />
+              <TimePicker className="w-full" format="HH:mm" />
             </Form.Item>
           </Col>
         </Row>
@@ -158,7 +158,7 @@ export default function EditSegmentModal({ segment, onClose, onSaved }: Props) {
           </Form.Item>
         )}
 
-        <Form.Item style={{ marginBottom: 0, marginTop: 8 }}>
+        <Form.Item className="!mb-0 !mt-2">
           <Button type="primary" htmlType="submit" block loading={saving}>
             儲存變更
           </Button>

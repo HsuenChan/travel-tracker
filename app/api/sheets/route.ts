@@ -1,163 +1,87 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { google } from "googleapis";
-import { getAuthenticatedClient } from "@/lib/google-oauth";
-
-// Sheet structure: ID | Name | Start Date | End Date | Countries | Notes | Photo Album ID
-const SHEET_RANGE = "A:G";
-const TRIPS_HEADERS = ["ID", "Name", "Start Date", "End Date", "Countries", "Notes", "Photo Album ID"];
-
-async function ensureTripsSheet(
-  sheets: ReturnType<typeof google.sheets>,
-  spreadsheetId: string | undefined
-) {
-  try {
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "A1:G1" });
-    const firstRow = res.data.values?.[0] ?? [];
-    if (firstRow.length === 0 || firstRow[0]?.trim() !== "ID") {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: "A1:G1",
-        valueInputOption: "USER_ENTERED",
-        requestBody: { values: [TRIPS_HEADERS] },
-      });
-    }
-  } catch {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: "A1:G1",
-      valueInputOption: "USER_ENTERED",
-      requestBody: { values: [TRIPS_HEADERS] },
-    });
-  }
-}
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
-  const client = await getAuthenticatedClient();
-  if (!client) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const sheets = google.sheets({ version: "v4", auth: client });
-  const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
-  await ensureTripsSheet(sheets, spreadsheetId);
+  const { data: trips, error } = await supabase
+    .from("trips")
+    .select("*")
+    .order("created_at", { ascending: true });
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: SHEET_RANGE,
-  });
-
-  const rows = res.data.values ?? [];
-  if (rows.length <= 1) {
-    return NextResponse.json({ trips: [] });
-  }
-
-  const [header, ...data] = rows;
-  const trips = data.map((row) =>
-    Object.fromEntries(header.map((key: string, i: number) => [key.trim(), row[i] ?? ""]))
-  );
-
-  return NextResponse.json({ trips });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ trips: trips ?? [] });
 }
 
 export async function POST(request: NextRequest) {
-  const client = await getAuthenticatedClient();
-  if (!client) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { name, startDate, endDate, countries, notes, photoAlbumId } = body;
+  const { name, startDate, endDate, countries, notes, photoAlbumId, people, currency } = body;
 
-  const sheets = google.sheets({ version: "v4", auth: client });
-  const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
+  const { data, error } = await supabase
+    .from("trips")
+    .insert({
+      user_id: user.id,
+      name,
+      start_date: startDate || null,
+      end_date: endDate || null,
+      countries: countries || null,
+      notes: notes || null,
+      photo_album_id: photoAlbumId || null,
+      people: people ?? [],
+      currency: currency || "TWD",
+    })
+    .select()
+    .single();
 
-  const id = Date.now().toString();
-  const row = [id, name, startDate, endDate, countries, notes, photoAlbumId ?? ""];
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: SHEET_RANGE,
-    valueInputOption: "USER_ENTERED",
-    requestBody: { values: [row] },
-  });
-
-  return NextResponse.json({ success: true, id });
-}
-
-async function findRowIndex(sheets: ReturnType<typeof google.sheets>, spreadsheetId: string | undefined, id: string) {
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: "A:A",
-  });
-  const rows = res.data.values ?? [];
-  return rows.findIndex((row) => row[0]?.trim() === id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true, id: data.id });
 }
 
 export async function PUT(request: NextRequest) {
-  const client = await getAuthenticatedClient();
-  if (!client) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, name, startDate, endDate, countries, notes, photoAlbumId } = body;
+  const { id, name, startDate, endDate, countries, notes, photoAlbumId, people, currency } = body;
 
-  const sheets = google.sheets({ version: "v4", auth: client });
-  const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
+  const { error } = await supabase
+    .from("trips")
+    .update({
+      name,
+      start_date: startDate || null,
+      end_date: endDate || null,
+      countries: countries || null,
+      notes: notes || null,
+      photo_album_id: photoAlbumId || null,
+      people: people ?? [],
+      currency: currency || "TWD",
+    })
+    .eq("id", id);
 
-  const rowIndex = await findRowIndex(sheets, spreadsheetId, id);
-  if (rowIndex === -1) {
-    return NextResponse.json({ error: "Trip not found" }, { status: 404 });
-  }
-
-  const targetRange = `A${rowIndex + 1}:G${rowIndex + 1}`;
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: targetRange,
-    valueInputOption: "USER_ENTERED",
-    requestBody: {
-      values: [[id, name, startDate, endDate, countries, notes, photoAlbumId ?? ""]],
-    },
-  });
-
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
 }
 
 export async function DELETE(request: NextRequest) {
-  const client = await getAuthenticatedClient();
-  if (!client) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const { id } = await request.json();
-  const sheets = google.sheets({ version: "v4", auth: client });
-  const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
-  const rowIndex = await findRowIndex(sheets, spreadsheetId, id);
-  if (rowIndex === -1) {
-    return NextResponse.json({ error: "Trip not found" }, { status: 404 });
-  }
+  const { error } = await supabase
+    .from("trips")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
 
-  const sheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheetId = sheetInfo.data.sheets?.[0].properties?.sheetId ?? 0;
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          deleteDimension: {
-            range: {
-              sheetId,
-              dimension: "ROWS",
-              startIndex: rowIndex,
-              endIndex: rowIndex + 1,
-            },
-          },
-        },
-      ],
-    },
-  });
-
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
 }
