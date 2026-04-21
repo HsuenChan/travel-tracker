@@ -87,5 +87,326 @@
             <button class="flex-1 py-3 rounded-full text-zinc-500 font-medium text-sm">Photos</button>
         </div>
     </div>
+
+    <!-- ====== 設計改版建議 Demo ====== -->
+    <div class="max-w-md mx-auto mt-24 space-y-20 pb-24">
+
+      <!-- Divider -->
+      <div class="flex items-center gap-4">
+        <div class="h-px flex-1" style="background: linear-gradient(to right, transparent, rgba(255,255,255,0.08))"></div>
+        <span class="text-zinc-600 text-[11px] uppercase tracking-[0.15em] font-semibold">設計改版建議</span>
+        <div class="h-px flex-1" style="background: linear-gradient(to left, transparent, rgba(255,255,255,0.08))"></div>
+      </div>
+
+      <!-- ① Trip Card 改版 -->
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-zinc-200 text-sm font-bold mb-1">① 首頁 Trip Card — 目的地色彩語言</h2>
+          <p class="text-zinc-600 text-xs leading-relaxed">左側一條漸層 accent bar，顏色依目的地自動對應；加入小圖示與費用概覽，掃視一眼就能辨識每段旅程。</p>
+        </div>
+
+        <div class="text-zinc-700 text-[10px] uppercase tracking-widest">現在</div>
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.07]">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-zinc-100 text-sm">東京賞楓之旅</div>
+              <div class="text-zinc-500 text-xs mt-0.5">Oct 28 → Nov 5, 2025</div>
+            </div>
+            <div class="text-zinc-600 text-xs">日本</div>
+          </div>
+        </div>
+
+        <div class="text-zinc-700 text-[10px] uppercase tracking-widest">建議</div>
+
+        <div class="relative p-4 rounded-2xl bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+          <div class="absolute left-0 inset-y-0 w-[3px] rounded-l-2xl" style="background: linear-gradient(to bottom, #f472b6, #e11d48)"></div>
+          <div class="pl-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0" style="background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.15)">🗼</div>
+              <div>
+                <div class="font-semibold text-zinc-100 text-sm">東京賞楓之旅</div>
+                <div class="text-zinc-500 text-xs mt-0.5">Oct 28 → Nov 5 · 8 天</div>
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-1 shrink-0">
+              <span class="text-[11px] font-semibold" style="color: #fb7185">日本</span>
+              <span class="text-[10px] text-zinc-600">¥ 82,400</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative p-4 rounded-2xl bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+          <div class="absolute left-0 inset-y-0 w-[3px] rounded-l-2xl" style="background: linear-gradient(to bottom, #60a5fa, #4338ca)"></div>
+          <div class="pl-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0" style="background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.15)">⛪</div>
+              <div>
+                <div class="font-semibold text-zinc-100 text-sm">義大利蜜月</div>
+                <div class="text-zinc-500 text-xs mt-0.5">Mar 2 → Mar 15 · 13 天</div>
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-1 shrink-0">
+              <span class="text-[11px] font-semibold" style="color: #93c5fd">義大利</span>
+              <span class="text-[10px] text-zinc-600">€ 3,200</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative p-4 rounded-2xl bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+          <div class="absolute left-0 inset-y-0 w-[3px] rounded-l-2xl" style="background: linear-gradient(to bottom, #34d399, #0d9488)"></div>
+          <div class="pl-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0" style="background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.15)">🏝️</div>
+              <div>
+                <div class="font-semibold text-zinc-100 text-sm">峇里島放空</div>
+                <div class="text-zinc-500 text-xs mt-0.5">Jun 18 → Jun 25 · 7 天</div>
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-1 shrink-0">
+              <span class="text-[11px] font-semibold" style="color: #6ee7b7">印尼</span>
+              <span class="text-[10px] text-zinc-600">$ 1,450</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② Hero Section 改版 -->
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-zinc-200 text-sm font-bold mb-1">② 旅程詳情 Hero — 目的地動態背景</h2>
+          <p class="text-zinc-600 text-xs leading-relaxed">卡片背景依目的地自動套用對應色調的微光漸層，讓每趟旅程有自己的視覺個性。</p>
+        </div>
+
+        <!-- Japan theme -->
+        <div class="rounded-[2rem] overflow-hidden border border-white/[0.06] relative" style="background: linear-gradient(145deg, rgba(244,63,94,0.09) 0%, rgba(139,92,246,0.05) 60%, rgba(9,9,11,0.98) 100%)">
+          <div class="absolute inset-0" style="background: radial-gradient(ellipse at 85% 0%, rgba(244,63,94,0.13) 0%, transparent 55%)"></div>
+          <div class="relative p-6">
+            <div class="text-zinc-500 text-[11px] uppercase tracking-widest mb-1">日本 · 東京</div>
+            <div class="text-[22px] font-black text-zinc-100 mb-4">東京賞楓之旅</div>
+            <div class="flex flex-wrap gap-2">
+              <span class="text-[12px] font-medium px-3 py-1 rounded-full" style="background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.2); color: #fb7185">Oct 28 → Nov 5</span>
+              <span class="text-[12px] font-medium px-3 py-1 rounded-full bg-zinc-800/70 border border-zinc-700/50 text-zinc-300">8 天</span>
+              <span class="text-[12px] font-medium px-3 py-1 rounded-full bg-zinc-800/70 border border-zinc-700/50 text-zinc-300">3 人</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEA theme -->
+        <div class="rounded-[2rem] overflow-hidden border border-white/[0.06] relative" style="background: linear-gradient(145deg, rgba(20,184,166,0.09) 0%, rgba(6,182,212,0.04) 60%, rgba(9,9,11,0.98) 100%)">
+          <div class="absolute inset-0" style="background: radial-gradient(ellipse at 85% 0%, rgba(20,184,166,0.13) 0%, transparent 55%)"></div>
+          <div class="relative p-6">
+            <div class="text-zinc-500 text-[11px] uppercase tracking-widest mb-1">印尼 · 峇里島</div>
+            <div class="text-[22px] font-black text-zinc-100 mb-4">峇里島放空</div>
+            <div class="flex flex-wrap gap-2">
+              <span class="text-[12px] font-medium px-3 py-1 rounded-full" style="background: rgba(20,184,166,0.1); border: 1px solid rgba(20,184,166,0.2); color: #2dd4bf">Jun 18 → Jun 25</span>
+              <span class="text-[12px] font-medium px-3 py-1 rounded-full bg-zinc-800/70 border border-zinc-700/50 text-zinc-300">7 天</span>
+              <span class="text-[12px] font-medium px-3 py-1 rounded-full bg-zinc-800/70 border border-zinc-700/50 text-zinc-300">2 人</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Europe theme -->
+        <div class="rounded-[2rem] overflow-hidden border border-white/[0.06] relative" style="background: linear-gradient(145deg, rgba(96,165,250,0.09) 0%, rgba(139,92,246,0.05) 60%, rgba(9,9,11,0.98) 100%)">
+          <div class="absolute inset-0" style="background: radial-gradient(ellipse at 85% 0%, rgba(96,165,250,0.12) 0%, transparent 55%)"></div>
+          <div class="relative p-6">
+            <div class="text-zinc-500 text-[11px] uppercase tracking-widest mb-1">義大利 · 羅馬</div>
+            <div class="text-[22px] font-black text-zinc-100 mb-4">義大利蜜月</div>
+            <div class="flex flex-wrap gap-2">
+              <span class="text-[12px] font-medium px-3 py-1 rounded-full" style="background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2); color: #93c5fd">Mar 2 → Mar 15</span>
+              <span class="text-[12px] font-medium px-3 py-1 rounded-full bg-zinc-800/70 border border-zinc-700/50 text-zinc-300">13 天</span>
+              <span class="text-[12px] font-medium px-3 py-1 rounded-full bg-zinc-800/70 border border-zinc-700/50 text-zinc-300">2 人</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ Timeline 改版 -->
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-zinc-200 text-sm font-bold mb-1">③ 行程 Timeline — 類別顏色 Accent Bar</h2>
+          <p class="text-zinc-600 text-xs leading-relaxed">每個行程項目左側加入細彩條，依類別上不同顏色，視覺掃描效率更高，類似 Linear 的 issue list。</p>
+        </div>
+
+        <div class="text-zinc-700 text-[10px] uppercase tracking-widest">現在</div>
+        <div class="p-[14px] rounded-[18px] bg-white/[0.03] border border-white/[0.07]">
+          <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">08:30</span><span class="text-zinc-100 text-sm font-semibold">成田機場 → 新宿</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">交通</span></div>
+          <div class="text-zinc-500 text-xs mt-0.5">成田特快 N'EX</div>
+        </div>
+        <div class="p-[14px] rounded-[18px] bg-white/[0.03] border border-white/[0.07]">
+          <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">19:00</span><span class="text-zinc-100 text-sm font-semibold">一蘭拉麵 新宿店</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">餐飲</span></div>
+        </div>
+        <div class="p-[14px] rounded-[18px] bg-white/[0.03] border border-white/[0.07]">
+          <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">10:00</span><span class="text-zinc-100 text-sm font-semibold">淺草寺參觀</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">景點</span></div>
+        </div>
+
+        <div class="text-zinc-700 text-[10px] uppercase tracking-widest">建議</div>
+
+        <!-- Transport - blue -->
+        <div class="relative rounded-[18px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+          <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #60a5fa, #3b82f6)"></div>
+          <div class="pl-4 pr-[14px] py-3">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-zinc-500 text-xs tabular-nums shrink-0">08:30</span>
+              <span class="text-zinc-100 text-sm font-semibold">成田機場 → 新宿</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0" style="background:rgba(96,165,250,0.12); color:#60a5fa; border:1px solid rgba(96,165,250,0.2)">交通</span>
+            </div>
+            <div class="text-zinc-500 text-xs">成田特快 N'EX · 約 90 分鐘</div>
+          </div>
+        </div>
+
+        <!-- Hotel - teal -->
+        <div class="relative rounded-[18px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+          <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #2dd4bf, #0d9488)"></div>
+          <div class="pl-4 pr-[14px] py-3">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-zinc-500 text-xs tabular-nums shrink-0">15:00</span>
+              <span class="text-zinc-100 text-sm font-semibold">新宿 Granbell Hotel</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0" style="background:rgba(45,212,191,0.12); color:#2dd4bf; border:1px solid rgba(45,212,191,0.2)">住宿</span>
+            </div>
+            <div class="text-zinc-500 text-xs">Check-in 15:00 · 2 晚</div>
+          </div>
+        </div>
+
+        <!-- Food - orange -->
+        <div class="relative rounded-[18px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+          <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #fb923c, #ea580c)"></div>
+          <div class="pl-4 pr-[14px] py-3">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-zinc-500 text-xs tabular-nums shrink-0">19:00</span>
+              <span class="text-zinc-100 text-sm font-semibold">一蘭拉麵 新宿店</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0" style="background:rgba(251,146,60,0.12); color:#fb923c; border:1px solid rgba(251,146,60,0.2)">餐飲</span>
+            </div>
+            <div class="text-zinc-500 text-xs">西口店 · 推薦濃厚豚骨</div>
+          </div>
+        </div>
+
+        <!-- Attraction - violet -->
+        <div class="relative rounded-[18px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+          <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #a78bfa, #7c3aed)"></div>
+          <div class="pl-4 pr-[14px] py-3">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-zinc-500 text-xs tabular-nums shrink-0">10:00</span>
+              <span class="text-zinc-100 text-sm font-semibold">淺草寺參觀</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0" style="background:rgba(167,139,250,0.12); color:#a78bfa; border:1px solid rgba(167,139,250,0.2)">景點</span>
+            </div>
+            <div class="text-zinc-500 text-xs">仲見世通 → 雷門 → 本堂</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④ Empty States 改版 -->
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-zinc-200 text-sm font-bold mb-1">④ Empty State — 有個性的空白頁</h2>
+          <p class="text-zinc-600 text-xs leading-relaxed">每個分頁有屬於自己的視覺語言與文案溫度，讓空白也成為設計的一部分。</p>
+        </div>
+
+        <!-- Itinerary empty -->
+        <div class="rounded-[22px] border border-dashed border-white/[0.07] overflow-hidden" style="background: radial-gradient(ellipse at 50% 100%, rgba(139,92,246,0.05) 0%, transparent 65%)">
+          <div class="flex flex-col items-center py-10 px-6">
+            <div class="relative mb-4">
+              <div class="w-16 h-16 rounded-[1.5rem] border border-white/[0.06] flex items-center justify-center" style="background: rgba(139,92,246,0.07)">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(139,92,246,0.55)" stroke-width="1.4" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div class="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center" style="background: rgba(139,92,246,0.2); border: 1px solid rgba(139,92,246,0.3)">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+              </div>
+            </div>
+            <div class="text-zinc-200 text-sm font-semibold mb-1.5">還沒有行程安排</div>
+            <div class="text-zinc-600 text-xs text-center leading-relaxed mb-5">把每一天規劃好，<br/>旅程會更從容。</div>
+            <button class="inline-flex items-center gap-1.5 h-8 px-4 rounded-full text-[12px] font-medium bg-white/[0.06] border border-white/10 text-zinc-200">+ 新增第一個行程</button>
+          </div>
+        </div>
+
+        <!-- Expenses empty -->
+        <div class="rounded-[22px] border border-dashed border-white/[0.07] overflow-hidden" style="background: radial-gradient(ellipse at 50% 100%, rgba(20,184,166,0.05) 0%, transparent 65%)">
+          <div class="flex flex-col items-center py-10 px-6">
+            <div class="w-16 h-16 rounded-[1.5rem] border border-white/[0.06] flex items-center justify-center mb-4" style="background: rgba(20,184,166,0.07)">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(20,184,166,0.55)" stroke-width="1.4" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="7" y1="15" x2="9" y2="15"/><line x1="12" y1="15" x2="17" y2="15"/></svg>
+            </div>
+            <div class="text-zinc-200 text-sm font-semibold mb-1.5">還沒有費用記錄</div>
+            <div class="text-zinc-600 text-xs text-center leading-relaxed mb-5">記錄每一筆花費，<br/>回家算帳不再吵架。</div>
+            <button class="inline-flex items-center gap-1.5 h-8 px-4 rounded-full text-[12px] font-medium bg-white/[0.06] border border-white/10 text-zinc-200">+ 記錄第一筆費用</button>
+          </div>
+        </div>
+
+        <!-- Notes empty -->
+        <div class="rounded-[22px] border border-dashed border-white/[0.07] overflow-hidden" style="background: radial-gradient(ellipse at 50% 100%, rgba(251,146,60,0.04) 0%, transparent 65%)">
+          <div class="flex flex-col items-center py-10 px-6">
+            <div class="w-16 h-16 rounded-[1.5rem] border border-white/[0.06] flex items-center justify-center mb-4" style="background: rgba(251,146,60,0.07)">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(251,146,60,0.55)" stroke-width="1.4" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+            </div>
+            <div class="text-zinc-200 text-sm font-semibold mb-1.5">筆記還是空白的</div>
+            <div class="text-zinc-600 text-xs text-center leading-relaxed mb-5">試試讓 AI 幫你生成<br/>旅遊注意事項、打包清單。</div>
+            <button class="inline-flex items-center gap-1.5 h-8 px-4 rounded-full text-[12px] font-medium bg-white/[0.06] border border-white/10 text-zinc-200">✦ AI 生成旅遊筆記</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑤ 手機底部導航 -->
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-zinc-200 text-sm font-bold mb-1">⑤ 手機版 — 底部導航取代 Segmented</h2>
+          <p class="text-zinc-600 text-xs leading-relaxed">5 個 tab 改為固定底部 navigation bar，更易點擊、更原生感，tab 名稱不再被壓縮；active 項目顏色突出。</p>
+        </div>
+
+        <div class="rounded-[22px] overflow-hidden border border-white/[0.06]" style="background: #111113">
+          <div class="px-4 py-3 border-b border-white/[0.05] flex items-center gap-2">
+            <div class="w-5 h-5 rounded-full bg-zinc-700/50 flex items-center justify-center">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <span class="text-zinc-500 text-xs">東京賞楓之旅</span>
+          </div>
+          <div class="h-28 flex items-center justify-center">
+            <div class="text-zinc-700 text-sm">— 頁面內容 —</div>
+          </div>
+          <!-- Bottom nav bar -->
+          <div class="flex items-stretch border-t" style="background: rgba(9,9,11,0.97); backdrop-filter: blur(24px); border-color: rgba(255,255,255,0.05)">
+
+            <button class="flex-1 flex flex-col items-center gap-1 py-3 px-1">
+              <div class="w-8 h-8 rounded-2xl flex items-center justify-center" style="background: rgba(139,92,246,0.15)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              </div>
+              <span class="text-[10px] font-semibold" style="color:#a78bfa">路線</span>
+            </button>
+
+            <button class="flex-1 flex flex-col items-center gap-1 py-3 px-1">
+              <div class="w-8 h-8 rounded-2xl flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <span class="text-[10px] font-medium text-zinc-600">行程</span>
+            </button>
+
+            <button class="flex-1 flex flex-col items-center gap-1 py-3 px-1">
+              <div class="w-8 h-8 rounded-2xl flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </div>
+              <span class="text-[10px] font-medium text-zinc-600">筆記</span>
+            </button>
+
+            <button class="flex-1 flex flex-col items-center gap-1 py-3 px-1">
+              <div class="w-8 h-8 rounded-2xl flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              </div>
+              <span class="text-[10px] font-medium text-zinc-600">費用</span>
+            </button>
+
+            <button class="flex-1 flex flex-col items-center gap-1 py-3 px-1">
+              <div class="w-8 h-8 rounded-2xl flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+              <span class="text-[10px] font-medium text-zinc-600">照片</span>
+            </button>
+
+          </div>
+          <!-- Home indicator -->
+          <div class="flex justify-center py-2" style="background: rgba(9,9,11,0.97)">
+            <div class="w-28 h-[5px] rounded-full bg-white/[0.15]"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
 </body>
 </html>

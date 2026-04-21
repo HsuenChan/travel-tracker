@@ -7,6 +7,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ConfigProvider
       locale={zhTW}
+      modal={{
+        styles: {
+          wrapper: { paddingBottom: 24 },
+          body: { paddingBottom: 16 },
+        },
+      }}
       theme={{
         algorithm: theme.darkAlgorithm,
         token: {

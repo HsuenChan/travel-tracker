@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Michroma, Righteous, Comfortaa } from "next/font/google";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import Providers from "./providers";
 import "./globals.css";
@@ -13,6 +13,13 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+const comfortaa = Comfortaa({
+  variable: "--font-comfortaa",
+  weight: "400",
+  subsets: ["latin"],
+});
+
 
 const BASE_URL = "https://travel-tracker-nine-delta.vercel.app";
 
@@ -54,7 +61,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-TW" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="zh-TW" className={`${geistSans.variable} ${geistMono.variable} ${comfortaa.variable}`}>
       <body>
         <AntdRegistry>
           <Providers>{children}</Providers>

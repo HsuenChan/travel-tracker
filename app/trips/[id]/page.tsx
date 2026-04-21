@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
@@ -61,6 +62,23 @@ interface Member {
   is_owner: boolean;
 }
 
+function getDestinationAccent(countries: string): { from: string; to: string } {
+  const c = (countries ?? "").toLowerCase();
+  if (/日本|japan/.test(c)) return { from: '#f472b6', to: '#e11d48' };
+  if (/韓國|korea/.test(c)) return { from: '#c084fc', to: '#7c3aed' };
+  if (/泰國|thai/.test(c)) return { from: '#facc15', to: '#ca8a04' };
+  if (/印尼|峇里|bali|indonesia/.test(c)) return { from: '#34d399', to: '#0d9488' };
+  if (/越南|vietnam/.test(c)) return { from: '#4ade80', to: '#15803d' };
+  if (/台灣|taiwan/.test(c)) return { from: '#f97316', to: '#dc2626' };
+  if (/法國|france|paris/.test(c)) return { from: '#818cf8', to: '#4f46e5' };
+  if (/義大利|italy/.test(c)) return { from: '#60a5fa', to: '#4338ca' };
+  if (/西班牙|spain/.test(c)) return { from: '#fb923c', to: '#dc2626' };
+  if (/英國|uk|england/.test(c)) return { from: '#60a5fa', to: '#1d4ed8' };
+  if (/美國|usa|america/.test(c)) return { from: '#60a5fa', to: '#dc2626' };
+  if (/澳洲|australia/.test(c)) return { from: '#fb923c', to: '#ca8a04' };
+  return { from: '#6366f1', to: '#14b8a6' };
+}
+
 export default function TripPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -79,7 +97,8 @@ export default function TripPage() {
   const [inviting, setInviting] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
   const [activeTab, setActiveTab] = useState("transport");
-  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(["transport"]));
+  const [tabDirection, setTabDirection] = useState(1);
+  const tabOrderRef = useRef(["transport", "itinerary", "notes", "expenses", "photos"]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -240,6 +259,7 @@ export default function TripPage() {
     ? trip.countries.split(/[,，、]/).map((c) => c.trim()).filter(Boolean)
     : [];
 
+  const accent = getDestinationAccent(trip.countries ?? "");
   const people = trip.people ?? [];
   const currencies = trip.currency ? trip.currency.split(",") : ["TWD"];
   const primaryCurrency = currencies[0];
@@ -321,11 +341,20 @@ export default function TripPage() {
           ))}
         </div>
       ) : segments.length === 0 ? (
-        <div className="flex flex-col items-center gap-2.5 py-10 pb-8 bg-[#111113] border border-dashed border-[#27272a] rounded-xl">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/[0.07] flex items-center justify-center">
-            <PlaneIcon size={22} stroke="#3f3f46" strokeWidth={1.5} />
+        <div
+          className="flex flex-col items-center gap-3 py-12 pb-10 rounded-2xl border border-white/[0.06]"
+          style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(59,130,246,0.06) 0%, transparent 65%), rgba(9,9,11,0.6)' }}
+        >
+          <div
+            className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center"
+            style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.18)' }}
+          >
+            <PlaneIcon size={26} stroke="#3b82f6" strokeWidth={1.5} />
           </div>
-          <Typography.Text className="text-zinc-600 text-sm">還沒有交通記錄</Typography.Text>
+          <div className="flex flex-col items-center gap-1">
+            <Typography.Text className="text-zinc-300 text-sm font-medium">還沒有交通記錄</Typography.Text>
+            <Typography.Text className="text-zinc-600 text-xs">記錄每一段旅程，不錯過任何細節。</Typography.Text>
+          </div>
           <button
             onClick={() => setShowAddSegment(true)}
             className="mt-1 inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
@@ -402,13 +431,19 @@ export default function TripPage() {
 
       <div
         className="max-w-[720px] mx-auto w-full"
-        style={{ padding: isMobile ? "20px 12px 60px" : "32px 24px 80px" }}
+        style={{ padding: isMobile ? "20px 12px 100px" : "32px 24px 80px" }}
       >
-        <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-[2rem] mb-8 overflow-hidden relative shadow-2xl"
-          style={{ padding: isMobile ? "24px 20px" : "32px 32px" }}
+        <div
+          className="rounded-[2rem] mb-8 overflow-hidden relative shadow-2xl border border-white/[0.06]"
+          style={{
+            padding: isMobile ? "24px 20px" : "32px 32px",
+            background: `linear-gradient(145deg, ${accent.from}17 0%, rgba(139,92,246,0.05) 60%, rgba(9,9,11,0.98) 100%)`,
+          }}
         >
-          {/* 背景裝飾光點 */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#8b5cf6]/5 blur-3xl -mr-16 -mt-16"></div>
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: `radial-gradient(ellipse at 85% 0%, ${accent.from}22 0%, transparent 55%)` }}
+          />
 
           <div className="relative">
             <Typography.Title
@@ -420,7 +455,15 @@ export default function TripPage() {
 
             <div className="flex flex-wrap gap-2.5 items-center">
               {trip.start_date && trip.end_date && (
-                <span className="bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 text-[#a78bfa] rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5 shadow-[0_0_15px_rgba(139,92,246,0.1)]">
+                <span
+                  className="rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5"
+                  style={{
+                    background: `${accent.from}17`,
+                    border: `1px solid ${accent.from}33`,
+                    color: accent.from,
+                    boxShadow: `0 0 15px ${accent.from}1a`,
+                  }}
+                >
                   <CalendarIcon size={11} />
                   {trip.start_date} → {trip.end_date}
                 </span>
@@ -431,7 +474,16 @@ export default function TripPage() {
                 </span>
               )}
               {countries.map((c) => (
-                <span key={c} className="bg-teal-400/10 border border-teal-400/20 text-teal-300 rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5 shadow-[0_0_15px_rgba(45,212,191,0.1)]">
+                <span
+                  key={c}
+                  className="rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5"
+                  style={{
+                    background: `${accent.from}12`,
+                    border: `1px solid ${accent.from}28`,
+                    color: accent.from,
+                    boxShadow: `0 0 15px ${accent.from}15`,
+                  }}
+                >
                   <LocationIcon size={11} />
                   {c}
                 </span>
@@ -484,46 +536,104 @@ export default function TripPage() {
         </div>
 
         <div className="mb-7">
-          <Segmented
-            block
-            className="cute-segmented mb-6"
-            value={activeTab}
-            onChange={(v) => {
-              const val = v as string;
-              setActiveTab(val);
-              setVisitedTabs((prev) => new Set([...prev, val]));
-            }}
-            options={[
-              { value: "transport", label: <span className="inline-flex items-center gap-[5px]"><PlaneIcon size={13} />路線</span> },
-              { value: "itinerary", label: <span className="inline-flex items-center gap-[5px]"><CalendarIcon size={13} />行程</span> },
-              { value: "notes", label: <span className="inline-flex items-center gap-[5px]"><NotepadIcon size={13} />筆記</span> },
-              { value: "expenses", label: <span className="inline-flex items-center gap-[5px]"><CreditCardIcon size={13} />費用</span> },
-              ...(trip.photo_album_id ? [{ value: "photos", label: <span className="inline-flex items-center gap-[5px]"><PhotoIcon size={13} />照片</span> }] : []),
-            ]}
-          />
-          <div style={{ display: activeTab === "transport" ? "block" : "none" }}>
-            {transportContent}
-            <div className="mt-7">
-              <div className="mb-3 flex items-center justify-between">
-                <Typography.Text strong className="text-zinc-100 text-[15px]">旅程地圖</Typography.Text>
-              </div>
-              <TripMap tripId={id} />
-            </div>
-          </div>
-          {visitedTabs.has("itinerary") && (
-            <div style={{ display: activeTab === "itinerary" ? "block" : "none" }}><ItineraryTab tripId={id} /></div>
+          {!isMobile && (
+            <Segmented
+              block
+              className="cute-segmented mb-6"
+              value={activeTab}
+              onChange={(v) => {
+                const val = v as string;
+                const order = tabOrderRef.current;
+                setTabDirection(order.indexOf(val) > order.indexOf(activeTab) ? 1 : -1);
+                setActiveTab(val);
+              }}
+              options={[
+                { value: "transport", label: <span className="inline-flex items-center gap-[5px]"><PlaneIcon size={13} />路線</span> },
+                { value: "itinerary", label: <span className="inline-flex items-center gap-[5px]"><CalendarIcon size={13} />行程</span> },
+                { value: "notes", label: <span className="inline-flex items-center gap-[5px]"><NotepadIcon size={13} />筆記</span> },
+                { value: "expenses", label: <span className="inline-flex items-center gap-[5px]"><CreditCardIcon size={13} />費用</span> },
+                ...(trip.photo_album_id ? [{ value: "photos", label: <span className="inline-flex items-center gap-[5px]"><PhotoIcon size={13} />照片</span> }] : []),
+              ]}
+            />
           )}
-          {visitedTabs.has("notes") && (
-            <div style={{ display: activeTab === "notes" ? "block" : "none" }}><NotesTab tripId={id} /></div>
-          )}
-          {visitedTabs.has("expenses") && (
-            <div style={{ display: activeTab === "expenses" ? "block" : "none" }}><ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} /></div>
-          )}
-          {trip.photo_album_id && visitedTabs.has("photos") && (
-            <div style={{ display: activeTab === "photos" ? "block" : "none" }}><PhotoWall albumUrl={trip.photo_album_id} /></div>
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: tabDirection * 36 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: tabDirection * -24 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
+              {activeTab === "transport" && (
+                <>
+                  {transportContent}
+                  <div className="mt-7">
+                    <div className="mb-3 flex items-center justify-between">
+                      <Typography.Text strong className="text-zinc-100 text-[15px]">旅程地圖</Typography.Text>
+                    </div>
+                    <TripMap tripId={id} />
+                  </div>
+                </>
+              )}
+              {activeTab === "itinerary" && <ItineraryTab tripId={id} isActive />}
+              {activeTab === "notes" && <NotesTab tripId={id} />}
+              {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} />}
+              {activeTab === "photos" && trip.photo_album_id && <PhotoWall albumUrl={trip.photo_album_id} />}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
+
+      {isMobile && (
+        <nav
+          className="fixed bottom-0 left-0 right-0 z-[200]"
+          style={{
+            background: 'rgba(9,9,11,0.97)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            borderTop: '1px solid rgba(255,255,255,0.07)',
+            paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <div className="flex justify-around items-center pt-2 px-1">
+            {[
+              { value: "transport", icon: <PlaneIcon size={20} />, label: "路線" },
+              { value: "itinerary", icon: <CalendarIcon size={20} />, label: "行程" },
+              { value: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
+              { value: "expenses", icon: <CreditCardIcon size={20} />, label: "費用" },
+            ].concat(trip.photo_album_id ? [{ value: "photos", icon: <PhotoIcon size={20} />, label: "照片" }] : []).map(({ value, icon, label }) => {
+              const isActive = activeTab === value;
+              return (
+                <button
+                  key={value}
+                  onClick={() => {
+                    const order = tabOrderRef.current;
+                    setTabDirection(order.indexOf(value) > order.indexOf(activeTab) ? 1 : -1);
+                    setActiveTab(value);
+                    if (value !== 'itinerary') {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                  className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-pointer"
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
+                    style={isActive ? { background: 'rgba(139,92,246,0.15)', color: '#a78bfa' } : { color: '#52525b' }}
+                  >
+                    {icon}
+                  </div>
+                  <span
+                    className="text-[10px] font-medium transition-all duration-200"
+                    style={{ color: isActive ? '#a78bfa' : '#52525b' }}
+                  >
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
 
       {showEdit && (
         <EditTripModal trip={trip} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); fetchTrip(); }} />

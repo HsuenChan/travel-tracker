@@ -364,11 +364,20 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
           ))}
         </div>
       ) : expenses.length === 0 ? (
-        <div className="flex flex-col items-center gap-2.5 py-10 pb-8 bg-[#111113] border border-dashed border-[#27272a] rounded-xl">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/[0.07] flex items-center justify-center">
-            <CreditCardIcon size={22} stroke="#3f3f46" strokeWidth={1.5} />
+        <div
+          className="flex flex-col items-center gap-3 py-12 pb-10 rounded-2xl border border-white/[0.06]"
+          style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(20,184,166,0.06) 0%, transparent 65%), rgba(9,9,11,0.6)' }}
+        >
+          <div
+            className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center"
+            style={{ background: 'rgba(20,184,166,0.1)', border: '1px solid rgba(20,184,166,0.18)' }}
+          >
+            <CreditCardIcon size={26} stroke="#14b8a6" strokeWidth={1.5} />
           </div>
-          <Typography.Text className="text-zinc-600 text-sm">還沒有費用記錄</Typography.Text>
+          <div className="flex flex-col items-center gap-1">
+            <Typography.Text className="text-zinc-300 text-sm font-medium">還沒有費用記錄</Typography.Text>
+            <Typography.Text className="text-zinc-600 text-xs">掌握每一筆開銷，旅行更安心。</Typography.Text>
+          </div>
           <button
             onClick={openAdd}
             className="mt-1 inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
@@ -649,7 +658,6 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
         onCancel={closeModal}
         footer={null}
         width={480}
-        styles={{ wrapper: { paddingBottom: 32 } }}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4">
           <Form.Item name="description" label="費用名稱" rules={[{ required: true, message: "請輸入費用名稱" }]}>
