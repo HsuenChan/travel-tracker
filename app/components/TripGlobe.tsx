@@ -184,7 +184,10 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
       globeReadyRef.current = true;
       setTimeout(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (ref as any).pointOfView({ lat: 23.7, lng: 121.0, altitude: 2.0 }, 0);
+        const g = ref as any;
+        g.pointOfView({ lat: 23.7, lng: 121.0, altitude: 2.0 }, 0);
+        // Fix blurriness on HiDPI / Retina displays — cap at 2 to avoid perf issues
+        g.renderer()?.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       }, 100);
     }
   }, []);

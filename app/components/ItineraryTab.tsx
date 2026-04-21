@@ -2,7 +2,8 @@
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 import { useState, useEffect } from "react";
-import { Button, Modal, Form, DatePicker, Select, Dropdown, Typography, Input, Skeleton, Timeline } from "antd";
+import { motion } from "framer-motion";
+import { Button, Modal, Form, DatePicker, Select, Dropdown, Typography, Input, Skeleton, Timeline, Tooltip } from "antd";
 import { EditOutlined, DeleteOutlined, MoreOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CategoryBadge } from "@/app/components/Icons";
 import dayjs from "dayjs";
@@ -40,6 +41,7 @@ interface ItineraryItem {
 
 interface Props {
   tripId: string;
+  isActive?: boolean;
 }
 
 const CATEGORIES = [
@@ -54,7 +56,17 @@ const CATEGORIES = [
 
 const CATEGORY_MAP: Record<string, string> = Object.fromEntries(CATEGORIES.map((c) => [c.value, c.label]));
 
-export default function ItineraryTab({ tripId }: Props) {
+const CATEGORY_ACCENT: Record<string, { from: string; to: string }> = {
+  transport: { from: '#60a5fa', to: '#3b82f6' },   // blue   — badge #60a5fa
+  hotel: { from: '#a78bfa', to: '#7c3aed' },   // violet — badge #a78bfa
+  food: { from: '#fbbf24', to: '#d97706' },   // amber  — badge #fbbf24
+  attraction: { from: '#34d399', to: '#059669' },   // emerald — badge #34d399
+  shopping: { from: '#f472b6', to: '#db2777' },   // pink   — badge #f472b6
+  activity: { from: '#fb923c', to: '#ea580c' },   // orange — badge #fb923c
+  other: { from: '#a1a1aa', to: '#71717a' },   // zinc   — badge #a1a1aa
+};
+
+export default function ItineraryTab({ tripId, isActive }: Props) {
   const [items, setItems] = useState<ItineraryItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
@@ -85,15 +97,14 @@ export default function ItineraryTab({ tripId }: Props) {
   }, [tripId]);
 
   useEffect(() => {
-    if (!loading) {
-      setTimeout(() => {
-        document.getElementById(`itinerary-date-${todayStr}`)?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 150);
+    if (!isActive || loading) return;
+    const todayEl = document.getElementById(`itinerary-date-${todayStr}`);
+    if (todayEl) {
+      setTimeout(() => todayEl.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [loading]);
+  }, [isActive, loading]);
 
   async function handleSave(values: Record<string, unknown>) {
     setSaving(true);
@@ -181,11 +192,19 @@ export default function ItineraryTab({ tripId }: Props) {
     return acc;
   }, {});
   const dates = Object.keys(grouped).sort();
+  const timeToMinutes = (t: string | null) => {
+    if (!t) return 9999;
+    const [h, m] = t.split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  dates.forEach((date) => {
+    grouped[date].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  });
 
   const timelineItems = dates.map((date) => {
     const isToday = date === todayStr;
     const isPast = date < todayStr;
-    const dotColor = isToday ? "#8b5cf6" : isPast ? "#52525b" : "#a78bfa";
+    const dotColor = isToday ? "#a1a1aa" : isPast ? "#27272a" : "#52525b";
 
     return {
       key: date,
@@ -205,8 +224,22 @@ export default function ItineraryTab({ tripId }: Props) {
               </span>
             )}
           </div>
-          {grouped[date].map((item) => (
-            <div key={item.id} className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-[14px] py-3 mb-2">
+          {grouped[date].map((item, itemIndex) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.28, ease: "easeOut", delay: itemIndex * 0.05 }}
+              className="relative bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden mb-2"
+              style={{ padding: '12px 14px 12px 18px' }}
+            >
+              {item.category && (
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-1"
+                  style={{ background: `linear-gradient(to bottom, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).to})` }}
+                />
+              )}
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -228,18 +261,28 @@ export default function ItineraryTab({ tripId }: Props) {
                   {item.location && (
                     <div className="text-zinc-500 text-xs mb-0.5 flex items-center gap-1">
                       <LocationIcon size={10} />
-                      <a
-                        href={
+                      <Tooltip
+                        title={
                           item.location.startsWith("http")
-                            ? item.location
-                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`
+                            ? "在 Google Maps 開啟"
+                            : `在 Google Maps 搜尋「${item.location}」`
                         }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="location-link"
+                        placement="topLeft"
+                        mouseEnterDelay={0.4}
                       >
-                        {item.location.startsWith("http") ? "查看地圖" : item.location}
-                      </a>
+                        <a
+                          href={
+                            item.location.startsWith("http")
+                              ? item.location
+                              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="location-link"
+                        >
+                          {item.location.startsWith("http") ? "查看地圖" : item.location}
+                        </a>
+                      </Tooltip>
                     </div>
                   )}
                   {item.notes && (
@@ -271,7 +314,7 @@ export default function ItineraryTab({ tripId }: Props) {
                   </button>
                 </Dropdown>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       ),
@@ -300,11 +343,20 @@ export default function ItineraryTab({ tripId }: Props) {
           ))}
         </div>
       ) : dates.length === 0 ? (
-        <div className="flex flex-col items-center gap-2.5 py-10 pb-8 bg-[#111113] border border-dashed border-[#27272a] rounded-xl">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/[0.07] flex items-center justify-center">
-            <CalendarIcon size={22} stroke="#3f3f46" strokeWidth={1.5} />
+        <div
+          className="flex flex-col items-center gap-3 py-12 pb-10 rounded-2xl border border-white/[0.06]"
+          style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(139,92,246,0.06) 0%, transparent 65%), rgba(9,9,11,0.6)' }}
+        >
+          <div
+            className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center"
+            style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.18)' }}
+          >
+            <CalendarIcon size={26} stroke="#a78bfa" strokeWidth={1.5} />
           </div>
-          <Typography.Text className="text-zinc-600 text-sm">還沒有行程安排</Typography.Text>
+          <div className="flex flex-col items-center gap-1">
+            <Typography.Text className="text-zinc-300 text-sm font-medium">還沒有行程安排</Typography.Text>
+            <Typography.Text className="text-zinc-600 text-xs">把每一天規劃好，旅程會更從容。</Typography.Text>
+          </div>
           <button
             onClick={openAdd}
             className="mt-1 inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
@@ -323,7 +375,6 @@ export default function ItineraryTab({ tripId }: Props) {
         onCancel={closeModal}
         footer={null}
         width={520}
-        styles={{ wrapper: { paddingBottom: 32 } }}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4">
           <Form.Item

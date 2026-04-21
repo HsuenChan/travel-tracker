@@ -172,7 +172,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
   // Batch confirm view
   if (parsedSegments && parsedSegments.length > 1) {
     return (
-      <Modal title="匯入多段航程" open onCancel={onClose} footer={null} width={520} styles={{ wrapper: { marginBottom: 32 } }}>
+      <Modal title="匯入多段航程" open onCancel={onClose} footer={null} width={520}>
         {importButton}
         <Typography.Text type="secondary" className="block mb-3">
           偵測到 {parsedSegments.length} 段航班，確認後一次新增：
@@ -220,7 +220,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
   }
 
   return (
-    <Modal title="新增交通段落" open onCancel={onClose} footer={null} width={540} styles={{ wrapper: { marginBottom: 32 } }}>
+    <Modal title="新增交通段落" open onCancel={onClose} footer={null} width={540}>
       {importButton}
       <Form
         form={form}
@@ -307,10 +307,10 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
         )}
 
         <Form.Item className="!mb-0 !mt-6">
-          <Button 
-            type="primary" 
-            htmlType="submit" 
-            block 
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
             loading={saving}
             className="!rounded-full !h-12 !text-base !font-bold bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none shadow-[0_8px_25px_rgba(139,92,246,0.3)] hover:scale-[1.02] transition-all"
           >

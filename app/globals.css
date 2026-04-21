@@ -34,7 +34,7 @@ body {
 
 /* Extra breathing room at the bottom of modals */
 .ant-modal-wrap {
-  padding-bottom: 60px !important;
+  margin-bottom: 60px !important;
 }
 
 .ant-modal-content {

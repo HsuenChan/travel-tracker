@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
@@ -16,7 +17,7 @@ import {
 import AddTripModal from "./components/AddTripModal";
 import { getCountryFlags } from "@/lib/countries";
 import {
-  PlaneIcon, PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
+  PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
   MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon,
 } from "@/app/components/Icons";
 
@@ -45,6 +46,159 @@ interface Segment {
   type: string;
 }
 
+function getDestinationAccent(countries: string): { from: string; to: string } {
+  const c = (countries ?? "").toLowerCase();
+  if (/日本|japan/.test(c)) return { from: '#f472b6', to: '#e11d48' };
+  if (/韓國|korea/.test(c)) return { from: '#c084fc', to: '#7c3aed' };
+  if (/泰國|thai/.test(c)) return { from: '#facc15', to: '#ca8a04' };
+  if (/印尼|峇里|bali|indonesia/.test(c)) return { from: '#34d399', to: '#0d9488' };
+  if (/越南|vietnam/.test(c)) return { from: '#4ade80', to: '#15803d' };
+  if (/台灣|taiwan/.test(c)) return { from: '#f97316', to: '#dc2626' };
+  if (/法國|france|paris/.test(c)) return { from: '#818cf8', to: '#4f46e5' };
+  if (/義大利|italy/.test(c)) return { from: '#60a5fa', to: '#4338ca' };
+  if (/西班牙|spain/.test(c)) return { from: '#fb923c', to: '#dc2626' };
+  if (/英國|uk|england/.test(c)) return { from: '#60a5fa', to: '#1d4ed8' };
+  if (/美國|usa|america/.test(c)) return { from: '#60a5fa', to: '#dc2626' };
+  if (/澳洲|australia/.test(c)) return { from: '#fb923c', to: '#ca8a04' };
+  return { from: '#6366f1', to: '#14b8a6' };
+}
+
+function useCountUp(target: number, active: boolean): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!active) { setCount(0); return; }
+    if (target === 0) { setCount(0); return; }
+    const startTime = performance.now();
+    const duration = 800;
+    function update(now: number) {
+      const progress = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(eased * target));
+      if (progress < 1) requestAnimationFrame(update);
+      else setCount(target);
+    }
+    const raf = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(raf);
+  }, [target, active]);
+  return count;
+}
+
+function TripCard({
+  trip, selected, isNew, index, isMobile, onClick, onDoubleClick, onTouchStart, onTouchEnd, onTouchMove,
+}: {
+  trip: Trip; selected: boolean; isNew: boolean; index: number; isMobile: boolean;
+  onClick: () => void; onDoubleClick?: () => void;
+  onTouchStart: () => void; onTouchEnd: () => void; onTouchMove: () => void;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [glowPos, setGlowPos] = useState({ x: 50, y: 50 });
+  const accent = getDestinationAccent(trip.countries ?? "");
+  const flags = getCountryFlags(trip.countries ?? "");
+
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const card = cardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    setTilt({ x: (y - 0.5) * -7, y: (x - 0.5) * 7 });
+    setGlowPos({ x: x * 100, y: y * 100 });
+  }
+
+  function handleMouseLeave() {
+    setTilt({ x: 0, y: 0 });
+    setGlowPos({ x: 50, y: 50 });
+  }
+
+  const isHovering = tilt.x !== 0 || tilt.y !== 0;
+
+  return (
+    <motion.div
+      key={trip.id}
+      initial={isNew ? { opacity: 0, scale: 0.85, y: 24 } : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: -6, transition: { duration: 0.18 } }}
+      transition={isNew
+        ? { type: "spring", stiffness: 280, damping: 18 }
+        : { delay: index * 0.04, duration: 0.25, ease: "easeOut" }
+      }
+      className="cursor-pointer py-1.5 px-3"
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchMove={onTouchMove}
+    >
+      <div
+        ref={cardRef}
+        onMouseMove={isMobile ? undefined : handleMouseMove}
+        onMouseLeave={isMobile ? undefined : handleMouseLeave}
+        className={`relative rounded-[24px] py-4 pr-4 overflow-hidden border backdrop-blur-sm ${
+          selected
+            ? "bg-violet-500/10 border-[#8b5cf6]/40 pl-5 shadow-[0_0_24px_rgba(139,92,246,0.12),inset_0_0_0_1px_rgba(139,92,246,0.12)]"
+            : "bg-white/[0.04] border-white/[0.07] pl-4 hover:bg-white/[0.07] hover:border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+        }`}
+        style={{
+          transform: `perspective(800px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)${selected ? " scale(1.01)" : ""}`,
+          transition: isHovering ? "transform 0.1s ease" : "transform 0.5s ease, background-color 0.3s, border-color 0.3s",
+          willChange: "transform",
+        }}
+      >
+        {/* Mouse-tracking glow */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at ${glowPos.x}% ${glowPos.y}%, ${accent.from}1a 0%, transparent 65%)`,
+            opacity: isHovering ? 1 : 0,
+            transition: "opacity 0.3s ease",
+          }}
+        />
+        {/* Accent bar */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1.5 transition-all duration-300"
+          style={{
+            background: `linear-gradient(to bottom, ${accent.from}, ${accent.to})`,
+            opacity: selected ? 1 : 0,
+            boxShadow: selected ? `0 0 10px ${accent.from}` : "none",
+          }}
+        />
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1 min-w-0">
+            {(flags || trip.start_date) && (
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xl tracking-widest filter drop-shadow-sm">{flags}</div>
+                {trip.start_date && (
+                  <Tag className="!rounded-full border-none bg-zinc-800 text-zinc-500 text-[10px] px-2" color="default">
+                    {trip.start_date.substring(0, 4)}
+                  </Tag>
+                )}
+              </div>
+            )}
+            <Typography.Text strong className={`block text-[14px] leading-tight ${selected ? "text-white" : "text-zinc-200"}`}>
+              {trip.name}
+            </Typography.Text>
+          </div>
+        </div>
+        <div className="space-y-1">
+          {(trip.start_date || trip.end_date) && (
+            <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
+              <CalendarIcon size={12} className="opacity-60 shrink-0" />
+              <span>{trip.start_date}{trip.end_date && ` → ${trip.end_date}`}</span>
+            </div>
+          )}
+          {trip.countries && (
+            <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
+              <LocationIcon size={12} className="opacity-60 shrink-0" />
+              <span className="truncate">{trip.countries}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -59,6 +213,8 @@ export default function Home() {
   const [sortKey, setSortKey] = useState<"added" | "date">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [newTripId, setNewTripId] = useState<string | null>(null);
+  const prevTripIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -109,6 +265,33 @@ export default function Home() {
     }
   }
 
+  // Detect newly added trip for spring animation
+  useEffect(() => {
+    const prevIds = prevTripIdsRef.current;
+    if (prevIds.size > 0) {
+      const found = trips.find(t => !prevIds.has(t.id));
+      if (found) {
+        setNewTripId(found.id);
+        const timer = setTimeout(() => setNewTripId(null), 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+    prevTripIdsRef.current = new Set(trips.map(t => t.id));
+  }, [trips]);
+
+  const uniqueCountries = Array.from(
+    new Set(
+      trips.flatMap((t) =>
+        t.countries ? t.countries.split(/[,，、]/).map((c) => c.trim()).filter(Boolean) : []
+      )
+    )
+  ).length;
+
+  const statsActive = isMobile ? drawerOpen : !loading;
+  const tripsCount = useCountUp(trips.length, statsActive);
+  const countriesCount = useCountUp(uniqueCountries, statsActive);
+  const segmentsCount = useCountUp(segments.length, statsActive);
+
   if (authenticated === null) {
     return (
       <div className="min-h-[100dvh] bg-[#09090b] flex items-center justify-center">
@@ -133,8 +316,8 @@ export default function Home() {
 
         {/* Glassmorphism login card */}
         <div className="relative z-10 bg-[#09090b]/55 border border-white/10 rounded-3xl py-12 px-[52px] flex flex-col items-center gap-4 max-w-[380px] w-[88%] shadow-[0_24px_64px_rgba(0,0,0,0.5)]">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 border border-violet-500/30 flex items-center justify-center shadow-[0_0_32px_rgba(139,92,246,0.2)] mb-1">
-            <PlaneIcon size={26} stroke="#c4b5fd" strokeWidth={1.8} />
+          <div className="w-14 h-14 flex items-center justify-center mb-1">
+            <img src="/icon.svg" alt="" className="w-14 h-14 drop-shadow-[0_0_20px_rgba(139,92,246,0.4)]" />
           </div>
           <Typography.Title level={2} className="!text-white !m-0 !tracking-[-0.5px]">
             Travel Tracker
@@ -155,14 +338,6 @@ export default function Home() {
       </div>
     );
   }
-
-  const uniqueCountries = Array.from(
-    new Set(
-      trips.flatMap((t) =>
-        t.countries ? t.countries.split(/[,，、]/).map((c) => c.trim()).filter(Boolean) : []
-      )
-    )
-  ).length;
 
   const tripListContent = loading ? (
     <div className="pt-3 px-3">
@@ -188,9 +363,9 @@ export default function Home() {
       <div className="pt-4 px-4 pb-3 border-b border-[#27272a]">
         <div className="flex gap-2 mb-3">
           {[
-            { value: trips.length, label: "旅程" },
-            { value: uniqueCountries, label: "國家" },
-            { value: segments.length, label: "段落" },
+            { value: tripsCount, label: "旅程" },
+            { value: countriesCount, label: "國家" },
+            { value: segmentsCount, label: "段落" },
           ].map(({ value, label }) => (
             <div key={label} className="flex-1 bg-white/[0.04] rounded-[14px] py-2.5 text-center border border-white/[0.07]">
               <div className="text-zinc-100 text-xl font-bold leading-none">{value}</div>
@@ -214,7 +389,7 @@ export default function Home() {
                   else { setSortKey(key); setSortDir("desc"); }
                 }}
                 className={`flex-1 py-[6px] text-[11px] rounded-full cursor-pointer transition-all duration-200 font-bold border ${active
-                  ? "bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none text-white shadow-[0_4px_12px_rgba(139,92,246,0.3)]"
+                  ? "bg-linear-to-r from-[#6366f1] via-[#8b5cf6] to-[#14b8a6] border-none text-white shadow-[0_4px_12px_rgba(99,102,241,0.35)]"
                   : "bg-white/5 border-white/5 text-zinc-500 hover:bg-white/10 hover:text-zinc-400"
                   }`}
               >
@@ -225,20 +400,23 @@ export default function Home() {
         </div>
       </div>
       <div>
-        {[...trips].sort((a, b) => {
-          let cmp = 0;
-          if (sortKey === "added") {
-            cmp = (a.created_at || "").localeCompare(b.created_at || "");
-          } else {
-            cmp = (a.start_date || "").localeCompare(b.start_date || "");
-          }
-          return sortDir === "asc" ? cmp : -cmp;
-        }).map((trip) => {
-          const flags = getCountryFlags(trip.countries ?? "");
-          const selected = selectedTripId === trip.id;
-          return (
-            <div
+        <AnimatePresence>
+          {[...trips].sort((a, b) => {
+            let cmp = 0;
+            if (sortKey === "added") {
+              cmp = (a.created_at || "").localeCompare(b.created_at || "");
+            } else {
+              cmp = (a.start_date || "").localeCompare(b.start_date || "");
+            }
+            return sortDir === "asc" ? cmp : -cmp;
+          }).map((trip, index) => (
+            <TripCard
               key={trip.id}
+              trip={trip}
+              selected={selectedTripId === trip.id}
+              isNew={trip.id === newTripId}
+              index={index}
+              isMobile={isMobile}
               onClick={() => {
                 setSelectedTripId((prev) => prev === trip.id ? null : trip.id);
                 if (isMobile) setDrawerOpen(false);
@@ -261,49 +439,9 @@ export default function Home() {
                   longPressTimer.current = null;
                 }
               }}
-              className="cursor-pointer py-1.5 px-3"
-            >
-              <div className={`relative rounded-[24px] py-4 pr-4 transition-all duration-300 ease-in-out overflow-hidden border backdrop-blur-sm ${selected ? "bg-violet-500/10 border-[#8b5cf6]/40 pl-5 shadow-[0_0_24px_rgba(139,92,246,0.12),inset_0_0_0_1px_rgba(139,92,246,0.12)] scale-[1.01]" : "bg-white/[0.04] border-white/[0.07] pl-4 hover:bg-white/[0.07] hover:border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"}`}>
-                {/* 選中時的紫色光條 */}
-                {selected && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#8b5cf6] shadow-[0_0_10px_#8b5cf6]" />
-                )}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0">
-                    {(flags || trip.start_date) && (
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="text-xl tracking-widest filter drop-shadow-sm">{flags}</div>
-                        {trip.start_date && (
-                          <Tag className="!rounded-full border-none bg-zinc-800 text-zinc-500 text-[10px] px-2" color="default">
-                            {trip.start_date.substring(0, 4)}
-                          </Tag>
-                        )}
-                      </div>
-                    )}
-                    <Typography.Text strong className={`block text-[14px] leading-tight ${selected ? "text-white" : "text-zinc-200"}`}>
-                      {trip.name}
-                    </Typography.Text>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  {(trip.start_date || trip.end_date) && (
-                    <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
-                      <CalendarIcon size={12} className="opacity-60 shrink-0" />
-                      <span>{trip.start_date}{trip.end_date && ` → ${trip.end_date}`}</span>
-                    </div>
-                  )}
-                  {trip.countries && (
-                    <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
-                      <LocationIcon size={12} className="opacity-60 shrink-0" />
-                      <span className="truncate">{trip.countries}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+            />
+          ))}
+        </AnimatePresence>
       </div>
     </>
   );
@@ -326,13 +464,13 @@ export default function Home() {
         {/* Header - Glassmorphism */}
         <Layout.Header
           style={{ background: 'transparent' }}
-          className="flex items-center justify-between backdrop-blur-md px-3 md:px-6 h-14 border-none shadow-none shrink-0 pointer-events-auto"
+          className="flex items-center justify-between backdrop-blur-md !px-3 md:px-6 h-14 border-none shadow-none shrink-0 pointer-events-auto"
         >
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-[8px] bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-[0_2px_10px_rgba(139,92,246,0.4)] shrink-0">
-              <PlaneIcon size={14} stroke="#fff" strokeWidth={2.2} />
+            <div className="w-7 h-7 shrink-0 drop-shadow-[0_2px_8px_rgba(139,92,246,0.5)]">
+              <img src="/icon.svg" alt="" className="w-full h-full" />
             </div>
-            <Typography.Text strong className="text-white text-[16px] md:text-lg font-black tracking-tight">
+            <Typography.Text className="font-extrabold text-[16px] md:text-lg tracking-wider" style={{ fontFamily: 'var(--font-comfortaa)', background: 'linear-gradient(90deg, #818cf8, #a78bfa, #2dd4bf)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               Travel Tracker
             </Typography.Text>
           </div>
@@ -341,7 +479,7 @@ export default function Home() {
               onClick={() => setShowAllTracks((v) => !v)}
               className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold transition-all duration-200 ${isMobile ? "w-8 h-8 justify-center" : "px-3 h-8"
                 } ${showAllTracks
-                  ? "bg-gradient-to-r from-[#8b5cf6] to-[#d946ef] text-white shadow-[0_4px_20px_rgba(139,92,246,0.35)]"
+                  ? "bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#14b8a6] text-white shadow-[0_4px_20px_rgba(99,102,241,0.4)]"
                   : "bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
                 }`}
             >
@@ -350,7 +488,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => setShowModal(true)}
-              className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold bg-gradient-to-r from-[#8b5cf6] to-[#d946ef] text-white shadow-[0_4px_20px_rgba(139,92,246,0.35)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(139,92,246,0.5)] hover:-translate-y-px ${isMobile ? "w-8 h-8 justify-center" : "px-3 h-8"
+              className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#14b8a6] text-white shadow-[0_4px_20px_rgba(99,102,241,0.4)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(99,102,241,0.55)] hover:-translate-y-px ${isMobile ? "w-8 h-8 justify-center" : "px-3 h-8"
                 }`}
             >
               <PlusIcon size={13} />
@@ -408,7 +546,7 @@ export default function Home() {
             header: { background: "transparent", borderBottom: "1px solid rgba(255,255,255,0.05)" },
             body: { background: "transparent", padding: 0, overflowY: "auto" },
             mask: { backdropFilter: "blur(4px)" },
-            content: { borderRadius: '24px 24px 0 0' }
+            section: { borderRadius: '24px 24px 0 0' }
           }}
           closeIcon={<CloseIcon size={14} stroke="#a1a1aa" />}
         >
