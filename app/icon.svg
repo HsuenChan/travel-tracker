@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <clipPath id="gc">
+      <circle cx="16" cy="18" r="13"/>
+    </clipPath>
+  </defs>
+
+  <!-- Globe interior -->
+  <circle cx="16" cy="18" r="13" fill="#130627"/>
+
+  <!-- Grid lines clipped to globe -->
+  <g clip-path="url(#gc)" stroke="#6d28d9" stroke-width="1" fill="none" opacity="0.85">
+    <ellipse cx="16" cy="18" rx="13" ry="4.5"/>
+    <ellipse cx="16" cy="11.5" rx="11.3" ry="3.9"/>
+    <ellipse cx="16" cy="24.5" rx="11.3" ry="3.9"/>
+    <ellipse cx="16" cy="18" rx="4.5" ry="13"/>
+    <ellipse cx="16" cy="18" rx="4.5" ry="13" transform="rotate(55 16 18)"/>
+  </g>
+
+  <!-- Globe outline -->
+  <circle cx="16" cy="18" r="13" stroke="#8b5cf6" stroke-width="1.6"/>
+
+  <!-- Flight arc -->
+  <path d="M 6 10 Q 16 -0.5 26 10" stroke="#c4b5fd" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+
+  <!-- Departure dot -->
+  <circle cx="6" cy="10" r="1.8" fill="#c4b5fd"/>
+  <!-- Arrival dot -->
+  <circle cx="26" cy="10" r="1.8" fill="#c4b5fd"/>
+
+  <!-- Specular highlight -->
+  <ellipse cx="11.5" cy="10" rx="3.5" ry="2" fill="white" opacity="0.08" transform="rotate(-25 11.5 10)"/>
+</svg>

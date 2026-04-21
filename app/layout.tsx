@@ -14,9 +14,32 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const BASE_URL = "https://travel-tracker-nine-delta.vercel.app";
+
 export const metadata: Metadata = {
   title: "Travel Tracker",
   description: "記錄你走過的每一段旅程",
+  openGraph: {
+    title: "Travel Tracker",
+    description: "記錄你走過的每一段旅程",
+    url: BASE_URL,
+    siteName: "Travel Tracker",
+    images: [
+      {
+        url: `${BASE_URL}/icon.svg`,
+        width: 32,
+        height: 32,
+        alt: "Travel Tracker",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Travel Tracker",
+    description: "記錄你走過的每一段旅程",
+    images: [`${BASE_URL}/icon.svg`],
+  },
 };
 
 export const viewport = {
