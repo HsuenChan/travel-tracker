@@ -39,9 +39,29 @@ interface ItineraryItem {
   notes: string | null;
 }
 
+interface WeatherDay {
+  code: number;
+  maxTemp: number;
+  minTemp: number;
+}
+
+function wmoEmoji(code: number): string {
+  if (code === 0) return "☀️";
+  if (code <= 2) return "🌤️";
+  if (code === 3) return "☁️";
+  if (code <= 48) return "🌫️";
+  if (code <= 55) return "🌦️";
+  if (code <= 67) return "🌧️";
+  if (code <= 77) return "🌨️";
+  if (code <= 82) return "🌦️";
+  if (code <= 86) return "🌨️";
+  return "⛈️";
+}
+
 interface Props {
   tripId: string;
   isActive?: boolean;
+  destination?: string;
 }
 
 const CATEGORIES = [
@@ -66,13 +86,14 @@ const CATEGORY_ACCENT: Record<string, { from: string; to: string }> = {
   other: { from: '#a1a1aa', to: '#71717a' },   // zinc   — badge #a1a1aa
 };
 
-export default function ItineraryTab({ tripId, isActive }: Props) {
+export default function ItineraryTab({ tripId, isActive, destination }: Props) {
   const [items, setItems] = useState<ItineraryItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [weatherMap, setWeatherMap] = useState<Record<string, WeatherDay>>({});
 
   async function fetchItems() {
     const cacheKey = `travel_itinerary_${tripId}`;
@@ -95,6 +116,25 @@ export default function ItineraryTab({ tripId, isActive }: Props) {
   useEffect(() => {
     fetchItems();
   }, [tripId]);
+
+  useEffect(() => {
+    if (!destination || items.length === 0) return;
+    const city = destination.split(/[,，、]/)[0].trim();
+    const allDates = items.map((item) => item.date).sort();
+    const startDate = allDates[0];
+    const endDate = allDates[allDates.length - 1];
+    fetch(`/api/weather?city=${encodeURIComponent(city)}&startDate=${startDate}&endDate=${endDate}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.weather) return;
+        const map: Record<string, WeatherDay> = {};
+        data.weather.forEach((w: WeatherDay & { date: string }) => {
+          map[w.date] = { code: w.code, maxTemp: w.maxTemp, minTemp: w.minTemp };
+        });
+        setWeatherMap(map);
+      })
+      .catch(() => {});
+  }, [destination, items]);
 
   useEffect(() => {
     if (!isActive || loading) return;
@@ -211,7 +251,7 @@ export default function ItineraryTab({ tripId, isActive }: Props) {
       color: dotColor,
       content: (
         <div id={`itinerary-date-${date}`} className="mb-5 scroll-mt-4">
-          <div className="flex items-center gap-2 mb-2.5">
+          <div className="flex items-center gap-2 mb-2.5 flex-wrap">
             <Typography.Text
               className={`text-[13px] font-semibold ${isToday ? "text-violet-400" : isPast ? "text-zinc-600" : "text-zinc-400"
                 }`}
@@ -221,6 +261,18 @@ export default function ItineraryTab({ tripId, isActive }: Props) {
             {isToday && (
               <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/25">
                 今日
+              </span>
+            )}
+            {weatherMap[date] && (
+              <span
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: isPast ? "#52525b" : "#a1a1aa",
+                }}
+              >
+                {wmoEmoji(weatherMap[date].code)} {weatherMap[date].maxTemp}° / {weatherMap[date].minTemp}°
               </span>
             )}
           </div>

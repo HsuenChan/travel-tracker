@@ -556,6 +556,7 @@ export default function TripPage() {
               ]}
             />
           )}
+          <div style={{ overflowX: 'hidden' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -575,12 +576,13 @@ export default function TripPage() {
                   </div>
                 </>
               )}
-              {activeTab === "itinerary" && <ItineraryTab tripId={id} isActive />}
+              {activeTab === "itinerary" && <ItineraryTab tripId={id} isActive destination={trip.countries} />}
               {activeTab === "notes" && <NotesTab tripId={id} />}
               {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} />}
               {activeTab === "photos" && trip.photo_album_id && <PhotoWall albumUrl={trip.photo_album_id} />}
             </motion.div>
           </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -593,6 +595,8 @@ export default function TripPage() {
             WebkitBackdropFilter: 'blur(24px)',
             borderTop: '1px solid rgba(255,255,255,0.07)',
             paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+            willChange: 'transform',
+            transform: 'translateZ(0)',
           }}
         >
           <div className="flex justify-around items-center pt-2 px-1">
@@ -611,7 +615,7 @@ export default function TripPage() {
                     setTabDirection(order.indexOf(value) > order.indexOf(activeTab) ? 1 : -1);
                     setActiveTab(value);
                     if (value !== 'itinerary') {
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      window.scrollTo({ top: 0, behavior: 'instant' });
                     }
                   }}
                   className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-pointer"

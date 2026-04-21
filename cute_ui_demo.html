@@ -406,6 +406,200 @@
         </div>
       </div>
 
+      <!-- ⑥ 行程天氣 UI 方案 -->
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-zinc-200 text-sm font-bold mb-1">⑥ 行程天氣 — 三種呈現方式</h2>
+          <p class="text-zinc-600 text-xs leading-relaxed">使用 Open-Meteo 免費 API，依日期顯示目的地當日天氣。以下三種 UI 方案供比較。</p>
+        </div>
+
+        <!-- Variant A: inline pill -->
+        <div class="text-zinc-700 text-[10px] uppercase tracking-widest">方案 A — 內嵌小膠囊（最輕）</div>
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.07] space-y-5">
+
+          <!-- date group 1 -->
+          <div>
+            <div class="flex items-center gap-2 mb-2.5 flex-wrap">
+              <span class="text-[13px] font-semibold text-violet-400">2025-10-28 <span class="opacity-50 text-xs">(週二)</span></span>
+              <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/25">今日</span>
+              <!-- Weather pill -->
+              <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:#a1a1aa">
+                ⛅ 22° / 15°
+              </span>
+            </div>
+            <div class="relative rounded-[16px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+              <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #60a5fa, #3b82f6)"></div>
+              <div class="pl-4 pr-3 py-3">
+                <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">08:30</span><span class="text-zinc-100 text-sm font-medium">成田機場 → 新宿</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- date group 2 -->
+          <div>
+            <div class="flex items-center gap-2 mb-2.5 flex-wrap">
+              <span class="text-[13px] font-semibold text-zinc-400">2025-10-29 <span class="opacity-50 text-xs">(週三)</span></span>
+              <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:#a1a1aa">
+                🌧️ 18° / 12°
+              </span>
+            </div>
+            <div class="relative rounded-[16px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+              <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #a78bfa, #7c3aed)"></div>
+              <div class="pl-4 pr-3 py-3">
+                <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">10:00</span><span class="text-zinc-100 text-sm font-medium">淺草寺參觀</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- date group 3 -->
+          <div>
+            <div class="flex items-center gap-2 mb-2.5 flex-wrap">
+              <span class="text-[13px] font-semibold text-zinc-600">2025-10-30 <span class="opacity-50 text-xs">(週四)</span></span>
+              <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); color:#52525b">
+                ☀️ 24° / 16°
+              </span>
+            </div>
+            <div class="relative rounded-[16px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+              <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #fbbf24, #d97706)"></div>
+              <div class="pl-4 pr-3 py-3">
+                <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">12:00</span><span class="text-zinc-100 text-sm font-medium">築地市場午餐</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Variant B: right-aligned floating -->
+        <div class="text-zinc-700 text-[10px] uppercase tracking-widest mt-8">方案 B — 右側對齊（日期列兩端對齊）</div>
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.07] space-y-5">
+
+          <div>
+            <div class="flex items-center justify-between mb-2.5">
+              <div class="flex items-center gap-2">
+                <span class="text-[13px] font-semibold text-violet-400">2025-10-28 <span class="opacity-50 text-xs">(週二)</span></span>
+                <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/25">今日</span>
+              </div>
+              <!-- Weather right-aligned -->
+              <div class="flex items-center gap-1">
+                <span class="text-base leading-none">⛅</span>
+                <div class="flex flex-col items-end leading-tight">
+                  <span class="text-[11px] font-semibold text-zinc-300">22°</span>
+                  <span class="text-[10px] text-zinc-600">15°</span>
+                </div>
+              </div>
+            </div>
+            <div class="relative rounded-[16px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+              <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #60a5fa, #3b82f6)"></div>
+              <div class="pl-4 pr-3 py-3">
+                <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">08:30</span><span class="text-zinc-100 text-sm font-medium">成田機場 → 新宿</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2.5">
+              <span class="text-[13px] font-semibold text-zinc-400">2025-10-29 <span class="opacity-50 text-xs">(週三)</span></span>
+              <div class="flex items-center gap-1">
+                <span class="text-base leading-none">🌧️</span>
+                <div class="flex flex-col items-end leading-tight">
+                  <span class="text-[11px] font-semibold text-zinc-300">18°</span>
+                  <span class="text-[10px] text-zinc-600">12°</span>
+                </div>
+              </div>
+            </div>
+            <div class="relative rounded-[16px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+              <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #a78bfa, #7c3aed)"></div>
+              <div class="pl-4 pr-3 py-3">
+                <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">10:00</span><span class="text-zinc-100 text-sm font-medium">淺草寺參觀</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2.5">
+              <span class="text-[13px] font-semibold text-zinc-600">2025-10-30 <span class="opacity-50 text-xs">(週四)</span></span>
+              <div class="flex items-center gap-1">
+                <span class="text-base leading-none">☀️</span>
+                <div class="flex flex-col items-end leading-tight">
+                  <span class="text-[11px] font-semibold text-zinc-500">24°</span>
+                  <span class="text-[10px] text-zinc-700">16°</span>
+                </div>
+              </div>
+            </div>
+            <div class="relative rounded-[16px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+              <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #fbbf24, #d97706)"></div>
+              <div class="pl-4 pr-3 py-3">
+                <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">12:00</span><span class="text-zinc-100 text-sm font-medium">築地市場午餐</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Variant C: weather bar below date -->
+        <div class="text-zinc-700 text-[10px] uppercase tracking-widest mt-8">方案 C — 天氣列（日期下方獨立一排）</div>
+        <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.07] space-y-5">
+
+          <div>
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="text-[13px] font-semibold text-violet-400">2025-10-28 <span class="opacity-50 text-xs">(週二)</span></span>
+              <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/25">今日</span>
+            </div>
+            <!-- Weather bar -->
+            <div class="flex items-center gap-2 mb-2.5 pl-0.5">
+              <span class="text-sm">⛅</span>
+              <span class="text-zinc-500 text-[11px]">多雲時晴</span>
+              <span class="text-zinc-400 text-[11px] font-medium">22°</span>
+              <span class="text-zinc-700 text-[10px]">/</span>
+              <span class="text-zinc-600 text-[11px]">15°</span>
+            </div>
+            <div class="relative rounded-[16px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+              <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #60a5fa, #3b82f6)"></div>
+              <div class="pl-4 pr-3 py-3">
+                <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">08:30</span><span class="text-zinc-100 text-sm font-medium">成田機場 → 新宿</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="text-[13px] font-semibold text-zinc-400">2025-10-29 <span class="opacity-50 text-xs">(週三)</span></span>
+            </div>
+            <div class="flex items-center gap-2 mb-2.5 pl-0.5">
+              <span class="text-sm">🌧️</span>
+              <span class="text-zinc-500 text-[11px]">降雨</span>
+              <span class="text-zinc-400 text-[11px] font-medium">18°</span>
+              <span class="text-zinc-700 text-[10px]">/</span>
+              <span class="text-zinc-600 text-[11px]">12°</span>
+            </div>
+            <div class="relative rounded-[16px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+              <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #a78bfa, #7c3aed)"></div>
+              <div class="pl-4 pr-3 py-3">
+                <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">10:00</span><span class="text-zinc-100 text-sm font-medium">淺草寺參觀</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="text-[13px] font-semibold text-zinc-600">2025-10-30 <span class="opacity-50 text-xs">(週四)</span></span>
+            </div>
+            <div class="flex items-center gap-2 mb-2.5 pl-0.5">
+              <span class="text-sm">☀️</span>
+              <span class="text-zinc-600 text-[11px]">晴天</span>
+              <span class="text-zinc-500 text-[11px] font-medium">24°</span>
+              <span class="text-zinc-700 text-[10px]">/</span>
+              <span class="text-zinc-700 text-[11px]">16°</span>
+            </div>
+            <div class="relative rounded-[16px] bg-white/[0.03] border border-white/[0.07] overflow-hidden">
+              <div class="absolute left-0 inset-y-0 w-[3px]" style="background: linear-gradient(to bottom, #fbbf24, #d97706)"></div>
+              <div class="pl-4 pr-3 py-3">
+                <div class="flex items-center gap-2"><span class="text-zinc-500 text-xs">12:00</span><span class="text-zinc-100 text-sm font-medium">築地市場午餐</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
     </div>
 
 </body>
