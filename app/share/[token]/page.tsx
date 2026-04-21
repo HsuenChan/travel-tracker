@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Layout, Typography, Tag, Timeline, Spin, Tabs } from "antd";
-import { toTransportKey, VEHICLE_ICON } from "@/lib/transport";
+import VehicleIconChip from "@/app/components/VehicleIconChip";
+import { PlaneIcon, PhotoIcon } from "@/app/components/Icons";
 import { getCountryFlags } from "@/lib/countries";
 import PhotoWall from "@/app/components/PhotoWall";
 
@@ -73,9 +74,9 @@ export default function SharePage() {
   const duration =
     trip.start_date && trip.end_date
       ? Math.round(
-          (new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()) /
-            (1000 * 60 * 60 * 24),
-        )
+        (new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()) /
+        (1000 * 60 * 60 * 24),
+      )
       : null;
 
   const countries = trip.countries
@@ -88,9 +89,9 @@ export default function SharePage() {
     key: seg.id,
     color: "blue",
     content: (
-      <div className="bg-[#1c1c1e] border border-[#2c2c2e] rounded-xl px-4 py-[14px] mb-1">
+      <div className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-4 py-[14px] mb-1">
         <div className="flex items-center gap-2.5 mb-2">
-          <span className="text-[22px] shrink-0 leading-none">{VEHICLE_ICON[toTransportKey(seg.type)]}</span>
+          <VehicleIconChip type={seg.type} />
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex flex-col items-start">
               <Typography.Text strong className="text-zinc-100 text-[15px] leading-[1.3]">{seg.from_city}</Typography.Text>
@@ -119,9 +120,14 @@ export default function SharePage() {
   return (
     <Layout className="min-h-screen bg-[#09090b]">
       <Layout.Header className="flex items-center justify-between border-b border-[#27272a] px-5 bg-[rgba(9,9,11,0.85)] backdrop-blur-xl sticky top-0 z-[100]">
-        <Typography.Text className="text-zinc-100 text-base font-semibold">
-          ✈️ Travel Tracker
-        </Typography.Text>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-[8px] bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-[0_2px_10px_rgba(139,92,246,0.4)] shrink-0">
+            <PlaneIcon size={14} stroke="#fff" strokeWidth={2.2} />
+          </div>
+          <Typography.Text className="text-zinc-100 text-base font-semibold">
+            Travel Tracker
+          </Typography.Text>
+        </div>
         <Tag color="blue" className="!rounded-full !m-0">共享旅程</Tag>
       </Layout.Header>
 
@@ -157,12 +163,12 @@ export default function SharePage() {
           items={[
             ...(segments.length > 0 ? [{
               key: "transport",
-              label: "✈️ 交通",
+              label: <span className="inline-flex items-center gap-[5px]"><PlaneIcon size={13} />交通</span>,
               children: <Timeline items={timelineItems} />,
             }] : []),
             ...(trip.photo_album_id ? [{
               key: "photos",
-              label: "📷 照片",
+              label: <span className="inline-flex items-center gap-[5px]"><PhotoIcon size={13} />照片</span>,
               children: <PhotoWall albumUrl={trip.photo_album_id} />,
             }] : []),
           ]}

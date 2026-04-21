@@ -1,13 +1,11 @@
 "use client";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal, Form, Input, DatePicker, Button, Row, Col, Select } from "antd";
 import dayjs from "dayjs";
 
-import dynamic from "next/dynamic";
-import "react-quill-new/dist/quill.snow.css";
-
-const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
+import QuillEditor from "@/app/components/QuillEditor";
 
 interface Props {
   onClose: () => void;
@@ -19,58 +17,101 @@ interface CurrencyOption {
   label: string;
 }
 
+interface DestOption {
+  value: string;
+  label: string;
+  lat: number;
+  lng: number;
+}
+
 export default function AddTripModal({ onClose, onSaved }: Props) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const [currencyOptions, setCurrencyOptions] = useState<CurrencyOption[]>([]);
-
-  const quillModules = {
-    toolbar: [
-      [{ header: [1, 2, false] }],
-      ["bold", "italic", "underline", "strike"],
-      [{ list: "ordered" }, { list: "bullet" }],
-      ["clean"],
-    ],
-  };
+  const [destQuery, setDestQuery] = useState("");
+  const [destOptions, setDestOptions] = useState<DestOption[]>([]);
+  const [destSearching, setDestSearching] = useState(false);
+  // Map from destination name → coords, accumulated across searches
+  const destCoordsRef = useRef<Record<string, { lat: number; lng: number }>>({});
 
   useEffect(() => {
-    fetch("https://openexchangerates.org/api/currencies.json")
-      .then((r) => r.json())
-      .then((data: Record<string, string>) => {
-        const options = Object.entries(data).map(([code, name]) => ({
-          value: code,
-          label: `${code} - ${name}`,
-        }));
+    const CURRENCY_API = "https://openexchangerates.org/api/currencies.json";
+    const TRANSLATION_API = "https://raw.githubusercontent.com/unicode-org/cldr-json/main/cldr-json/cldr-numbers-full/main/zh-Hant/currencies.json";
+
+    Promise.all([
+      fetch(CURRENCY_API).then((r) => r.json()),
+      fetch(TRANSLATION_API).then((r) => r.json())
+    ])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(([currencyData, translationData]: [Record<string, string>, any]) => {
+        const zhNames = translationData?.main?.["zh-Hant"]?.numbers?.currencies ?? {};
+        const options = Object.entries(currencyData).map(([code, engName]) => {
+          const chineseName = zhNames[code]?.displayName || engName;
+          return {
+            value: code,
+            label: `${code} - ${chineseName}`,
+          };
+        });
+
+        options.sort((a, b) => a.value.localeCompare(b.value));
+
         setCurrencyOptions(options);
       })
       .catch(() => {
         setCurrencyOptions([
-          { value: "TWD", label: "TWD - New Taiwan Dollar" },
-          { value: "USD", label: "USD - US Dollar" },
-          { value: "EUR", label: "EUR - Euro" },
-          { value: "JPY", label: "JPY - Japanese Yen" },
-          { value: "KRW", label: "KRW - South Korean Won" },
-          { value: "HKD", label: "HKD - Hong Kong Dollar" },
-          { value: "SGD", label: "SGD - Singapore Dollar" },
-          { value: "THB", label: "THB - Thai Baht" },
-          { value: "GBP", label: "GBP - British Pound" },
-          { value: "AUD", label: "AUD - Australian Dollar" },
-          { value: "CNY", label: "CNY - Chinese Yuan" },
-          { value: "MYR", label: "MYR - Malaysian Ringgit" },
+          { value: "TWD", label: "TWD - 新台幣" },
+          { value: "USD", label: "USD - 美元" },
+          { value: "EUR", label: "EUR - 歐元" },
+          { value: "JPY", label: "JPY - 日圓" },
+          { value: "KRW", label: "KRW - 韓元" },
+          { value: "HKD", label: "HKD - 港幣" },
+          { value: "SGD", label: "SGD - 新加坡幣" },
+          { value: "THB", label: "THB - 泰銖" },
+          { value: "GBP", label: "GBP - 英鎊" },
+          { value: "AUD", label: "AUD - 澳幣" },
+          { value: "CNY", label: "CNY - 人民幣" },
+          { value: "MYR", label: "MYR - 馬來西亞林吉特" },
         ]);
       });
   }, []);
 
+  // Debounced destination search
+  useEffect(() => {
+    if (destQuery.length < 2) { setDestOptions([]); return; }
+    const t = setTimeout(async () => {
+      setDestSearching(true);
+      try {
+        const res = await fetch(`/api/search-destinations?q=${encodeURIComponent(destQuery)}`);
+        if (res.ok) {
+          const { results } = await res.json() as { results: DestOption[] };
+          setDestOptions(results);
+          results.forEach((r) => { destCoordsRef.current[r.value] = { lat: r.lat, lng: r.lng }; });
+        }
+      } finally {
+        setDestSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [destQuery]);
+
   async function handleSubmit(values: Record<string, unknown>) {
     setSaving(true);
-    await fetch("/api/sheets", {
+
+    const destNames: string[] = (values.destinations as string[]) ?? [];
+    const destinations = destNames
+      .filter((n) => destCoordsRef.current[n])
+      .map((n) => ({ name: n, ...destCoordsRef.current[n] }));
+    const countries = destNames.join("、");
+
+    await fetchWithAuth("/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: values.name,
         startDate: values.startDate ? (values.startDate as typeof dayjs.prototype).format("YYYY-MM-DD") : "",
         endDate: values.endDate ? (values.endDate as typeof dayjs.prototype).format("YYYY-MM-DD") : "",
-        countries: values.countries ?? "",
+        countries,
+        destinations,
         notes: values.notes ?? "",
         photoAlbumId: values.photoAlbumId ?? "",
         people: values.people ?? [],
@@ -80,6 +121,9 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
     setSaving(false);
     onSaved();
   }
+
+  // Build options for the Select: search results (selected values auto-render as tags)
+  const selectOptions = destOptions.map((o) => ({ value: o.value, label: o.label }));
 
   return (
     <Modal
@@ -114,8 +158,25 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
           </Col>
         </Row>
 
-        <Form.Item name="countries" label="國家 / 地區">
-          <Input placeholder="例如：日本、韓國" />
+        <Form.Item
+          name="destinations"
+          label="目的地"
+          extra="輸入地區名稱搜尋（如「沖繩」、「澎湖」），可選多個地點"
+        >
+          <Select
+            mode="multiple"
+            showSearch
+            filterOption={false}
+            onSearch={setDestQuery}
+            options={selectOptions}
+            loading={destSearching}
+            notFoundContent={
+              destQuery.length < 2
+                ? <span className="text-zinc-500 text-xs">請輸入至少 2 個字搜尋</span>
+                : <span className="text-zinc-500 text-xs">找不到相符地點</span>
+            }
+            placeholder="搜尋地區..."
+          />
         </Form.Item>
 
         <Form.Item name="people" label="分帳成員" extra="輸入名字後按 Enter 加入">
@@ -139,13 +200,8 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
           />
         </Form.Item>
 
-        <Form.Item name="notes" label="備注">
-          <ReactQuill
-             theme="snow"
-             modules={quillModules}
-             placeholder="這趟旅程的心得或備忘..."
-             className="custom-quill"
-           />
+        <Form.Item name="notes" label="備註">
+          <QuillEditor placeholder="這趟旅程的心得或備忘..." />
         </Form.Item>
 
         <Form.Item
@@ -157,10 +213,10 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
         </Form.Item>
 
         <Form.Item className="!mb-0 !mt-6">
-          <Button 
-            type="primary" 
-            htmlType="submit" 
-            block 
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
             loading={saving}
             className="!rounded-full !h-12 !text-base !font-bold bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none shadow-[0_8px_25px_rgba(139,92,246,0.3)] hover:scale-[1.02] transition-all"
           >

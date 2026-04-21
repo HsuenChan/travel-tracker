@@ -8,6 +8,12 @@ import {
   getPlaneFollowAltitude,
 } from "@/lib/transport";
 
+interface Destination {
+  name: string;
+  lat: number;
+  lng: number;
+}
+
 interface Trip {
   id: string;
   name: string;
@@ -16,6 +22,7 @@ interface Trip {
   countries: string;
   notes: string;
   photo_album_id: string;
+  destinations?: Destination[] | null;
 }
 
 interface Segment {
@@ -97,12 +104,79 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
   } | null>(null);
   const [locationMap, setLocationMap] = useState<Map<string, { lat: number; lng: number } | null>>(new Map());
   const [allLocationMap, setAllLocationMap] = useState<Map<string, { lat: number; lng: number } | null>>(new Map());
+  const [dynamicFlagPoints, setDynamicFlagPoints] = useState<{
+    lat: number; lng: number; tripId: string; tripName: string;
+    country: string; color: string; flag: string;
+    isVehicle: false; isHome: false; isLabel: false; deg: number; scale: number; icon: string;
+  }[]>([]);
   const animFrameRef = useRef<number | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     import("react-globe.gl").then((mod) => setGlobeComponent(() => mod.default));
   }, []);
+
+  function countryCodeToFlag(code: string): string {
+    const offset = 0x1f1e6 - 65;
+    return [...code.toUpperCase()].map((c) => String.fromCodePoint(c.charCodeAt(0) + offset)).join("");
+  }
+
+  useEffect(() => {
+    // Only geocode trips that don't already have coordinates in destinations
+    const tripsWithoutDestinations = trips.filter((t) => !t.destinations?.length);
+
+    const allNames = tripsWithoutDestinations.flatMap((trip) =>
+      (trip.countries ?? "").split(/[,，、\/]/).map((s) => s.trim()).filter(Boolean)
+    );
+
+    const resolvedStatically = new Set(
+      tripsWithoutDestinations.flatMap((trip, i) =>
+        parseCountriesToPoints(trip.countries ?? "", trip.id, trip.name, COLORS[i % COLORS.length]).map((p) => p.country)
+      )
+    );
+
+    const unknownNames = [...new Set(allNames.filter((n) => !resolvedStatically.has(n)))];
+    if (unknownNames.length === 0) { setDynamicFlagPoints([]); return; }
+
+    let cancelled = false;
+
+    Promise.all(
+      unknownNames.map(async (name) => {
+        try {
+          const res = await fetch(`/api/geocode?q=${encodeURIComponent(name)}`);
+          if (!res.ok) return [];
+          const { coords, countryCode } = await res.json();
+          if (!coords) return [];
+          return tripsWithoutDestinations
+            .map((trip, i) => ({ trip, color: COLORS[i % COLORS.length] }))
+            .filter(({ trip }) =>
+              (trip.countries ?? "").split(/[,，、\/]/).map((s) => s.trim()).includes(name)
+            )
+            .map(({ trip, color }) => ({
+              lat: coords[0] as number,
+              lng: coords[1] as number,
+              tripId: trip.id,
+              tripName: trip.name,
+              country: name,
+              color,
+              flag: countryCode ? countryCodeToFlag(countryCode) : "",
+              isVehicle: false as const,
+              isHome: false as const,
+              isLabel: false as const,
+              deg: 0,
+              scale: 0,
+              icon: "",
+            }));
+        } catch {
+          return [];
+        }
+      })
+    ).then((results) => {
+      if (!cancelled) setDynamicFlagPoints(results.flat());
+    });
+
+    return () => { cancelled = true; };
+  }, [trips]);
 
   const handleGlobeRef = useCallback((ref: unknown) => {
     globeRef.current = ref;
@@ -262,12 +336,35 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
     : "#60a5fa";
 
   const flagPoints = useMemo(() =>
-    trips.flatMap((trip, i) =>
-      parseCountriesToPoints(trip.countries ?? "", trip.id, trip.name, COLORS[i % COLORS.length]).map((p) => ({
+    trips.flatMap((trip, i) => {
+      const color = COLORS[i % COLORS.length];
+      const isSelected = trip.id === selectedTripId;
+
+      // Use geocoded destinations if available
+      if (trip.destinations && trip.destinations.length > 0) {
+        return trip.destinations.map((d) => ({
+          lat: d.lat,
+          lng: d.lng,
+          tripId: trip.id,
+          tripName: trip.name,
+          country: d.name,
+          color,
+          flag: "",
+          isVehicle: false as const,
+          isHome: false as const,
+          isSelected,
+          deg: 0,
+          scale: 0,
+          icon: "",
+        }));
+      }
+
+      // Fall back to static COUNTRY_COORDS lookup
+      return parseCountriesToPoints(trip.countries ?? "", trip.id, trip.name, color).map((p) => ({
         ...p, flag: getCountryFlags(p.country), isVehicle: false, isHome: false,
-        isSelected: trip.id === selectedTripId, deg: 0, scale: 0, icon: '',
-      }))
-    ), [trips, selectedTripId]);
+        isSelected, deg: 0, scale: 0, icon: "",
+      }));
+    }), [trips, selectedTripId]);
 
   const selectedSegs = useMemo(() =>
     selectedTripId
@@ -338,6 +435,7 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
   const allPoints = [
     HOME_POINT,
     ...flagPoints,
+    ...dynamicFlagPoints.map((p) => ({ ...p, isSelected: p.tripId === selectedTripId })),
     ...labelPoints,
     ...(vehiclePoint ? [vehiclePoint] : []),
   ];

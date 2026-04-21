@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 import { useState } from "react";
 import { Modal, Form, Input, Select, DatePicker, TimePicker, Button, Row, Col, AutoComplete } from "antd";
@@ -39,7 +40,7 @@ export default function EditSegmentModal({ segment, onClose, onSaved }: Props) {
 
   async function handleSubmit(values: Record<string, unknown>) {
     setSaving(true);
-    await fetch("/api/segments", {
+    await fetchWithAuth("/api/segments", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

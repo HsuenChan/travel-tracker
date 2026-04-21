@@ -69,9 +69,9 @@ export function getArcAltitude(
 
 // AddSegmentModal options (value stays Chinese for Sheets data compatibility)
 export const TRANSPORT_OPTIONS = [
-  { value: "飛機", label: "✈️ 飛機", key: "plane" as TransportKey },
-  { value: "火車", label: "🚂 火車", key: "train" as TransportKey },
-  { value: "巴士", label: "🚌 巴士", key: "bus" as TransportKey },
-  { value: "渡輪", label: "⛴️ 渡輪", key: "ferry" as TransportKey },
-  { value: "其他", label: "🚗 其他", key: "other" as TransportKey },
+  { value: "飛機", label: "飛機", key: "plane" as TransportKey },
+  { value: "火車", label: "火車", key: "train" as TransportKey },
+  { value: "巴士", label: "巴士", key: "bus" as TransportKey },
+  { value: "渡輪", label: "渡輪", key: "ferry" as TransportKey },
+  { value: "其他", label: "其他", key: "other" as TransportKey },
 ];

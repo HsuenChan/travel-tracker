@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Spin, Typography, Button } from "antd";
+import { LinkBrokenIcon } from "@/app/components/Icons";
 
 export default function JoinPage() {
   const { token } = useParams<{ token: string }>();
@@ -44,7 +45,9 @@ export default function JoinPage() {
     <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center gap-4">
       {status === "error" ? (
         <>
-          <div className="text-4xl">🔗</div>
+          <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+            <LinkBrokenIcon size={24} />
+          </div>
           <Typography.Text className="text-red-500 text-base">{errorMsg}</Typography.Text>
           <Button onClick={() => router.push("/")}>返回首頁</Button>
         </>

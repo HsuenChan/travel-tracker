@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import {
   Layout,
   Button,
@@ -12,9 +13,12 @@ import {
   Tag,
   Skeleton,
 } from "antd";
-import { UnorderedListOutlined, PlusOutlined, GlobalOutlined, LogoutOutlined } from "@ant-design/icons";
 import AddTripModal from "./components/AddTripModal";
 import { getCountryFlags } from "@/lib/countries";
+import {
+  PlaneIcon, PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
+  MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon,
+} from "@/app/components/Icons";
 
 const TripGlobe = dynamic(() => import("./components/TripGlobe"), { ssr: false });
 
@@ -27,6 +31,7 @@ interface Trip {
   notes: string;
   photo_album_id: string;
   created_at: string;
+  destinations?: { name: string; lat: number; lng: number }[] | null;
 }
 
 interface Segment {
@@ -63,7 +68,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/auth/status")
+    fetchWithAuth("/api/auth/status")
       .then((r) => r.json())
       .then((data) => {
         setAuthenticated(data.authenticated);
@@ -73,19 +78,35 @@ export default function Home() {
   }, []);
 
   async function fetchAll() {
-    setLoading(true);
+    const cachedTrips = localStorage.getItem("travel_trips");
+    const cachedSegs = localStorage.getItem("travel_segments");
+    if (cachedTrips) setTrips(JSON.parse(cachedTrips));
+    if (cachedSegs) setSegments(JSON.parse(cachedSegs));
+    if (cachedTrips) setLoading(false);
     const [tripsRes, segsRes] = await Promise.all([
-      fetch("/api/sheets"),
-      fetch("/api/segments"),
+      fetchWithAuth("/api/sheets"),
+      fetchWithAuth("/api/segments"),
     ]);
-    if (tripsRes.ok) setTrips((await tripsRes.json()).trips);
-    if (segsRes.ok) setSegments((await segsRes.json()).segments);
+    if (tripsRes.ok) {
+      const trips = (await tripsRes.json()).trips;
+      setTrips(trips);
+      localStorage.setItem("travel_trips", JSON.stringify(trips));
+    }
+    if (segsRes.ok) {
+      const segments = (await segsRes.json()).segments;
+      setSegments(segments);
+      localStorage.setItem("travel_segments", JSON.stringify(segments));
+    }
     setLoading(false);
   }
 
   async function fetchTrips() {
-    const res = await fetch("/api/sheets");
-    if (res.ok) setTrips((await res.json()).trips);
+    const res = await fetchWithAuth("/api/sheets");
+    if (res.ok) {
+      const trips = (await res.json()).trips;
+      setTrips(trips);
+      localStorage.setItem("travel_trips", JSON.stringify(trips));
+    }
   }
 
   if (authenticated === null) {
@@ -111,8 +132,10 @@ export default function Home() {
         </div>
 
         {/* Glassmorphism login card */}
-        <div className="relative z-10 bg-[#09090b]/55 backdrop-blur-[24px] border border-white/10 rounded-3xl py-12 px-[52px] flex flex-col items-center gap-4 max-w-[380px] w-[88%] shadow-[0_24px_64px_rgba(0,0,0,0.5)]">
-          <div className="text-4xl mb-1">✈️</div>
+        <div className="relative z-10 bg-[#09090b]/55 border border-white/10 rounded-3xl py-12 px-[52px] flex flex-col items-center gap-4 max-w-[380px] w-[88%] shadow-[0_24px_64px_rgba(0,0,0,0.5)]">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 border border-violet-500/30 flex items-center justify-center shadow-[0_0_32px_rgba(139,92,246,0.2)] mb-1">
+            <PlaneIcon size={26} stroke="#c4b5fd" strokeWidth={1.8} />
+          </div>
           <Typography.Title level={2} className="!text-white !m-0 !tracking-[-0.5px]">
             Travel Tracker
           </Typography.Title>
@@ -144,14 +167,16 @@ export default function Home() {
   const tripListContent = loading ? (
     <div className="pt-3 px-3">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="bg-[#1c1c1e] rounded-[10px] p-[14px] mb-2">
+        <div key={i} className="bg-white/[0.04] rounded-[18px] p-[14px] mb-2">
           <Skeleton active paragraph={{ rows: 1 }} title={{ width: "60%" }} />
         </div>
       ))}
     </div>
   ) : trips.length === 0 ? (
     <div className="py-[60px] px-8 flex flex-col items-center gap-3">
-      <div className="text-5xl">🗺️</div>
+      <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/[0.07] flex items-center justify-center">
+        <GlobeIcon size={28} stroke="#3f3f46" strokeWidth={1.5} />
+      </div>
       <Typography.Text className="text-zinc-500 text-sm">還沒有旅程記錄</Typography.Text>
       <Button type="primary" onClick={() => { setShowModal(true); setDrawerOpen(false); }}>
         新增第一筆旅程
@@ -167,7 +192,7 @@ export default function Home() {
             { value: uniqueCountries, label: "國家" },
             { value: segments.length, label: "段落" },
           ].map(({ value, label }) => (
-            <div key={label} className="flex-1 bg-[#1c1c1e] rounded-[10px] py-2.5 text-center border border-[#2c2c2e]">
+            <div key={label} className="flex-1 bg-white/[0.04] rounded-[14px] py-2.5 text-center border border-white/[0.07]">
               <div className="text-zinc-100 text-xl font-bold leading-none">{value}</div>
               <div className="text-zinc-600 text-[11px] mt-[3px]">{label}</div>
             </div>
@@ -188,11 +213,10 @@ export default function Home() {
                   if (sortKey === key) setSortDir((d) => d === "desc" ? "asc" : "desc");
                   else { setSortKey(key); setSortDir("desc"); }
                 }}
-                className={`flex-1 py-[6px] text-[11px] rounded-full cursor-pointer transition-all duration-200 font-bold border ${
-                  active 
-                    ? "bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none text-white shadow-[0_4px_12px_rgba(139,92,246,0.3)]" 
-                    : "bg-white/5 border-white/5 text-zinc-500 hover:bg-white/10 hover:text-zinc-400"
-                }`}
+                className={`flex-1 py-[6px] text-[11px] rounded-full cursor-pointer transition-all duration-200 font-bold border ${active
+                  ? "bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none text-white shadow-[0_4px_12px_rgba(139,92,246,0.3)]"
+                  : "bg-white/5 border-white/5 text-zinc-500 hover:bg-white/10 hover:text-zinc-400"
+                  }`}
               >
                 {label}{arrow}
               </button>
@@ -239,7 +263,7 @@ export default function Home() {
               }}
               className="cursor-pointer py-1.5 px-3"
             >
-              <div className={`relative rounded-[24px] py-4 pr-4 transition-all duration-300 ease-in-out overflow-hidden border ${selected ? "bg-zinc-800/80 border-[#8b5cf6]/50 pl-5 shadow-[0_0_20px_rgba(139,92,246,0.15)] scale-[1.01]" : "bg-zinc-900/40 border-white/5 pl-4 hover:bg-zinc-800/40"}`}>
+              <div className={`relative rounded-[24px] py-4 pr-4 transition-all duration-300 ease-in-out overflow-hidden border backdrop-blur-sm ${selected ? "bg-violet-500/10 border-[#8b5cf6]/40 pl-5 shadow-[0_0_24px_rgba(139,92,246,0.12),inset_0_0_0_1px_rgba(139,92,246,0.12)] scale-[1.01]" : "bg-white/[0.04] border-white/[0.07] pl-4 hover:bg-white/[0.07] hover:border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"}`}>
                 {/* 選中時的紫色光條 */}
                 {selected && (
                   <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#8b5cf6] shadow-[0_0_10px_#8b5cf6]" />
@@ -265,13 +289,13 @@ export default function Home() {
                 <div className="space-y-1">
                   {(trip.start_date || trip.end_date) && (
                     <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
-                      <span className="opacity-70">📅</span>
+                      <CalendarIcon size={12} className="opacity-60 shrink-0" />
                       <span>{trip.start_date}{trip.end_date && ` → ${trip.end_date}`}</span>
                     </div>
                   )}
                   {trip.countries && (
                     <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
-                      <span className="opacity-70">📍</span>
+                      <LocationIcon size={12} className="opacity-60 shrink-0" />
                       <span className="truncate">{trip.countries}</span>
                     </div>
                   )}
@@ -300,76 +324,75 @@ export default function Home() {
       {/* 2. Main UI Layer */}
       <Layout className="relative z-10 h-full w-full !bg-transparent flex flex-col pointer-events-none">
         {/* Header - Glassmorphism */}
-        <Layout.Header 
+        <Layout.Header
           style={{ background: 'transparent' }}
-          className="flex items-center justify-between glass-premium px-3 md:px-6 h-16 border-none shadow-none shrink-0 pointer-events-auto"
+          className="flex items-center justify-between backdrop-blur-md px-3 md:px-6 h-14 border-none shadow-none shrink-0 pointer-events-auto"
         >
-          <Typography.Text strong className="text-white text-[16px] md:text-lg font-black tracking-tight">
-            ✈️ Travel Tracker
-          </Typography.Text>
-          <div className="flex gap-2.5">
-            <Button
-              icon={<GlobalOutlined />}
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-[8px] bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-[0_2px_10px_rgba(139,92,246,0.4)] shrink-0">
+              <PlaneIcon size={14} stroke="#fff" strokeWidth={2.2} />
+            </div>
+            <Typography.Text strong className="text-white text-[16px] md:text-lg font-black tracking-tight">
+              Travel Tracker
+            </Typography.Text>
+          </div>
+          <div className="flex gap-2">
+            <button
               onClick={() => setShowAllTracks((v) => !v)}
-              size={isMobile ? "small" : "middle"}
-              type={showAllTracks ? "primary" : "default"}
-              className="!rounded-full border-white/10"
+              className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold transition-all duration-200 ${isMobile ? "w-8 h-8 justify-center" : "px-3 h-8"
+                } ${showAllTracks
+                  ? "bg-gradient-to-r from-[#8b5cf6] to-[#d946ef] text-white shadow-[0_4px_20px_rgba(139,92,246,0.35)]"
+                  : "bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+                }`}
             >
-              {isMobile ? "" : (showAllTracks ? "隱藏航跡" : "全部航跡")}
-            </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
+              <GlobeIcon size={13} />
+              {!isMobile && (showAllTracks ? "隱藏航跡" : "全部航跡")}
+            </button>
+            <button
               onClick={() => setShowModal(true)}
-              size={isMobile ? "small" : "middle"}
-              className="!rounded-full bg-linear-to-r from-[#8b5cf6] to-[#d946ef] border-none shadow-lg shadow-purple-500/20"
+              className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold bg-gradient-to-r from-[#8b5cf6] to-[#d946ef] text-white shadow-[0_4px_20px_rgba(139,92,246,0.35)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(139,92,246,0.5)] hover:-translate-y-px ${isMobile ? "w-8 h-8 justify-center" : "px-3 h-8"
+                }`}
             >
-              {isMobile ? "" : "新增旅程"}
-            </Button>
-            <a href="/api/auth/logout" className="flex">
-              <Button
-                icon={<LogoutOutlined />}
-                size={isMobile ? "small" : "middle"}
+              <PlusIcon size={13} />
+              {!isMobile && "新增旅程"}
+            </button>
+            <a href="/api/auth/logout">
+              <button
                 title="登出"
-                className="!rounded-full border-white/10"
-              />
+                className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200"
+              >
+                <LogoutIcon size={14} />
+              </button>
             </a>
           </div>
         </Layout.Header>
 
         {/* Content Area */}
-        <Layout className="flex-1 !bg-transparent overflow-hidden flex flex-row">
-          <Layout.Content className="relative flex-1 !bg-transparent">
-            {/* Mobile List Toggle Button */}
-            {isMobile && (
-              <Button
-                icon={<UnorderedListOutlined />}
-                onClick={() => setDrawerOpen(true)}
-                className="glass-premium !text-[#f4f4f5] !rounded-full shadow-2xl leading-none px-6 h-12 border-white/10 pointer-events-auto"
-                style={{
-                  position: "absolute",
-                  right: 20,
-                  bottom: "calc(24px + env(safe-area-inset-bottom, 0px))"
-                }}
-              >
-                旅程列表
-              </Button>
-            )}
-          </Layout.Content>
+        <div className="flex-1 relative overflow-hidden">
+          {/* Mobile List Toggle Button */}
+          {isMobile && (
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="backdrop-blur-md inline-flex items-center gap-2 !rounded-full px-5 h-12 text-[#f4f4f5] text-[14px] font-semibold shadow-2xl pointer-events-auto fixed right-5 z-50"
+              style={{ bottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}
+            >
+              <MenuListIcon size={15} />
+              旅程列表
+            </button>
+          )}
 
           {/* Desktop Sidebar */}
           {!isMobile && (
-            <Layout.Sider
-              width={340}
-              style={{ background: 'transparent' }}
-              className="glass-heavy !m-4 !rounded-[2rem] overflow-hidden border-none shadow-2xl pointer-events-auto"
+            <div
+              className="glass-heavy absolute right-4 top-4 bottom-4 rounded-[24px] overflow-hidden pointer-events-auto flex flex-col"
+              style={{ width: 340 }}
             >
-              <div className="h-full overflow-auto custom-scrollbar">
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {tripListContent}
               </div>
-            </Layout.Sider>
+            </div>
           )}
-        </Layout>
+        </div>
       </Layout>
 
       {/* 3. Overlays (Modals and Drawers) */}
@@ -378,16 +401,16 @@ export default function Home() {
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           placement="bottom"
-          height="85vh"
           title={<span className="text-[#f4f4f5] font-bold">我的旅程</span>}
-          className="glass-premium-drawer"
+          className="backdrop-blur-md"
           styles={{
+            wrapper: { height: "85vh" },
             header: { background: "transparent", borderBottom: "1px solid rgba(255,255,255,0.05)" },
             body: { background: "transparent", padding: 0, overflowY: "auto" },
             mask: { backdropFilter: "blur(4px)" },
             content: { borderRadius: '24px 24px 0 0' }
           }}
-          closeIcon={<span className="text-[#a1a1aa]">✕</span>}
+          closeIcon={<CloseIcon size={14} stroke="#a1a1aa" />}
         >
           {tripListContent}
         </Drawer>
@@ -401,16 +424,5 @@ export default function Home() {
       )}
     </div>
 
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 18 18" className="mr-1.5 align-middle">
-      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
-      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
-      <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" />
-      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" />
-    </svg>
   );
 }

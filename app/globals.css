@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-quill-new/dist/quill.snow.css";
 
 :root {
   --background: #ffffff;
@@ -35,6 +36,7 @@ body {
 .ant-modal-wrap {
   padding-bottom: 60px !important;
 }
+
 .ant-modal-content {
   padding-bottom: 24px !important;
 }
@@ -44,130 +46,276 @@ body {
   padding-bottom: 40px !important;
 }
 
-/* 
-  Cute & Premium Tabs 
+/*
+  Cute & Premium Segmented
 */
-.cute-tabs .ant-tabs-nav {
+.cute-segmented.ant-segmented {
   background: rgba(24, 24, 27, 0.4) !important;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px) !important;
   border-radius: 100px !important;
   padding: 4px !important;
   border: 1px solid rgba(255, 255, 255, 0.05) !important;
-  margin-bottom: 24px !important;
+  box-shadow: none !important;
 }
 
-.cute-tabs .ant-tabs-nav::before {
-  display: none !important;
-}
-
-.cute-tabs .ant-tabs-tab {
+.cute-segmented .ant-segmented-item {
+  flex: 1 !important;
   border-radius: 100px !important;
-  padding: 8px 16px !important;
-  margin: 0 2px !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  text-align: center !important;
 }
 
-.cute-tabs .ant-tabs-tab-active {
-  background: rgba(139, 92, 246, 0.15) !important;
-}
-
-.cute-tabs .ant-tabs-ink-bar {
-  display: none !important;
-}
-
-.cute-tabs .ant-tabs-tab-btn {
+.cute-segmented .ant-segmented-item-label {
+  color: #71717a !important;
   font-weight: 600 !important;
   font-size: 13px !important;
+  min-height: unset !important;
+  line-height: unset !important;
+  padding: 7px 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
 }
 
-/* 
-  Custom Rich Text Editor (Quill) Dark Mode 
+.cute-segmented .ant-segmented-item-selected {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.cute-segmented .ant-segmented-item-selected .ant-segmented-item-label {
+  color: #e4e4e7 !important;
+}
+
+.cute-segmented .ant-segmented-item:not(.ant-segmented-item-selected):not(.ant-segmented-item-disabled):hover .ant-segmented-item-label {
+  color: #a1a1aa !important;
+}
+
+.cute-segmented .ant-segmented-item:not(.ant-segmented-item-selected):not(.ant-segmented-item-disabled):hover::after {
+  background-color: transparent !important;
+}
+
+.cute-segmented .ant-segmented-thumb {
+  border-radius: 100px !important;
+  background: rgba(139, 92, 246, 0.2) !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/*
+  Custom Rich Text Editor (Quill) Dark Mode
 */
 .custom-quill {
-  border: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  background: rgba(255, 255, 255, 0.04) !important;
 }
 
-.custom-quill .ql-toolbar {
-  background: rgba(39, 39, 42, 0.5) !important;
+.custom-quill .ql-toolbar.ql-snow {
+  background: rgba(255, 255, 255, 0.03) !important;
   border: none !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  padding: 8px 10px !important;
 }
 
-.custom-quill .ql-container {
+.custom-quill .ql-container.ql-snow {
   border: none !important;
   font-family: inherit !important;
   font-size: 14px !important;
   min-height: 120px;
+  background: transparent !important;
 }
 
 .custom-quill .ql-editor {
   color: #e4e4e7 !important;
+  padding: 12px 14px !important;
+  line-height: 2;
 }
 
 .custom-quill .ql-editor.ql-blank::before {
-  color: #71717a !important;
+  color: #52525b !important;
   font-style: normal !important;
 }
 
 .custom-quill .ql-stroke {
-  stroke: #a1a1aa !important;
+  stroke: #71717a !important;
 }
 
 .custom-quill .ql-fill {
-  fill: #a1a1aa !important;
+  fill: #71717a !important;
 }
 
 .custom-quill .ql-picker {
-  color: #a1a1aa !important;
+  color: #71717a !important;
+}
+
+.custom-quill .ql-toolbar .ql-formats button:hover .ql-stroke,
+.custom-quill .ql-toolbar .ql-formats button.ql-active .ql-stroke {
+  stroke: #a78bfa !important;
+}
+
+.custom-quill .ql-toolbar .ql-formats button:hover .ql-fill,
+.custom-quill .ql-toolbar .ql-formats button.ql-active .ql-fill {
+  fill: #a78bfa !important;
 }
 
 .custom-quill .ql-picker-options {
   background: #18181b !important;
-  border: 1px solid #3f3f46 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 12px !important;
+  padding: 4px !important;
+}
+
+.custom-quill .ql-picker-options .ql-picker-item {
+  color: #a1a1aa !important;
+  border-radius: 8px !important;
+  padding: 4px 8px !important;
+}
+
+.custom-quill .ql-picker-options .ql-picker-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f4f4f5 !important;
+}
+
+/* Color picker swatches */
+.custom-quill .ql-color-picker .ql-picker-options {
+  background: #18181b !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  padding: 6px !important;
+  width: 172px !important;
+}
+
+.custom-quill .ql-color-picker .ql-picker-item {
+  color: unset !important;
+  padding: 2px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.custom-quill .ql-color-picker .ql-picker-item:hover {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  transform: scale(1.15);
+}
+
+.custom-quill .ql-color-picker .ql-picker-item.ql-selected {
+  border-color: #a78bfa !important;
+}
+
+/* Link edit tooltip — override Quill Snow default (white box) */
+.custom-quill .ql-tooltip {
+  background: #18181b !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+  color: #e4e4e7 !important;
+  padding: 6px 10px !important;
+  white-space: nowrap;
+  z-index: 9999;
+}
+
+.custom-quill .ql-tooltip input[type="text"] {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px !important;
+  color: #e4e4e7 !important;
+  padding: 3px 8px !important;
+  outline: none !important;
+  font-size: 13px;
+}
+
+.custom-quill .ql-tooltip input[type="text"]:focus {
+  border-color: rgba(139, 92, 246, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15) !important;
+}
+
+.custom-quill .ql-tooltip a.ql-action,
+.custom-quill .ql-tooltip a.ql-remove {
+  color: #a78bfa !important;
+  text-decoration: none !important;
+  font-size: 12px !important;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.custom-quill .ql-tooltip a.ql-action:hover,
+.custom-quill .ql-tooltip a.ql-remove:hover {
+  color: #c4b5fd !important;
+}
+
+.custom-quill .ql-tooltip a.ql-preview {
+  color: #a78bfa !important;
+  font-size: 13px;
+}
+
+.custom-quill .ql-tooltip::before {
+  color: #71717a !important;
+  font-size: 12px;
 }
 
 /* Notes display rendered HTML styles */
-.notes-content h1 { @apply text-2xl font-bold mb-4 text-zinc-100; }
-.notes-content h2 { @apply text-xl font-bold mb-3 text-zinc-100; }
-.notes-content p { @apply mb-2; }
-.notes-content ul { @apply list-disc ml-5 mb-4; }
-.notes-content ol { @apply list-decimal ml-5 mb-4; }
-.notes-content strong { @apply font-bold text-zinc-100; }
+.notes-content h1 {
+  @apply text-2xl font-bold mb-4 text-zinc-100;
+}
 
-/* 
-  Premium Glassmorphism Backdrop Blur 
+.notes-content h2 {
+  @apply text-xl font-bold mb-3 text-zinc-100;
+}
+
+.notes-content p {
+  @apply mb-0.5;
+}
+
+.notes-content ul {
+  @apply list-disc ml-5 mb-4;
+}
+
+.notes-content ol {
+  @apply list-decimal ml-5 mb-4;
+}
+
+.notes-content strong {
+  @apply font-bold text-zinc-100;
+}
+
+.notes-content a {
+  @apply text-violet-400 underline underline-offset-2 hover:text-violet-300 transition-colors;
+  word-break: break-all;
+}
+
+/* Taller Quill variant used in Notes tab */
+.custom-quill.notes-quill .ql-editor {
+  min-height: 300px;
+}
+
+/*
+  Premium Glassmorphism Backdrop Blur
 */
 .glass-premium {
-  position: relative;
   overflow: hidden;
   z-index: 10;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.03) 100%
-  ) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.03) 100%) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 
+  box-shadow:
     0 8px 32px 0 rgba(0, 0, 0, 0.37),
     inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
 }
 
 .glass-heavy {
-  position: relative;
   overflow: hidden;
   z-index: 10;
-  background: linear-gradient(
-    135deg,
-    rgba(39, 39, 42, 0.7) 0%,
-    rgba(24, 24, 27, 0.5) 100%
-  ) !important;
+  background: linear-gradient(135deg,
+      rgba(39, 39, 42, 0.7) 0%,
+      rgba(24, 24, 27, 0.5) 100%) !important;
   backdrop-filter: blur(40px) saturate(210%) !important;
   -webkit-backdrop-filter: blur(40px) saturate(210%) !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 
+  box-shadow:
     0 12px 48px 0 rgba(0, 0, 0, 0.5),
     inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
 }
@@ -178,4 +326,14 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
+.location-link {
+  color: rgba(167, 139, 250, 0.75) !important;
+  text-decoration: none !important;
+  transition: color 0.15s;
+}
 
+.location-link:hover {
+  color: #c4b5fd !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px;
+}

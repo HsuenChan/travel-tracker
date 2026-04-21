@@ -1,11 +1,14 @@
 "use client";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 import { useRef, useState } from "react";
 import { Modal, Form, Input, Select, DatePicker, TimePicker, Button, Row, Col, AutoComplete, App, Tag, Space, Typography } from "antd";
 // Space is used in the batch confirm segment list
 import { UploadOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { AIRPORT_COORDS } from "@/lib/airports";
-import { TRANSPORT_OPTIONS, toTransportKey, VEHICLE_ICON } from "@/lib/transport";
+import { TRANSPORT_OPTIONS, toTransportKey } from "@/lib/transport";
+import VehicleIconChip from "@/app/components/VehicleIconChip";
+import { FileIcon } from "@/app/components/Icons";
 import dayjs from "dayjs";
 
 const AIRPORT_OPTIONS = Object.entries(AIRPORT_COORDS).map(([iata, info]) => ({
@@ -44,7 +47,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
 
   async function handleSubmit(values: Record<string, unknown>) {
     setSaving(true);
-    await fetch("/api/segments", {
+    await fetchWithAuth("/api/segments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -70,7 +73,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
     setBatchSaving(true);
     for (let i = 0; i < parsedSegments.length; i++) {
       const seg = parsedSegments[i];
-      await fetch("/api/segments", {
+      await fetchWithAuth("/api/segments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -127,7 +130,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/parse-flight", { method: "POST", body: formData });
+      const res = await fetchWithAuth("/api/parse-flight", { method: "POST", body: formData });
       await processParseResponse(res);
     } catch {
       message.error("解析失敗，請稍後再試");
@@ -156,7 +159,12 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
         className="w-full mb-4"
         disabled={parsing}
       >
-        {parsing ? "AI 解析中…" : "📄 從圖片 / PDF 匯入航班資訊"}
+        {parsing ? "AI 解析中…" : (
+          <span className="inline-flex items-center gap-1.5">
+            <FileIcon size={13} />
+            從圖片 / PDF 匯入航班資訊
+          </span>
+        )}
       </Button>
     </>
   );
@@ -173,10 +181,10 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
           {parsedSegments.map((seg, i) => (
             <div
               key={i}
-              className="bg-[#1c1c1e] border border-[#2c2c2e] rounded-lg px-[14px] py-2.5"
+              className="bg-white/[0.03] border border-white/[0.07] rounded-[14px] px-[14px] py-2.5"
             >
               <Space wrap>
-                <span className="text-base">{VEHICLE_ICON[toTransportKey(seg.type || "飛機")]}</span>
+                <VehicleIconChip type={seg.type || "飛機"} size={28} />
                 <Typography.Text strong className="text-zinc-100">
                   {seg.from || "?"}{seg.fromIata && ` (${seg.fromIata})`}
                   {" → "}
