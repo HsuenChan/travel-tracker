@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { tripId, date, category, description, amount, currency, paid_by, split_with, notes } = body;
+  const { tripId, date, end_date, category, description, amount, currency, paid_by, split_with, notes } = body;
 
   const { error } = await supabase
     .from("expenses")
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       trip_id: tripId,
       user_id: user.id,
       date: date || null,
+      end_date: end_date || null,
       category: category || null,
       description,
       amount,
@@ -53,12 +54,13 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, date, category, description, amount, currency, paid_by, split_with, notes } = body;
+  const { id, date, end_date, category, description, amount, currency, paid_by, split_with, notes } = body;
 
   const { error } = await supabase
     .from("expenses")
     .update({
       date: date || null,
+      end_date: end_date || null,
       category: category || null,
       description,
       amount,

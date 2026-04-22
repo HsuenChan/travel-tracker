@@ -132,6 +132,7 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
       onCancel={onClose}
       footer={null}
       width={600}
+      centered={true}
     >
       <Form
         form={form}

@@ -73,7 +73,14 @@ export default function EditSegmentModal({ segment, onClose, onSaved }: Props) {
   };
 
   return (
-    <Modal title="編輯交通段落" open onCancel={onClose} footer={null} width={540}>
+    <Modal
+      title="編輯交通段落"
+      open={true}
+      onCancel={onClose}
+      footer={null}
+      width={540}
+      centered={true}
+    >
       <Form
         form={form}
         layout="vertical"

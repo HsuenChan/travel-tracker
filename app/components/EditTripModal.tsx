@@ -170,6 +170,7 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
       onCancel={onClose}
       footer={null}
       width={600}
+      centered={true}
     >
       <Form
         form={form}

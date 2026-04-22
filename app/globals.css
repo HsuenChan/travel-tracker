@@ -33,12 +33,18 @@ body {
 }
 
 /* Extra breathing room at the bottom of modals */
-.ant-modal-wrap {
+/* .ant-modal-wrap {
   margin-bottom: 60px !important;
-}
+} */
 
 .ant-modal-content {
   padding-bottom: 24px !important;
+}
+
+.ant-modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: clip;
 }
 
 /* Extra breathing room at the bottom of drawer content */
