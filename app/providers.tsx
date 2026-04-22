@@ -40,7 +40,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             fontWeight: 600,
           },
           Tag: {
-             borderRadiusSM: 10,
+            borderRadiusSM: 10,
           },
           List: {
             itemPaddingSM: "10px 16px",

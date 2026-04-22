@@ -180,7 +180,7 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
         });
         setWeatherMap(map);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [destination, items]);
 
   useEffect(() => {
@@ -370,7 +370,7 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
       color: dotColor,
       content: (
         <div id={`itinerary-date-${date}`} className="mb-5 scroll-mt-4">
-          <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+          <div className="flex items-center gap-2 mb-2.5 flex-wrap sticky top-[64px] z-20 py-2 backdrop-blur-md">
             <Typography.Text
               className={`text-[13px] font-semibold ${isToday ? "text-violet-400" : isPast ? "text-zinc-600" : "text-zinc-400"
                 }`}
@@ -599,6 +599,7 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
         onCancel={closeModal}
         footer={null}
         width={520}
+        centered={true}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4">
           <Form.Item
@@ -641,6 +642,7 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
         title={aiStep === "prefs" ? "✦ AI 幫我排行程" : "✦ AI 行程預覽"}
         footer={null}
         width={500}
+        centered={true}
       >
         {aiStep === "prefs" && (
           <div className="mt-4 space-y-5">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import {
@@ -95,10 +95,36 @@ export default function TripPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [sharing, setSharing] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [showMoreSheet, setShowMoreSheet] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
-  const [activeTab, setActiveTab] = useState("transport");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "transport");
   const [tabDirection, setTabDirection] = useState(1);
-  const tabOrderRef = useRef(["transport", "itinerary", "notes", "expenses", "photos"]);
+  const tabOrderRef = useRef(["transport", "itinerary", "expenses", "photos", "notes"]);
+
+  // Sync state with URL changes (handle back/forward browser navigation)
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab") || "transport";
+    if (tabFromUrl !== activeTab && tabOrderRef.current.includes(tabFromUrl)) {
+      const order = tabOrderRef.current;
+      setTabDirection(order.indexOf(tabFromUrl) > order.indexOf(activeTab) ? 1 : -1);
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (val: string) => {
+    if (val === activeTab) return;
+    const order = tabOrderRef.current;
+    setTabDirection(order.indexOf(val) > order.indexOf(activeTab) ? 1 : -1);
+    setActiveTab(val);
+    
+    // Update URL param
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("tab", val);
+    const search = current.toString();
+    const query = search ? `?${search}` : "";
+    router.replace(`/trips/${id}${query}`, { scroll: false });
+  };
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -387,46 +413,59 @@ export default function TripPage() {
         </span>
 
         {/* Action buttons */}
-        <div className="flex gap-1.5 shrink-0">
+        {isMobile ? (
           <button
-            onClick={handleShare}
-            disabled={sharing}
-            title="分享旅程"
-            className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
+            onClick={() => setShowMoreSheet(true)}
+            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
           >
-            {sharing ? <LoadingOutlined size={13} /> : <ShareIcon size={13} />}
-            {!isMobile && "分享"}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <circle cx="12" cy="5" r="1" fill="currentColor" stroke="none" />
+              <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+              <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none" />
+            </svg>
           </button>
-
-          {isOwner && (
+        ) : (
+          <div className="flex gap-1.5 shrink-0">
             <button
-              onClick={handleInvite}
-              disabled={inviting}
-              title="邀請夥伴共同編輯"
+              onClick={handleShare}
+              disabled={sharing}
+              title="分享旅程"
               className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
             >
-              {inviting ? <LoadingOutlined size={13} /> : <UserPlusIcon size={13} />}
-              {!isMobile && "邀請"}
+              {sharing ? <LoadingOutlined size={13} /> : <ShareIcon size={13} />}
+              分享
             </button>
-          )}
 
-          <button
-            onClick={() => setShowEdit(true)}
-            className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
-          >
-            <EditIcon size={13} />
-            {!isMobile && "編輯"}
-          </button>
-
-          {isOwner && (
-            <Popconfirm title="確定要刪除這筆旅程嗎？" onConfirm={handleDelete} okText="刪除" cancelText="取消" okButtonProps={{ danger: true, loading: deleting }}>
-              <button className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200 cursor-pointer">
-                <TrashIcon size={13} />
-                {!isMobile && "刪除"}
+            {isOwner && (
+              <button
+                onClick={handleInvite}
+                disabled={inviting}
+                title="邀請夥伴共同編輯"
+                className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
+              >
+                {inviting ? <LoadingOutlined size={13} /> : <UserPlusIcon size={13} />}
+                邀請
               </button>
-            </Popconfirm>
-          )}
-        </div>
+            )}
+
+            <button
+              onClick={() => setShowEdit(true)}
+              className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
+            >
+              <EditIcon size={13} />
+              編輯
+            </button>
+
+            {isOwner && (
+              <Popconfirm title="確定要刪除這筆旅程嗎？" onConfirm={handleDelete} okText="刪除" cancelText="取消" okButtonProps={{ danger: true, loading: deleting }}>
+                <button className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200 cursor-pointer">
+                  <TrashIcon size={13} />
+                  刪除
+                </button>
+              </Popconfirm>
+            )}
+          </div>
+        )}
       </header>
 
       <div
@@ -434,7 +473,7 @@ export default function TripPage() {
         style={{ padding: isMobile ? "20px 12px 100px" : "32px 24px 80px" }}
       >
         <div
-          className="rounded-[2rem] mb-8 overflow-hidden relative shadow-2xl border border-white/[0.06]"
+          className="rounded-4xl md:mb-8 mb-4 overflow-hidden relative shadow-2xl border border-white/6"
           style={{
             padding: isMobile ? "24px 20px" : "32px 32px",
             background: `linear-gradient(145deg, ${accent.from}17 0%, rgba(139,92,246,0.05) 60%, rgba(9,9,11,0.98) 100%)`,
@@ -541,47 +580,66 @@ export default function TripPage() {
               block
               className="cute-segmented mb-6"
               value={activeTab}
-              onChange={(v) => {
-                const val = v as string;
-                const order = tabOrderRef.current;
-                setTabDirection(order.indexOf(val) > order.indexOf(activeTab) ? 1 : -1);
-                setActiveTab(val);
-              }}
+              onChange={handleTabChange}
               options={[
                 { value: "transport", label: <span className="inline-flex items-center gap-[5px]"><PlaneIcon size={13} />路線</span> },
                 { value: "itinerary", label: <span className="inline-flex items-center gap-[5px]"><CalendarIcon size={13} />行程</span> },
-                { value: "notes", label: <span className="inline-flex items-center gap-[5px]"><NotepadIcon size={13} />筆記</span> },
                 { value: "expenses", label: <span className="inline-flex items-center gap-[5px]"><CreditCardIcon size={13} />費用</span> },
-                ...(trip.photo_album_id ? [{ value: "photos", label: <span className="inline-flex items-center gap-[5px]"><PhotoIcon size={13} />照片</span> }] : []),
+                { value: "photos", label: <span className="inline-flex items-center gap-[5px]"><PhotoIcon size={13} />照片</span> },
+                { value: "notes", label: <span className="inline-flex items-center gap-[5px]"><NotepadIcon size={13} />筆記</span> },
               ]}
             />
           )}
-          <div style={{ overflowX: 'hidden' }}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, x: tabDirection * 36 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: tabDirection * -24 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              {activeTab === "transport" && (
-                <>
-                  {transportContent}
-                  <div className="mt-7">
-                    <div className="mb-3 flex items-center justify-between">
-                      <Typography.Text strong className="text-zinc-100 text-[15px]">旅程地圖</Typography.Text>
+          <div style={{ overflow: 'clip' }}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, x: tabDirection * 36 }}
+                animate={{ opacity: 1, x: 0, transitionEnd: { transform: "none" } }}
+                exit={{ opacity: 0, x: tabDirection * -24 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                {activeTab === "transport" && (
+                  <>
+                    {transportContent}
+                    <div className="mt-7">
+                      <div className="mb-3 flex items-center justify-between">
+                        <Typography.Text strong className="text-zinc-100 text-[15px]">旅程地圖</Typography.Text>
+                      </div>
+                      <TripMap tripId={id} />
                     </div>
-                    <TripMap tripId={id} />
-                  </div>
-                </>
-              )}
-              {activeTab === "itinerary" && <ItineraryTab tripId={id} isActive destination={trip.countries} />}
-              {activeTab === "notes" && <NotesTab tripId={id} />}
-              {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} />}
-              {activeTab === "photos" && trip.photo_album_id && <PhotoWall albumUrl={trip.photo_album_id} />}
-            </motion.div>
-          </AnimatePresence>
+                  </>
+                )}
+                {activeTab === "itinerary" && <ItineraryTab tripId={id} isActive destination={trip.countries} />}
+                {activeTab === "notes" && <NotesTab tripId={id} />}
+                {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} />}
+                {activeTab === "photos" && (
+                  trip.photo_album_id ? (
+                    <PhotoWall albumUrl={trip.photo_album_id} />
+                  ) : (
+                    <div
+                      className="flex flex-col items-center gap-4 py-20 rounded-3xl border border-white/5 bg-white/[0.02]"
+                      style={{ background: 'radial-gradient(circle at 50% 50%, rgba(236,72,153,0.05) 0%, transparent 70%)' }}
+                    >
+                      <div className="w-16 h-16 rounded-2xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20">
+                        <PhotoIcon size={32} stroke="#ec4899" strokeWidth={1.5} />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-zinc-200 font-medium mb-1">尚未連結相簿</div>
+                        <div className="text-zinc-500 text-xs px-10">編輯旅程並貼上 Google 相簿分享連結，<br />即可在此直接瀏覽精彩回憶。</div>
+                      </div>
+                      <button
+                        onClick={() => setShowEdit(true)}
+                        className="mt-2 inline-flex items-center gap-2 px-4 h-9 rounded-full bg-white/[0.06] border border-white/10 text-zinc-300 text-sm hover:bg-white/10 transition-all cursor-pointer"
+                      >
+                        <EditIcon size={14} />
+                        立即設定
+                      </button>
+                    </div>
+                  )
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -603,17 +661,16 @@ export default function TripPage() {
             {[
               { value: "transport", icon: <PlaneIcon size={20} />, label: "路線" },
               { value: "itinerary", icon: <CalendarIcon size={20} />, label: "行程" },
-              { value: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
               { value: "expenses", icon: <CreditCardIcon size={20} />, label: "費用" },
-            ].concat(trip.photo_album_id ? [{ value: "photos", icon: <PhotoIcon size={20} />, label: "照片" }] : []).map(({ value, icon, label }) => {
+              { value: "photos", icon: <PhotoIcon size={20} />, label: "照片" },
+              { value: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
+            ].map(({ value, icon, label }) => {
               const isActive = activeTab === value;
               return (
                 <button
                   key={value}
                   onClick={() => {
-                    const order = tabOrderRef.current;
-                    setTabDirection(order.indexOf(value) > order.indexOf(activeTab) ? 1 : -1);
-                    setActiveTab(value);
+                    handleTabChange(value);
                     if (value !== 'itinerary') {
                       window.scrollTo({ top: 0, behavior: 'instant' });
                     }
@@ -638,6 +695,112 @@ export default function TripPage() {
           </div>
         </nav>
       )}
+
+      {/* Mobile More Actions Bottom Sheet */}
+      <div
+        className="fixed inset-0 z-[210] transition-opacity duration-300"
+        style={{
+          background: "rgba(0,0,0,0.6)",
+          backdropFilter: "blur(4px)",
+          opacity: showMoreSheet ? 1 : 0,
+          pointerEvents: showMoreSheet ? "auto" : "none",
+        }}
+        onClick={() => setShowMoreSheet(false)}
+      />
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[211] rounded-t-[24px] transition-transform duration-300 ease-out"
+        style={{
+          background: "#1c1c1f",
+          borderTop: "1px solid rgba(255,255,255,0.1)",
+          boxShadow: "0 -16px 40px rgba(0,0,0,0.5)",
+          transform: showMoreSheet ? "translateY(0)" : "translateY(100%)",
+          paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        {/* Handle bar */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-[4px] rounded-full" style={{ background: "rgba(255,255,255,0.15)" }} />
+        </div>
+
+        <div className="px-4 pt-1 pb-2">
+          <div className="text-zinc-600 text-[11px] font-medium px-1 mb-3 mt-1 truncate">{trip.name}</div>
+
+          <div className="space-y-0.5">
+            {/* Share */}
+            <button
+              onClick={() => { setShowMoreSheet(false); handleShare(); }}
+              disabled={sharing}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
+            >
+              <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(99,102,241,0.15)" }}>
+                {sharing ? <LoadingOutlined style={{ color: "#818cf8", fontSize: 16 }} /> : <ShareIcon size={16} stroke="#818cf8" />}
+              </div>
+              <div>
+                <div className="text-zinc-100 text-[14px] font-medium">分享旅程</div>
+                <div className="text-zinc-500 text-[11px] mt-0.5">複製公開連結</div>
+              </div>
+            </button>
+
+            {/* Invite (owner only) */}
+            {isOwner && (
+              <button
+                onClick={() => { setShowMoreSheet(false); handleInvite(); }}
+                disabled={inviting}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
+              >
+                <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(20,184,166,0.15)" }}>
+                  {inviting ? <LoadingOutlined style={{ color: "#2dd4bf", fontSize: 16 }} /> : <UserPlusIcon size={16} stroke="#2dd4bf" />}
+                </div>
+                <div>
+                  <div className="text-zinc-100 text-[14px] font-medium">邀請夥伴</div>
+                  <div className="text-zinc-500 text-[11px] mt-0.5">複製邀請連結共同編輯</div>
+                </div>
+              </button>
+            )}
+
+            {/* Edit */}
+            <button
+              onClick={() => { setShowMoreSheet(false); setShowEdit(true); }}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer text-left"
+            >
+              <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,0.07)" }}>
+                <EditIcon size={16} stroke="#a1a1aa" />
+              </div>
+              <div>
+                <div className="text-zinc-100 text-[14px] font-medium">編輯旅程</div>
+                <div className="text-zinc-500 text-[11px] mt-0.5">修改名稱、日期、目的地</div>
+              </div>
+            </button>
+
+            {isOwner && (
+              <>
+                <div className="mx-1 my-1.5" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }} />
+                {/* Delete */}
+                <button
+                  onClick={() => {
+                    setShowMoreSheet(false);
+                    Modal.confirm({
+                      title: "確定要刪除這筆旅程嗎？",
+                      okText: "刪除", okType: "danger", cancelText: "取消",
+                      okButtonProps: { danger: true, loading: deleting },
+                      onOk: handleDelete,
+                    });
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-red-500/[0.08] active:bg-red-500/[0.12] transition-colors cursor-pointer text-left"
+                >
+                  <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(239,68,68,0.12)" }}>
+                    <TrashIcon size={16} stroke="#f87171" />
+                  </div>
+                  <div>
+                    <div className="text-red-400 text-[14px] font-medium">刪除旅程</div>
+                    <div className="text-[11px] mt-0.5" style={{ color: "rgba(239,68,68,0.5)" }}>此操作無法復原</div>
+                  </div>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {showEdit && (
         <EditTripModal trip={trip} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); fetchTrip(); }} />

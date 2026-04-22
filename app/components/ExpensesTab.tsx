@@ -4,7 +4,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo } from "react";
 import {
   Button, Modal, Form, Input, DatePicker, Select, InputNumber,
-  Dropdown, Typography, Tabs, Skeleton,
+  Dropdown, Typography, Tabs, Skeleton, Switch,
 } from "antd";
 import { EditOutlined, DeleteOutlined, MoreOutlined } from "@ant-design/icons";
 import { PlusIcon, CreditCardIcon, CategoryBadge, CategoryIcon } from "@/app/components/Icons";
@@ -18,6 +18,7 @@ interface Expense {
   id: string;
   trip_id: string;
   date: string | null;
+  end_date: string | null;
   category: string | null;
   description: string;
   amount: number;
@@ -25,6 +26,7 @@ interface Expense {
   paid_by: string | null;
   split_with: string[];
   notes: string | null;
+  created_at: string;
 }
 
 interface Props {
@@ -129,11 +131,16 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [rates, setRates] = useState<Record<string, number> | null>(null);
+  const [statsMemberFilter, setStatsMemberFilter] = useState<string | null>(null);
+  const [excludeTransport, setExcludeTransport] = useState<boolean>(false);
+  const [sortBy, setSortBy] = useState<string>("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const currencyOptions = currencies.map((c) => ({ value: c, label: c }));
 
   const watchedAmount = Form.useWatch("amount", form);
   const watchedCurrency = Form.useWatch("currency", form);
+  const isRange = Form.useWatch("isRange", form);
 
   const convertedPreview = useMemo(() => {
     if (!watchedAmount || !watchedCurrency || watchedCurrency === currency || !rates) return null;
@@ -171,9 +178,20 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
 
   async function handleSave(values: Record<string, unknown>) {
     setSaving(true);
+    let startDate = null;
+    let endDate = null;
+
+    if (values.isRange) {
+      if (values.startDate) startDate = (values.startDate as dayjs.Dayjs).format("YYYY-MM-DD");
+      if (values.endDate) endDate = (values.endDate as dayjs.Dayjs).format("YYYY-MM-DD");
+    } else if (values.date) {
+      startDate = (values.date as dayjs.Dayjs).format("YYYY-MM-DD");
+    }
+
     const payload = {
       tripId,
-      date: values.date ? (values.date as typeof dayjs.prototype).format("YYYY-MM-DD") : null,
+      date: startDate,
+      end_date: endDate,
       category: values.category ?? null,
       description: values.description,
       amount: values.amount,
@@ -214,7 +232,10 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
   function openEdit(exp: Expense) {
     setEditingExpense(exp);
     form.setFieldsValue({
-      date: exp.date ? dayjs(exp.date) : null,
+      isRange: !!exp.end_date,
+      date: exp.date && !exp.end_date ? dayjs(exp.date) : null,
+      startDate: exp.date ? dayjs(exp.date) : null,
+      endDate: exp.end_date ? dayjs(exp.end_date) : null,
       category: exp.category,
       description: exp.description,
       amount: exp.amount,
@@ -239,15 +260,52 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
     form.resetFields();
   }
 
+  const statsFilteredExpenses = useMemo(() => {
+    let list = expenses;
+    if (excludeTransport) {
+      list = list.filter(e => e.category !== "transport");
+    }
+    return list;
+  }, [expenses, excludeTransport]);
+
   const convertedTotal = useMemo(
-    () => expenses.reduce((sum, e) => sum + toBaseCurrency(Number(e.amount), e.currency, currency, rates), 0),
-    [expenses, rates, currency]
+    () => statsFilteredExpenses.reduce((sum, e) => {
+      const amount = toBaseCurrency(Number(e.amount), e.currency, currency, rates);
+      if (statsMemberFilter) {
+        if (!e.split_with.includes(statsMemberFilter)) return sum;
+        return sum + (amount / e.split_with.length);
+      }
+      return sum + amount;
+    }, 0),
+    [statsFilteredExpenses, rates, currency, statsMemberFilter]
   );
 
   const filteredExpenses = useMemo(
     () => categoryFilter ? expenses.filter((e) => e.category === categoryFilter) : expenses,
     [expenses, categoryFilter]
   );
+
+  const sortedExpenses = useMemo(() => {
+    return [...filteredExpenses].sort((a, b) => {
+      let valA: any, valB: any;
+
+      if (sortBy === "amount") {
+        valA = toBaseCurrency(Number(a.amount), a.currency, currency, rates);
+        valB = toBaseCurrency(Number(b.amount), b.currency, currency, rates);
+      } else if (sortBy === "date") {
+        valA = a.date || "";
+        valB = b.date || "";
+      } else {
+        // created_at
+        valA = a.created_at || "";
+        valB = b.created_at || "";
+      }
+
+      if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+      if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredExpenses, sortBy, sortOrder, rates, currency]);
 
   const usedCategories = useMemo(
     () => [...new Set(expenses.map((e) => e.category).filter(Boolean))] as string[],
@@ -256,10 +314,17 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
 
   const categoryStats = useMemo(() => {
     const map: Record<string, { total: number; count: number }> = {};
-    expenses.forEach((e) => {
+    statsFilteredExpenses.forEach((e) => {
+      const amount = toBaseCurrency(Number(e.amount), e.currency, currency, rates);
+      let share = amount;
+      if (statsMemberFilter) {
+        if (!e.split_with.includes(statsMemberFilter)) return;
+        share = amount / e.split_with.length;
+      }
+
       const key = e.category ?? "other";
       if (!map[key]) map[key] = { total: 0, count: 0 };
-      map[key].total += toBaseCurrency(Number(e.amount), e.currency, currency, rates);
+      map[key].total += share;
       map[key].count += 1;
     });
     return Object.entries(map)
@@ -271,13 +336,33 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
         color: CATEGORY_COLORS[cat] ?? "#71717a",
       }))
       .sort((a, b) => b.total - a.total);
-  }, [expenses, rates, currency]);
+  }, [statsFilteredExpenses, rates, currency, statsMemberFilter]);
 
   const dailyStats = useMemo(() => {
     const map: Record<string, number> = {};
-    expenses.forEach((e) => {
+    statsFilteredExpenses.forEach((e) => {
       if (!e.date) return;
-      map[e.date] = (map[e.date] ?? 0) + toBaseCurrency(Number(e.amount), e.currency, currency, rates);
+      const amount = toBaseCurrency(Number(e.amount), e.currency, currency, rates);
+      let share = amount;
+      if (statsMemberFilter) {
+        if (!e.split_with.includes(statsMemberFilter)) return;
+        share = amount / e.split_with.length;
+      }
+
+      if (e.end_date) {
+        const start = dayjs(e.date);
+        const end = dayjs(e.end_date);
+        const days = end.diff(start, "day") + 1;
+        if (days > 0) {
+          const dailyAmount = share / days;
+          for (let i = 0; i < days; i++) {
+            const d = start.add(i, "day").format("YYYY-MM-DD");
+            map[d] = (map[d] ?? 0) + dailyAmount;
+          }
+        }
+      } else {
+        map[e.date] = (map[e.date] ?? 0) + share;
+      }
     });
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -285,12 +370,12 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
         date: dayjs(date).format("MM/DD"),
         total: Math.round(total * 100) / 100,
       }));
-  }, [expenses, rates, currency]);
+  }, [statsFilteredExpenses, rates, currency, statsMemberFilter]);
 
   const personStats = useMemo(() => {
     const map: Record<string, number> = {};
     people.forEach((p) => { map[p] = 0; });
-    expenses.forEach((e) => {
+    statsFilteredExpenses.forEach((e) => {
       if (!e.split_with || e.split_with.length === 0) return;
       const share = toBaseCurrency(Number(e.amount), e.currency, currency, rates) / e.split_with.length;
       e.split_with.forEach((p) => {
@@ -301,7 +386,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
     return Object.entries(map)
       .map(([name, total]) => ({ name, total }))
       .sort((a, b) => b.total - a.total);
-  }, [expenses, rates, currency, people]);
+  }, [statsFilteredExpenses, rates, currency, people]);
 
   const { balances, transactions } = useMemo(
     () => calculateSettlement(expenses, people),
@@ -310,14 +395,28 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
 
   const listContent = (
     <>
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <Typography.Text strong className="text-zinc-100 text-[15px]">費用列表</Typography.Text>
-          {expenses.length > 0 && (
-            <Typography.Text className="text-zinc-500 text-[13px]">
-              ≈ {currency} {convertedTotal.toFixed(0)}
-            </Typography.Text>
-          )}
+      <div className="my-4 flex items-center justify-between">
+        {/* Sort Controls */}
+        <div className="flex items-center bg-white/[0.04] border border-white/[0.08] rounded-full px-2 h-7">
+          <Select
+            variant="borderless"
+            size="small"
+            value={sortBy}
+            onChange={setSortBy}
+            className="text-[11px] !w-[100px] opacity-80"
+            options={[
+              { value: "created_at", label: "新增時間" },
+              { value: "date", label: "消費日期" },
+              { value: "amount", label: "金額" },
+            ]}
+          />
+          <div className="w-[1px] h-3 bg-white/10 mx-0.5" />
+          <button
+            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+            className="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+          >
+            {sortOrder === "asc" ? "↑" : "↓"}
+          </button>
         </div>
         <button
           onClick={openAdd}
@@ -328,8 +427,9 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
         </button>
       </div>
 
-      {usedCategories.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {/* Category Filters */}
+        <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setCategoryFilter(null)}
             className={`h-7 px-3 rounded-full text-xs font-medium transition-all cursor-pointer border ${categoryFilter === null
@@ -353,7 +453,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
             </button>
           ))}
         </div>
-      )}
+      </div>
 
       {loading ? (
         <div className="flex flex-col gap-3">
@@ -389,67 +489,99 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
       ) : filteredExpenses.length === 0 ? (
         <div className="text-zinc-600 text-center py-8 text-sm">此類別沒有費用</div>
       ) : (
-        filteredExpenses.map((exp) => (
-          <div key={exp.id} className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-[14px] py-3 mb-2">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                  <Typography.Text strong className="text-zinc-100 text-sm">{exp.description}</Typography.Text>
-                  {exp.category && <CategoryBadge category={exp.category} />}
-                  {exp.date && (
-                    <span className="text-zinc-600 text-xs">{exp.date}</span>
-                  )}
-                </div>
-                <div className="flex gap-3 flex-wrap items-center">
-                  <Typography.Text strong className="text-blue-400 text-[15px]">
-                    {exp.currency} {Number(exp.amount).toFixed(2)}
-                  </Typography.Text>
-                  {exp.currency !== currency && rates && (
-                    <span className="text-zinc-600 text-xs">
-                      ≈ {currency} {toBaseCurrency(Number(exp.amount), exp.currency, currency, rates).toFixed(0)}
-                    </span>
-                  )}
-                  {exp.paid_by && (
-                    <span className="text-zinc-500 text-xs">由 {exp.paid_by} 付款</span>
-                  )}
-                  {exp.split_with && exp.split_with.length > 0 && (
-                    <span className="text-zinc-500 text-xs">分攤：{exp.split_with.join("、")}</span>
-                  )}
-                </div>
-                {exp.notes && (
-                  <div className="text-zinc-600 text-xs mt-1">{exp.notes}</div>
-                )}
-              </div>
-              <Dropdown
-                trigger={["click"]}
-                menu={{
-                  items: [
-                    { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(exp) },
-                    { type: "divider" },
-                    {
-                      key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                      onClick: () => Modal.confirm({
-                        title: "確定刪除這筆費用？",
-                        okText: "刪除", okType: "danger", cancelText: "取消",
-                        onOk: () => handleDelete(exp.id),
-                      }),
-                    },
-                  ],
-                }}
-              >
-                <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
-                  <MoreOutlined />
-                </button>
-              </Dropdown>
-            </div>
+        <>
+          <div className="flex items-center justify-end text-zinc-500">
+            {expenses.length > 0 && (
+              <span className="text-[13px]">
+                ≈ {currency} {convertedTotal.toFixed(0)}
+              </span>
+            )}
           </div>
-        ))
+          {sortedExpenses.map((exp) => (
+            <div key={exp.id} className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-[14px] py-3 mb-2">
+              <div className="flex justify-between items-start">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <Typography.Text strong className="text-zinc-100 text-sm">{exp.description}</Typography.Text>
+                    {exp.category && <CategoryBadge category={exp.category} />}
+                    {exp.date && (
+                      <span className="text-zinc-600 text-xs">
+                        {exp.date} {exp.end_date ? `→ ${exp.end_date}` : ""}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-3 flex-wrap items-center">
+                    <Typography.Text strong className="text-blue-400 text-[15px]">
+                      {exp.currency} {Number(exp.amount).toFixed(2)}
+                    </Typography.Text>
+                    {exp.currency !== currency && rates && (
+                      <span className="text-zinc-600 text-xs">
+                        ≈ {currency} {toBaseCurrency(Number(exp.amount), exp.currency, currency, rates).toFixed(0)}
+                      </span>
+                    )}
+                    {exp.paid_by && (
+                      <span className="text-zinc-500 text-xs">由 {exp.paid_by} 付款</span>
+                    )}
+                    {exp.split_with && exp.split_with.length > 0 && (
+                      <span className="text-zinc-500 text-xs">分攤：{exp.split_with.join("、")}</span>
+                    )}
+                  </div>
+                  {exp.notes && (
+                    <div className="text-zinc-600 text-xs mt-1">{exp.notes}</div>
+                  )}
+                </div>
+                <Dropdown
+                  trigger={["click"]}
+                  menu={{
+                    items: [
+                      { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(exp) },
+                      { type: "divider" },
+                      {
+                        key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
+                        onClick: () => Modal.confirm({
+                          title: "確定刪除這筆費用？",
+                          okText: "刪除", okType: "danger", cancelText: "取消",
+                          onOk: () => handleDelete(exp.id),
+                        }),
+                      },
+                    ],
+                  }}
+                >
+                  <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
+                    <MoreOutlined />
+                  </button>
+                </Dropdown>
+              </div>
+            </div>
+          ))}
+        </>
       )}
     </>
   );
 
   const statsContent = (
     <>
+      <div className="flex flex-col gap-2.5 mb-4">
+        <div className="flex gap-2 items-center">
+          <Select
+            className="flex-1 cute-select"
+            placeholder="視角：所有人"
+            allowClear
+            value={statsMemberFilter}
+            onChange={setStatsMemberFilter}
+            options={people.map(p => ({ value: p, label: `視角：${p}` }))}
+          />
+          <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 h-8">
+            <span className="text-zinc-500 text-[11px]">排除交通</span>
+            <Switch
+              size="small"
+              checked={excludeTransport}
+              onChange={setExcludeTransport}
+            />
+          </div>
+        </div>
+      </div>
+
       {expenses.length === 0 ? (
         <div className="text-zinc-600 text-center py-12 text-sm">新增費用後才能查看統計</div>
       ) : (
@@ -645,6 +777,12 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
   return (
     <>
       <Tabs
+        className="expenses-tabs"
+        renderTabBar={(props, DefaultTabBar) => (
+          <div className="sticky top-[64px] z-10 backdrop-blur-md pt-1 md:backdrop-blur-none md:relative md:top-0 md:z-0">
+            <DefaultTabBar {...props} style={{ marginBottom: 0 }} />
+          </div>
+        )}
         items={[
           { key: "list", label: "費用列表", children: listContent },
           { key: "stats", label: "統計", children: statsContent },
@@ -658,6 +796,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
         onCancel={closeModal}
         footer={null}
         width={480}
+        centered={true}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4">
           <Form.Item name="description" label="費用名稱" rules={[{ required: true, message: "請輸入費用名稱" }]}>
@@ -666,9 +805,30 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
           <Form.Item name="category" label="類型">
             <Select placeholder="選擇類型" allowClear options={EXPENSE_CATEGORIES} />
           </Form.Item>
-          <Form.Item name="date" label="日期">
-            <DatePicker className="w-full" />
-          </Form.Item>
+          <div className="flex items-center justify-between mb-4 bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3">
+            <div className="flex flex-col">
+              <span className="text-zinc-200 text-sm font-medium">跨日費用分攤</span>
+              <span className="text-zinc-500 text-[11px]">將金額平均分配到選中的每一天</span>
+            </div>
+            <Form.Item name="isRange" valuePropName="checked" noStyle>
+              <Switch checkedChildren="ON" unCheckedChildren="OFF" />
+            </Form.Item>
+          </div>
+
+          {!isRange ? (
+            <Form.Item name="date" label="日期">
+              <DatePicker className="w-full" />
+            </Form.Item>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <Form.Item name="startDate" label="開始日期" rules={[{ required: true, message: "請選擇" }]}>
+                <DatePicker className="w-full" placeholder="開始" />
+              </Form.Item>
+              <Form.Item name="endDate" label="結束日期" rules={[{ required: true, message: "請選擇" }]}>
+                <DatePicker className="w-full" placeholder="結束" />
+              </Form.Item>
+            </div>
+          )}
           <div className="flex gap-3">
             <Form.Item
               name="amount"

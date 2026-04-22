@@ -172,7 +172,14 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
   // Batch confirm view
   if (parsedSegments && parsedSegments.length > 1) {
     return (
-      <Modal title="匯入多段航程" open onCancel={onClose} footer={null} width={520}>
+      <Modal
+        title="匯入多段航程"
+        open={true}
+        onCancel={onClose}
+        footer={null}
+        width={520}
+        centered={true}
+      >
         {importButton}
         <Typography.Text type="secondary" className="block mb-3">
           偵測到 {parsedSegments.length} 段航班，確認後一次新增：
@@ -220,7 +227,14 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
   }
 
   return (
-    <Modal title="新增交通段落" open onCancel={onClose} footer={null} width={540}>
+    <Modal
+      title="新增交通段落"
+      open={true}
+      onCancel={onClose}
+      footer={null}
+      width={540}
+      centered={true}
+    >
       {importButton}
       <Form
         form={form}
