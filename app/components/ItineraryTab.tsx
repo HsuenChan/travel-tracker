@@ -4,7 +4,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button, Modal, Form, DatePicker, Select, Dropdown, Typography, Input, Skeleton, Timeline, Tooltip } from "antd";
-import { EditOutlined, DeleteOutlined, MoreOutlined } from "@ant-design/icons";
+import { EditOutlined, DeleteOutlined, MoreOutlined, LoadingOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CategoryBadge } from "@/app/components/Icons";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
@@ -58,6 +58,37 @@ function wmoEmoji(code: number): string {
   return "⛈️";
 }
 
+interface HealthIssue {
+  level: "error" | "warning" | "ok";
+  title: string;
+  detail: string;
+}
+
+interface PreviewItem {
+  _id: string;
+  date: string;
+  time: string;
+  end_time: string | null;
+  title: string;
+  category: string;
+  location: string | null;
+  notes: string | null;
+  removed: boolean;
+}
+
+const AI_INTERESTS = [
+  { value: "food", label: "🍜 美食" },
+  { value: "attraction", label: "🏛 文化景點" },
+  { value: "nature", label: "🌿 自然" },
+  { value: "shopping", label: "🛍 購物" },
+  { value: "experience", label: "🎌 體驗" },
+];
+
+const TIME_OPTIONS = Array.from({ length: 15 }, (_, i) => {
+  const h = i + 6;
+  return { value: `${String(h).padStart(2, "0")}:00`, label: `${String(h).padStart(2, "0")}:00` };
+});
+
 interface Props {
   tripId: string;
   isActive?: boolean;
@@ -94,6 +125,22 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherDay>>({});
+
+  // Health check
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthReport, setHealthReport] = useState<HealthIssue[] | null>(null);
+  const [healthOpen, setHealthOpen] = useState(false);
+
+  // AI schedule
+  const [aiModalOpen, setAIModalOpen] = useState(false);
+  const [aiStep, setAIStep] = useState<"prefs" | "preview">("prefs");
+  const [aiPace, setAIPace] = useState<"relaxed" | "normal" | "intensive">("normal");
+  const [aiInterests, setAIInterests] = useState<string[]>(["food", "attraction"]);
+  const [aiStartTime, setAIStartTime] = useState("09:00");
+  const [aiEndTime, setAIEndTime] = useState("21:00");
+  const [aiGenerating, setAIGenerating] = useState(false);
+  const [aiPreview, setAIPreview] = useState<PreviewItem[]>([]);
+  const [aiConfirming, setAIConfirming] = useState(false);
 
   async function fetchItems() {
     const cacheKey = `travel_itinerary_${tripId}`;
@@ -224,6 +271,78 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
     setShowModal(false);
     setEditingItem(null);
     form.resetFields();
+  }
+
+  async function handleHealthCheck() {
+    if (healthReport) { setHealthOpen((v) => !v); return; }
+    setHealthLoading(true);
+    setHealthOpen(true);
+    try {
+      const res = await fetchWithAuth(`/api/trips/${tripId}/itinerary/ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "health_check" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHealthReport(data.issues ?? []);
+      }
+    } finally {
+      setHealthLoading(false);
+    }
+  }
+
+  async function handleAIGenerate() {
+    setAIGenerating(true);
+    try {
+      const res = await fetchWithAuth(`/api/trips/${tripId}/itinerary/ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generate", pace: aiPace, interests: aiInterests, startTime: aiStartTime, endTime: aiEndTime }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAIPreview(data.items ?? []);
+        setAIStep("preview");
+      }
+    } finally {
+      setAIGenerating(false);
+    }
+  }
+
+  async function handleAIConfirm() {
+    const toInsert = aiPreview.filter((item) => !item.removed);
+    setAIConfirming(true);
+    try {
+      await Promise.all(
+        toInsert.map((item) =>
+          fetchWithAuth("/api/itinerary", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tripId,
+              date: item.date,
+              time: item.time,
+              end_time: item.end_time,
+              title: item.title,
+              category: item.category,
+              location: item.location,
+              notes: item.notes,
+            }),
+          }),
+        ),
+      );
+      setAIModalOpen(false);
+      setAIPreview([]);
+      setAIStep("prefs");
+      fetchItems();
+    } finally {
+      setAIConfirming(false);
+    }
+  }
+
+  function toggleAIRemove(id: string) {
+    setAIPreview((prev) => prev.map((item) => item._id === id ? { ...item, removed: !item.removed } : item));
   }
 
   const grouped = items.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
@@ -375,16 +494,69 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
 
   return (
     <>
-      <div className="my-3 flex items-center justify-between">
-        <Typography.Text strong className="text-zinc-100 text-[15px]">每日行程</Typography.Text>
-        <button
-          onClick={openAdd}
-          className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-        >
-          <PlusIcon size={12} />
-          新增行程
-        </button>
+      <div className="my-3 flex items-center justify-between gap-2">
+        <Typography.Text strong className="text-zinc-100 text-[15px] shrink-0">每日行程</Typography.Text>
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <button
+            onClick={() => { setAIModalOpen(true); setAIStep("prefs"); }}
+            className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer"
+            style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}
+          >
+            <span style={{ fontSize: 9 }}>✦</span> AI 排程
+          </button>
+          <button
+            onClick={handleHealthCheck}
+            disabled={healthLoading}
+            className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
+            style={healthReport
+              ? { background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }
+              : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#71717a" }}
+          >
+            {healthLoading ? <LoadingOutlined style={{ fontSize: 10 }} /> : <span>⚕</span>} 健康
+          </button>
+          <button
+            onClick={openAdd}
+            className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
+          >
+            <PlusIcon size={11} />
+            新增
+          </button>
+        </div>
       </div>
+
+      {/* Health report card */}
+      {healthOpen && (
+        <div className="mb-4 rounded-[16px] overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">⚕</span>
+              <span className="text-zinc-200 text-[13px] font-semibold">行程健康報告</span>
+              {!healthLoading && healthReport && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                  style={{ background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.2)", color: "#fbbf24" }}>
+                  {healthReport.filter((i) => i.level !== "ok").length} 個建議
+                </span>
+              )}
+            </div>
+            <button onClick={() => setHealthOpen(false)} className="text-zinc-600 text-xs hover:text-zinc-400 cursor-pointer">收起</button>
+          </div>
+          <div className="px-4 py-3 space-y-3">
+            {healthLoading ? (
+              <Skeleton active paragraph={{ rows: 2 }} title={false} />
+            ) : (healthReport ?? []).map((issue, i) => (
+              <div key={i} className="flex gap-2.5">
+                <span className="text-[13px] shrink-0 mt-0.5">
+                  {issue.level === "error" ? "🔴" : issue.level === "warning" ? "🟡" : "🟢"}
+                </span>
+                <div>
+                  <span className="text-zinc-200 text-[12px] font-medium">{issue.title}</span>
+                  <p className="text-zinc-500 text-[11px] mt-0.5 leading-relaxed">{issue.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-col gap-3">
@@ -460,6 +632,204 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
             </Button>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* AI Schedule Modal */}
+      <Modal
+        open={aiModalOpen}
+        onCancel={() => { setAIModalOpen(false); setAIStep("prefs"); setAIPreview([]); }}
+        title={aiStep === "prefs" ? "✦ AI 幫我排行程" : "✦ AI 行程預覽"}
+        footer={null}
+        width={500}
+      >
+        {aiStep === "prefs" && (
+          <div className="mt-4 space-y-5">
+            {/* Pace */}
+            <div>
+              <div className="text-zinc-400 text-[12px] font-medium mb-2">旅遊節奏</div>
+              <div className="flex gap-2">
+                {(["relaxed", "normal", "intensive"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setAIPace(p)}
+                    className="flex-1 py-2 rounded-xl text-[12px] font-medium border transition-all cursor-pointer"
+                    style={aiPace === p
+                      ? { background: "rgba(139,92,246,0.15)", borderColor: "rgba(139,92,246,0.35)", color: "#a78bfa", fontWeight: 600 }
+                      : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "#71717a" }}
+                  >
+                    {p === "relaxed" ? "輕鬆" : p === "normal" ? "普通" : "密集"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Interests */}
+            <div>
+              <div className="text-zinc-400 text-[12px] font-medium mb-2">
+                偏好興趣 <span className="text-zinc-600 font-normal">（可多選）</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {AI_INTERESTS.map(({ value, label }) => {
+                  const active = aiInterests.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setAIInterests((prev) => active ? prev.filter((i) => i !== value) : [...prev, value])}
+                      className="px-3 py-1 rounded-full text-[11px] font-medium border transition-all cursor-pointer"
+                      style={active
+                        ? { background: "rgba(139,92,246,0.15)", borderColor: "rgba(139,92,246,0.35)", color: "#a78bfa" }
+                        : { background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.09)", color: "#71717a" }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Time range */}
+            <div>
+              <div className="text-zinc-400 text-[12px] font-medium mb-2">每日時間範圍</div>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={aiStartTime}
+                  onChange={setAIStartTime}
+                  options={TIME_OPTIONS}
+                  className="flex-1"
+                  size="small"
+                />
+                <span className="text-zinc-600 text-xs">→</span>
+                <Select
+                  value={aiEndTime}
+                  onChange={setAIEndTime}
+                  options={TIME_OPTIONS}
+                  className="flex-1"
+                  size="small"
+                />
+              </div>
+            </div>
+
+            {items.length > 0 && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl" style={{ background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.15)" }}>
+                <span className="text-sm mt-0.5 shrink-0">ℹ️</span>
+                <span className="text-zinc-400 text-[11px] leading-relaxed">
+                  你已有 {items.length} 個行程項目，AI 會自動避開衝突時段。
+                </span>
+              </div>
+            )}
+
+            <button
+              onClick={handleAIGenerate}
+              disabled={aiGenerating}
+              className="w-full py-3 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
+              style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.8),rgba(99,102,241,0.8))", color: "#fff", boxShadow: "0 4px 20px rgba(139,92,246,0.25)" }}
+            >
+              {aiGenerating ? <LoadingOutlined /> : <span>✦</span>}
+              {aiGenerating ? "AI 生成中..." : "生成行程預覽"}
+            </button>
+          </div>
+        )}
+
+        {aiStep === "preview" && (() => {
+          const previewByDate = aiPreview.reduce<Record<string, PreviewItem[]>>((acc, item) => {
+            if (!acc[item.date]) acc[item.date] = [];
+            acc[item.date].push(item);
+            return acc;
+          }, {});
+          const activeDates = Object.keys(previewByDate).sort();
+          const activeCount = aiPreview.filter((i) => !i.removed).length;
+
+          return (
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-zinc-500 text-[11px]">點 ✕ 移除不想要的項目</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                  style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}>
+                  {activeCount} / {aiPreview.length} 項
+                </span>
+              </div>
+
+              <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
+                {activeDates.map((date) => (
+                  <div key={date}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-zinc-500 text-[12px] font-semibold">
+                        {date} <span className="opacity-50 text-[11px]">(週{WEEKDAYS[dayjs(date).day()]})</span>
+                      </span>
+                      {weatherMap[date] && (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#71717a" }}>
+                          {wmoEmoji(weatherMap[date].code)} {weatherMap[date].maxTemp}°/{weatherMap[date].minTemp}°
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      {previewByDate[date].map((item) => {
+                        const accent = CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other;
+                        return (
+                          <div
+                            key={item._id}
+                            className="relative rounded-[12px] overflow-hidden pl-3 pr-2 py-2 transition-all"
+                            style={{
+                              background: item.removed ? "rgba(255,255,255,0.015)" : "rgba(255,255,255,0.03)",
+                              border: `1px solid ${item.removed ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.06)"}`,
+                              opacity: item.removed ? 0.45 : 1,
+                            }}
+                          >
+                            {!item.removed && (
+                              <div className="absolute left-0 inset-y-0 w-[3px]"
+                                style={{ background: `linear-gradient(to bottom, ${accent.from}, ${accent.to})` }} />
+                            )}
+                            <div className="flex items-center gap-2 pl-1">
+                              <span className={`text-[11px] tabular-nums w-10 shrink-0 ${item.removed ? "text-zinc-600 line-through" : "text-zinc-500"}`}>
+                                {item.time}
+                              </span>
+                              <span className={`text-[12px] font-medium flex-1 min-w-0 truncate ${item.removed ? "text-zinc-600 line-through" : "text-zinc-200"}`}>
+                                {item.title}
+                              </span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${item.removed ? "opacity-30" : ""}`}
+                                style={{ background: `${accent.from}18`, color: accent.from, border: `1px solid ${accent.from}30` }}>
+                                {CATEGORY_MAP[item.category] ?? item.category}
+                              </span>
+                              <button
+                                onClick={() => toggleAIRemove(item._id)}
+                                className="ml-1 w-5 h-5 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                                style={{ fontSize: 10, color: item.removed ? "#52525b" : "#52525b" }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = item.removed ? "rgba(255,255,255,0.06)" : "rgba(239,68,68,0.15)"; (e.currentTarget as HTMLButtonElement).style.color = item.removed ? "#a1a1aa" : "#f87171"; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "#52525b"; }}
+                              >
+                                {item.removed ? "↩" : "✕"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2.5 mt-4 pt-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                <button
+                  onClick={() => { setAIStep("prefs"); setAIPreview([]); }}
+                  className="flex-1 py-2.5 rounded-[12px] text-[13px] font-medium border text-zinc-400 cursor-pointer hover:text-zinc-200 transition-all"
+                  style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.09)" }}
+                >
+                  重新生成
+                </button>
+                <button
+                  onClick={handleAIConfirm}
+                  disabled={aiConfirming || activeCount === 0}
+                  className="flex-[2] py-2.5 px-4 rounded-[12px] text-[13px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60 transition-all"
+                  style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.85),rgba(99,102,241,0.85))", color: "#fff", boxShadow: "0 4px 16px rgba(139,92,246,0.2)" }}
+                >
+                  {aiConfirming ? <LoadingOutlined /> : "✓"}
+                  {aiConfirming ? "加入中..." : `加入行程（${activeCount} 項）`}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
     </>
   );
