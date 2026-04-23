@@ -102,8 +102,8 @@ export default function TripPage() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "transport");
   const [tabDirection, setTabDirection] = useState(1);
-  const ALL_TABS = ["transport","itinerary","expenses","photos","notes","souvenirs"];
-  
+  const ALL_TABS = ["transport", "itinerary", "expenses", "photos", "notes", "souvenirs"];
+
   // Update ref whenever trip loads so animation direction matches user's custom sort order
   const tabOrderRef = useRef(ALL_TABS);
   useEffect(() => {
@@ -476,7 +476,7 @@ export default function TripPage() {
       </header>
 
       <div
-        className="max-w-[720px] mx-auto w-full"
+        className="md:max-w-[80%] mx-auto w-full"
         style={{ padding: isMobile ? "20px 12px 100px" : "32px 24px 80px" }}
       >
         <div
@@ -588,9 +588,9 @@ export default function TripPage() {
                 {[
                   { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
                   { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
-                  { key: "expenses",  label: "費用", icon: <CreditCardIcon size={18} /> },
-                  { key: "photos",   label: "照片", icon: <PhotoIcon size={18} /> },
-                  { key: "notes",    label: "筆記", icon: <NotepadIcon size={18} /> },
+                  { key: "expenses", label: "費用", icon: <CreditCardIcon size={18} /> },
+                  { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
+                  { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
                   { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
                 ]
                   .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
@@ -599,18 +599,18 @@ export default function TripPage() {
                     return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
                   })
                   .map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => handleTabChange(tab.key)}
-                    className={`flex items-center gap-2 px-5 h-9 rounded-full text-sm font-medium transition-all duration-300 cursor-pointer ${activeTab === tab.key
-                      ? "bg-white/10 text-white shadow-sm"
-                      : "text-zinc-500 hover:text-zinc-300"
-                      }`}
-                  >
-                    {tab.icon}
-                    {tab.label}
-                  </button>
-                ))}
+                    <button
+                      key={tab.key}
+                      onClick={() => handleTabChange(tab.key)}
+                      className={`flex items-center gap-2 px-5 h-9 rounded-full text-sm font-medium transition-all duration-300 cursor-pointer ${activeTab === tab.key
+                        ? "bg-white/10 text-white shadow-sm"
+                        : "text-zinc-500 hover:text-zinc-300"
+                        }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                    </button>
+                  ))}
               </div>
             </div>
           )}
@@ -686,9 +686,9 @@ export default function TripPage() {
             {[
               { value: "transport", icon: <PlaneIcon size={20} />, label: "路線" },
               { value: "itinerary", icon: <CalendarIcon size={20} />, label: "行程" },
-              { value: "expenses",  icon: <CreditCardIcon size={20} />, label: "費用" },
-              { value: "photos",   icon: <PhotoIcon size={20} />, label: "照片" },
-              { value: "notes",    icon: <NotepadIcon size={20} />, label: "筆記" },
+              { value: "expenses", icon: <CreditCardIcon size={20} />, label: "費用" },
+              { value: "photos", icon: <PhotoIcon size={20} />, label: "照片" },
+              { value: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
               { value: "souvenirs", icon: <GiftIcon size={20} />, label: "伴手禮" },
             ]
               .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.value))
@@ -697,33 +697,33 @@ export default function TripPage() {
                 return trip.enabled_tabs.indexOf(a.value) - trip.enabled_tabs.indexOf(b.value);
               })
               .map(({ value, icon, label }) => {
-              const isActive = activeTab === value;
-              return (
-                <button
-                  key={value}
-                  onClick={() => {
-                    handleTabChange(value);
-                    if (value !== 'itinerary') {
-                      window.scrollTo({ top: 0, behavior: 'instant' });
-                    }
-                  }}
-                  className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-pointer"
-                >
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
-                    style={isActive ? { background: 'rgba(139,92,246,0.15)', color: '#a78bfa' } : { color: '#52525b' }}
+                const isActive = activeTab === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      handleTabChange(value);
+                      if (value !== 'itinerary') {
+                        window.scrollTo({ top: 0, behavior: 'instant' });
+                      }
+                    }}
+                    className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-pointer"
                   >
-                    {icon}
-                  </div>
-                  <span
-                    className="text-[10px] font-medium transition-all duration-200"
-                    style={{ color: isActive ? '#a78bfa' : '#52525b' }}
-                  >
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
+                      style={isActive ? { background: 'rgba(139,92,246,0.15)', color: '#a78bfa' } : { color: '#52525b' }}
+                    >
+                      {icon}
+                    </div>
+                    <span
+                      className="text-[10px] font-medium transition-all duration-200"
+                      style={{ color: isActive ? '#a78bfa' : '#52525b' }}
+                    >
+                      {label}
+                    </span>
+                  </button>
+                );
+              })}
           </div>
         </nav>
       )}
