@@ -20,6 +20,8 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 - **AI-Powered Ticket Import** — Automatically extract flight details from boarding pass images or PDFs using Google Gemini.
 - **Photo Wall** — Seamlessly integrated Google Photos albums with a beautiful masonry-style layout and skeleton loading.
 - **Social Sharing & Collaboration** — Generate shareable links for friends or invite partners to co-edit your trip details. Member avatars are displayed on the trip card.
+- **Souvenirs & Shopping List** — Card-based UI to track your shopping list. Supports custom tag-based dynamic filtering, image integration, and quick check-off status management.
+- **PWA & Offline Caching** — Instantly load previously viewed data (Itineraries, Expenses, Maps, Notes, Souvenirs) using local storage caching and skeleton screens, smoothing out the progressive web app experience.
 - **Responsive & Fluid UI** — Built with Tailwind CSS 4 and Ant Design 6, featuring a sidebar-based desktop layout and a bottom-drawer mobile experience.
 
 ### Tech Stack
@@ -108,6 +110,18 @@ CREATE TABLE IF NOT EXISTS expenses (
   notes text,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
 );
+
+-- Souvenirs & Shopping List
+CREATE TABLE IF NOT EXISTS souvenirs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  trip_id text NOT NULL,
+  name text NOT NULL,
+  is_checked boolean DEFAULT false,
+  image_url text,
+  tags text[],
+  notes text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
 ```
 
 ---
@@ -128,6 +142,8 @@ CREATE TABLE IF NOT EXISTS expenses (
 - **AI 機票自動匯入** — 透過 Google Gemini AI 解析登機證圖片或 PDF，一鍵填入航班資訊。
 - **旅遊照片牆** — 深度整合 Google Photos 相簿，配備瀑布流佈局與 Skeleton 載入效果。
 - **分享與共同編輯** — 可生成分享連結給朋友查看，或邀請隊友共同編輯旅程；旅程卡片顯示成員頭像。
+- **伴手禮與購物清單** — 卡片式網格介面追蹤購物清單。支援建立自訂標籤以進行動態篩選、圖片預覽與快速打勾狀態管理。
+- **PWA 支援與快取暫存** — 透過 LocalStorage 暫存機制做到瞬間載入（涵蓋行程、費用、地圖、筆記及伴手禮分頁），搭配骨架圖（Skeleton），確保網路不佳時依然提供極度流暢的操作體驗。
 - **極致響應式體驗** — 使用 Tailwind CSS 4 與 Ant Design 6 打造，桌機側欄、手機抽屜式操作完美銜接。
 
 ### 技術架構
@@ -213,6 +229,18 @@ CREATE TABLE IF NOT EXISTS expenses (
   date date,
   paid_by text,
   split_with text[],
+  notes text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+-- 伴手禮與購物清單表結構
+CREATE TABLE IF NOT EXISTS souvenirs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  trip_id text NOT NULL,
+  name text NOT NULL,
+  is_checked boolean DEFAULT false,
+  image_url text,
+  tags text[],
   notes text,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
 );
