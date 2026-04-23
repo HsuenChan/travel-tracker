@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Typography, Checkbox, Input, Button, Popconfirm, Spin, App, Modal, Select } from "antd";
+import { Typography, Checkbox, Input, Button, Popconfirm, Spin, App, Modal, Select, Skeleton } from "antd";
 import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import { PlusIcon, GiftIcon } from "@/app/components/Icons";
 
@@ -28,11 +28,20 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
   const { message, modal } = App.useApp();
 
   async function load() {
-    setLoading(true);
+    const cacheKey = `travel_souvenirs_${tripId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      setItems(JSON.parse(cached));
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     const res = await fetch(`/api/souvenirs?tripId=${tripId}`);
     if (res.ok) {
       const data = await res.json();
       setItems(data.items);
+      localStorage.setItem(cacheKey, JSON.stringify(data.items));
     }
     setLoading(false);
   }
@@ -172,7 +181,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
         open={isModalVisible}
         onCancel={closeModal}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         className="glass-modal"
       >
         <div className="flex flex-col gap-4 mt-6">
@@ -231,7 +240,19 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
       </Modal>
 
       {loading ? (
-        <div className="flex justify-center py-10"><Spin /></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex flex-col rounded-[20px] border border-white/5 bg-white/5 overflow-hidden">
+              <div className="w-full h-24 bg-white/[0.03]" />
+              <div className="p-3 flex items-start gap-3">
+                <div className="pt-0.5"><Skeleton.Avatar active shape="square" size={16} /></div>
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <Skeleton active paragraph={{ rows: 1, width: ['80%'] }} title={{ width: "50%" }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : items.length === 0 ? (
         <div
           className="flex flex-col items-center gap-4 py-20 rounded-3xl border border-white/5 bg-white/2"

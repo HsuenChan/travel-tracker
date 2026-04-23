@@ -69,12 +69,20 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
 
   useEffect(() => {
     async function fetchNotes() {
+      const cacheKey = `travel_notes_${tripId}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        setNoteContent(cached);
+        setLoading(false);
+      }
+      
       const res = await fetchWithAuth(`/api/trips/${tripId}/notes`);
       if (res.ok) {
         const data = await res.json();
         const saved = data.notes as { content?: string } | null;
         if (saved?.content) {
           setNoteContent(saved.content);
+          localStorage.setItem(cacheKey, saved.content);
         }
       }
       setLoading(false);
@@ -126,6 +134,7 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
     });
     if (res.ok) {
       messageApi.success("已儲存");
+      localStorage.setItem(`travel_notes_${tripId}`, noteContent);
     } else {
       messageApi.error("儲存失敗，請重試");
     }
