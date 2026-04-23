@@ -135,6 +135,7 @@ body {
   color: #e4e4e7 !important;
   padding: 12px 14px !important;
   line-height: 2;
+  max-height: 60vh !important;
 }
 
 .custom-quill .ql-editor.ql-blank::before {

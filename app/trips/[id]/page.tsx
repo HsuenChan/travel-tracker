@@ -19,10 +19,11 @@ import PhotoWall from "@/app/components/PhotoWall";
 import ItineraryTab from "@/app/components/ItineraryTab";
 import ExpensesTab from "@/app/components/ExpensesTab";
 import NotesTab from "@/app/components/NotesTab";
+import SouvenirsTab from "@/app/components/SouvenirsTab";
 const TripMap = dynamic(() => import("@/app/components/TripMap"), { ssr: false });
 import VehicleIconChip from "@/app/components/VehicleIconChip";
 import {
-  PlaneIcon, PlusIcon, CalendarIcon, LocationIcon, UsersIcon,
+  PlaneIcon, PlusIcon, CalendarIcon, LocationIcon, UsersIcon, GiftIcon,
   CreditCardIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon,
 } from "@/app/components/Icons";
 
@@ -37,6 +38,7 @@ interface Trip {
   photo_album_id: string;
   people: string[] | null;
   currency: string | null;
+  enabled_tabs?: string[] | null;
 }
 
 interface Segment {
@@ -100,7 +102,15 @@ export default function TripPage() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "transport");
   const [tabDirection, setTabDirection] = useState(1);
-  const tabOrderRef = useRef(["transport", "itinerary", "expenses", "photos", "notes"]);
+  const ALL_TABS = ["transport","itinerary","expenses","photos","notes","souvenirs"];
+  
+  // Update ref whenever trip loads so animation direction matches user's custom sort order
+  const tabOrderRef = useRef(ALL_TABS);
+  useEffect(() => {
+    if (trip?.enabled_tabs) {
+      tabOrderRef.current = trip.enabled_tabs;
+    }
+  }, [trip]);
 
   // Sync state with URL changes (handle back/forward browser navigation)
   useEffect(() => {
@@ -578,10 +588,17 @@ export default function TripPage() {
                 {[
                   { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
                   { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
-                  { key: "expenses", label: "費用", icon: <CreditCardIcon size={18} /> },
-                  { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
-                  { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
-                ].map((tab) => (
+                  { key: "expenses",  label: "費用", icon: <CreditCardIcon size={18} /> },
+                  { key: "photos",   label: "照片", icon: <PhotoIcon size={18} /> },
+                  { key: "notes",    label: "筆記", icon: <NotepadIcon size={18} /> },
+                  { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
+                ]
+                  .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
+                  .sort((a, b) => {
+                    if (!trip.enabled_tabs) return 0;
+                    return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
+                  })
+                  .map((tab) => (
                   <button
                     key={tab.key}
                     onClick={() => handleTabChange(tab.key)}
@@ -619,6 +636,7 @@ export default function TripPage() {
                 )}
                 {activeTab === "itinerary" && <ItineraryTab tripId={id} isActive destination={trip.countries} />}
                 {activeTab === "notes" && <NotesTab tripId={id} />}
+                {activeTab === "souvenirs" && <SouvenirsTab tripId={id} />}
                 {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} />}
                 {activeTab === "photos" && (
                   trip.photo_album_id ? (
@@ -668,10 +686,17 @@ export default function TripPage() {
             {[
               { value: "transport", icon: <PlaneIcon size={20} />, label: "路線" },
               { value: "itinerary", icon: <CalendarIcon size={20} />, label: "行程" },
-              { value: "expenses", icon: <CreditCardIcon size={20} />, label: "費用" },
-              { value: "photos", icon: <PhotoIcon size={20} />, label: "照片" },
-              { value: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
-            ].map(({ value, icon, label }) => {
+              { value: "expenses",  icon: <CreditCardIcon size={20} />, label: "費用" },
+              { value: "photos",   icon: <PhotoIcon size={20} />, label: "照片" },
+              { value: "notes",    icon: <NotepadIcon size={20} />, label: "筆記" },
+              { value: "souvenirs", icon: <GiftIcon size={20} />, label: "伴手禮" },
+            ]
+              .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.value))
+              .sort((a, b) => {
+                if (!trip.enabled_tabs) return 0;
+                return trip.enabled_tabs.indexOf(a.value) - trip.enabled_tabs.indexOf(b.value);
+              })
+              .map(({ value, icon, label }) => {
               const isActive = activeTab === value;
               return (
                 <button
@@ -715,7 +740,7 @@ export default function TripPage() {
         onClick={() => setShowMoreSheet(false)}
       />
       <div
-        className="fixed bottom-0 left-0 right-0 z-[211] rounded-t-[24px] transition-transform duration-300 ease-out"
+        className="fixed bottom-0 left-0 right-0 z-401 rounded-t-[24px] transition-transform duration-300 ease-out"
         style={{
           background: "#1c1c1f",
           borderTop: "1px solid rgba(255,255,255,0.1)",
