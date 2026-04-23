@@ -34,6 +34,8 @@ interface Props {
   people: string[];
   currency: string;
   currencies: string[];
+  readOnly?: boolean;
+  initialExpenses?: Expense[];
 }
 
 interface CurrencyOption {
@@ -122,8 +124,8 @@ const FALLBACK_CURRENCIES: CurrencyOption[] = [
   "TWD", "USD", "EUR", "JPY", "KRW", "HKD", "SGD", "THB", "GBP", "AUD", "CNY", "MYR",
 ].map((code) => ({ value: code, label: code }));
 
-export default function ExpensesTab({ tripId, people, currency, currencies }: Props) {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+export default function ExpensesTab({ tripId, people, currency, currencies, readOnly, initialExpenses }: Props) {
+  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses || []);
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [form] = Form.useForm();
@@ -173,8 +175,13 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
   }
 
   useEffect(() => {
-    fetchExpenses();
-  }, [tripId]);
+    if (initialExpenses) {
+      setExpenses(initialExpenses);
+      setLoading(false);
+    } else {
+      fetchExpenses();
+    }
+  }, [tripId, initialExpenses]);
 
   async function handleSave(values: Record<string, unknown>) {
     setSaving(true);
@@ -418,13 +425,15 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
             {sortOrder === "asc" ? "↑" : "↓"}
           </button>
         </div>
-        <button
-          onClick={openAdd}
-          className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-        >
-          <PlusIcon size={12} />
-          新增費用
-        </button>
+        {!readOnly && (
+          <button
+            onClick={openAdd}
+            className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
+          >
+            <PlusIcon size={12} />
+            新增費用
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -478,13 +487,15 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
             <Typography.Text className="text-zinc-300 text-sm font-medium">還沒有費用記錄</Typography.Text>
             <Typography.Text className="text-zinc-600 text-xs">掌握每一筆開銷，旅行更安心。</Typography.Text>
           </div>
-          <button
-            onClick={openAdd}
-            className="mt-1 inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-          >
-            <PlusIcon size={12} />
-            新增第一筆費用
-          </button>
+          {!readOnly && (
+            <button
+              onClick={openAdd}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
+            >
+              <PlusIcon size={12} />
+              新增第一筆費用
+            </button>
+          )}
         </div>
       ) : filteredExpenses.length === 0 ? (
         <div className="text-zinc-600 text-center py-8 text-sm">此類別沒有費用</div>
@@ -530,27 +541,29 @@ export default function ExpensesTab({ tripId, people, currency, currencies }: Pr
                     <div className="text-zinc-600 text-xs mt-1">{exp.notes}</div>
                   )}
                 </div>
-                <Dropdown
-                  trigger={["click"]}
-                  menu={{
-                    items: [
-                      { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(exp) },
-                      { type: "divider" },
-                      {
-                        key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                        onClick: () => Modal.confirm({
-                          title: "確定刪除這筆費用？",
-                          okText: "刪除", okType: "danger", cancelText: "取消",
-                          onOk: () => handleDelete(exp.id),
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
-                    <MoreOutlined />
-                  </button>
-                </Dropdown>
+                {!readOnly && (
+                  <Dropdown
+                    trigger={["click"]}
+                    menu={{
+                      items: [
+                        { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(exp) },
+                        { type: "divider" },
+                        {
+                          key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
+                          onClick: () => Modal.confirm({
+                            title: "確定刪除這筆費用？",
+                            okText: "刪除", okType: "danger", cancelText: "取消",
+                            onOk: () => handleDelete(exp.id),
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
+                      <MoreOutlined />
+                    </button>
+                  </Dropdown>
+                )}
               </div>
             </div>
           ))}

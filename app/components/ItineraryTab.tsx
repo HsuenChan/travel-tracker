@@ -92,7 +92,9 @@ const TIME_OPTIONS = Array.from({ length: 15 }, (_, i) => {
 interface Props {
   tripId: string;
   isActive?: boolean;
-  destination?: string;
+  destination: string;
+  readOnly?: boolean;
+  initialItems?: ItineraryItem[];
 }
 
 const CATEGORIES = [
@@ -117,8 +119,8 @@ const CATEGORY_ACCENT: Record<string, { from: string; to: string }> = {
   other: { from: '#a1a1aa', to: '#71717a' },   // zinc   — badge #a1a1aa
 };
 
-export default function ItineraryTab({ tripId, isActive, destination }: Props) {
-  const [items, setItems] = useState<ItineraryItem[]>([]);
+export default function ItineraryTab({ tripId, isActive, destination, readOnly, initialItems }: Props) {
+  const [items, setItems] = useState<ItineraryItem[]>(initialItems || []);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [form] = Form.useForm();
@@ -161,8 +163,13 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
   }
 
   useEffect(() => {
-    fetchItems();
-  }, [tripId]);
+    if (initialItems) {
+      setItems(initialItems);
+      setLoading(false);
+    } else if (isActive) {
+      fetchItems();
+    }
+  }, [tripId, isActive, initialItems]);
 
   useEffect(() => {
     if (!destination || items.length === 0) return;
@@ -463,27 +470,29 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
                     />
                   )}
                 </div>
-                <Dropdown
-                  trigger={["click"]}
-                  menu={{
-                    items: [
-                      { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(item) },
-                      { type: "divider" },
-                      {
-                        key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                        onClick: () => Modal.confirm({
-                          title: "確定刪除這個行程？",
-                          okText: "刪除", okType: "danger", cancelText: "取消",
-                          onOk: () => handleDelete(item.id),
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
-                    <MoreOutlined />
-                  </button>
-                </Dropdown>
+                {!readOnly && (
+                  <Dropdown
+                    trigger={["click"]}
+                    menu={{
+                      items: [
+                        { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(item) },
+                        { type: "divider" },
+                        {
+                          key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
+                          onClick: () => Modal.confirm({
+                            title: "確定刪除這個行程？",
+                            okText: "刪除", okType: "danger", cancelText: "取消",
+                            onOk: () => handleDelete(item.id),
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
+                      <MoreOutlined />
+                    </button>
+                  </Dropdown>
+                )}
               </div>
             </motion.div>
           ))}
@@ -497,30 +506,34 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
       <div className="my-3 flex items-center justify-between gap-2">
         <Typography.Text strong className="text-zinc-100 text-[15px] shrink-0">每日行程</Typography.Text>
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
-          <button
-            onClick={() => { setAIModalOpen(true); setAIStep("prefs"); }}
-            className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer"
-            style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}
-          >
-            <span style={{ fontSize: 9 }}>✦</span> AI 排程
-          </button>
-          <button
-            onClick={handleHealthCheck}
-            disabled={healthLoading}
-            className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
-            style={healthReport
-              ? { background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }
-              : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#71717a" }}
-          >
-            {healthLoading ? <LoadingOutlined style={{ fontSize: 10 }} /> : <span>⚕</span>} 健康
-          </button>
-          <button
-            onClick={openAdd}
-            className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-          >
-            <PlusIcon size={11} />
-            新增
-          </button>
+          {!readOnly && (
+            <>
+              <button
+                onClick={() => { setAIModalOpen(true); setAIStep("prefs"); }}
+                className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer"
+                style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}
+              >
+                <span style={{ fontSize: 9 }}>✦</span> AI 排程
+              </button>
+              <button
+                onClick={handleHealthCheck}
+                disabled={healthLoading}
+                className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
+                style={healthReport
+                  ? { background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }
+                  : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#71717a" }}
+              >
+                {healthLoading ? <LoadingOutlined style={{ fontSize: 10 }} /> : <span>⚕</span>} 健康
+              </button>
+              <button
+                onClick={openAdd}
+                className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
+              >
+                <PlusIcon size={11} />
+                新增
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -568,26 +581,34 @@ export default function ItineraryTab({ tripId, isActive, destination }: Props) {
         </div>
       ) : dates.length === 0 ? (
         <div
-          className="flex flex-col items-center gap-3 py-12 pb-10 rounded-2xl border border-white/[0.06]"
-          style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(139,92,246,0.06) 0%, transparent 65%), rgba(9,9,11,0.6)' }}
+          className="flex flex-col items-center gap-4 py-16 px-6 rounded-3xl border border-white/5 bg-white/[0.02] text-center"
+          style={{ background: 'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.05) 0%, transparent 70%)' }}
         >
-          <div
-            className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center"
-            style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.18)' }}
-          >
-            <CalendarIcon size={26} stroke="#a78bfa" strokeWidth={1.5} />
+          <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
+            <CalendarIcon size={32} stroke="#8b5cf6" strokeWidth={1.5} />
           </div>
-          <div className="flex flex-col items-center gap-1">
-            <Typography.Text className="text-zinc-300 text-sm font-medium">還沒有行程安排</Typography.Text>
-            <Typography.Text className="text-zinc-600 text-xs">把每一天規劃好，旅程會更從容。</Typography.Text>
+          <div>
+            <div className="text-zinc-200 font-medium mb-1">還沒有行程安排</div>
+            <div className="text-zinc-500 text-xs max-w-[240px] mx-auto">
+              把每一天規劃好，旅程會更從容。
+            </div>
           </div>
-          <button
-            onClick={openAdd}
-            className="mt-1 inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-          >
-            <PlusIcon size={12} />
-            新增第一個行程
-          </button>
+          {!readOnly && (
+            <div className="flex gap-2 w-full max-w-[300px]">
+              <button
+                onClick={openAdd}
+                className="flex-1 h-10 rounded-2xl bg-white/[0.06] border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition-all cursor-pointer"
+              >
+                手動新增
+              </button>
+              <button
+                onClick={() => setAIModalOpen(true)}
+                className="flex-1 h-10 rounded-2xl bg-violet-600 border border-violet-500 text-white text-sm font-medium hover:bg-violet-500 transition-all shadow-[0_4px_12px_rgba(139,92,246,0.3)] cursor-pointer"
+              >
+                AI 助手生成
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <Timeline items={timelineItems} />

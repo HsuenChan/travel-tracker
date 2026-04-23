@@ -25,17 +25,19 @@ interface Props {
   onChange?: (value: string) => void;
   placeholder?: string;
   extraClass?: string;
+  readOnly?: boolean;
 }
 
-export default function QuillEditor({ value, onChange, placeholder, extraClass = "" }: Props) {
+export default function QuillEditor({ value, onChange, placeholder, extraClass = "", readOnly = false }: Props) {
   return (
     <ReactQuill
-      theme="snow"
+      theme={readOnly ? "bubble" : "snow"}
       value={value || ""}
       onChange={onChange}
-      modules={QUILL_MODULES}
+      modules={readOnly ? { toolbar: false } : QUILL_MODULES}
       className={`custom-quill ${extraClass}`}
       placeholder={placeholder}
+      readOnly={readOnly}
     />
   );
 }

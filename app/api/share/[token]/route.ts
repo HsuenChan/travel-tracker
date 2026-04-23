@@ -10,7 +10,7 @@ export async function GET(
 
   const { data: trip, error } = await supabase
     .from("trips")
-    .select("id, name, start_date, end_date, countries, notes, photo_album_id")
+    .select("id, name, start_date, end_date, countries, notes, photo_album_id, people, currency")
     .eq("share_token", token)
     .single();
 
@@ -24,5 +24,23 @@ export async function GET(
     .eq("trip_id", trip.id)
     .order("order", { ascending: true });
 
-  return NextResponse.json({ trip, segments: segments ?? [] });
+  const { data: itinerary } = await supabase
+    .from("itinerary_items")
+    .select("*")
+    .eq("trip_id", trip.id)
+    .order("date", { ascending: true })
+    .order("time", { ascending: true, nullsFirst: true });
+
+  const { data: expenses } = await supabase
+    .from("expenses")
+    .select("*")
+    .eq("trip_id", trip.id)
+    .order("date", { ascending: true });
+
+  return NextResponse.json({
+    trip,
+    segments: segments ?? [],
+    itinerary: itinerary ?? [],
+    expenses: expenses ?? []
+  });
 }

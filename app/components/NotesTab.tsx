@@ -56,10 +56,12 @@ function appendToContent(prev: string, html: string): string {
 
 interface Props {
   tripId: string;
+  readOnly?: boolean;
+  initialContent?: string;
 }
 
-export default function NotesTab({ tripId }: Props) {
-  const [noteContent, setNoteContent] = useState<string>("");
+export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
+  const [noteContent, setNoteContent] = useState<string>(initialContent || "");
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -77,8 +79,13 @@ export default function NotesTab({ tripId }: Props) {
       }
       setLoading(false);
     }
-    fetchNotes();
-  }, [tripId]);
+    if (initialContent) {
+      setNoteContent(initialContent);
+      setLoading(false);
+    } else {
+      fetchNotes();
+    }
+  }, [tripId, initialContent]);
 
   /** Insert section heading only (no AI content) */
   function handleInsertHeading(key: string) {
@@ -149,53 +156,58 @@ export default function NotesTab({ tripId }: Props) {
       <div className="mt-3 flex flex-col gap-4">
 
         {/* Section chips — split button: left = insert heading, right ✦ = AI generate */}
-        <div>
-          <Typography.Text className="text-zinc-600 opacity-50 text-[11px] block mb-3 mt-1">
-            點左側新增標題 · 點 ✦ 讓 AI 生成內容
-          </Typography.Text>
-          <div className="flex flex-wrap gap-2">
-            {SECTION_DEFS.map(({ key, title }) => (
-              <div key={key} className="flex items-stretch">
-                <button
-                  onClick={() => handleInsertHeading(key)}
-                  className="inline-flex items-center gap-1.5 rounded-l-full text-[12px] font-medium h-7 pl-3 pr-2.5 bg-white/[0.04] border border-r-0 border-white/[0.09] text-zinc-400 hover:border-white/20 hover:text-zinc-200 hover:bg-white/[0.07] transition-all cursor-pointer"
-                >
-                  {title}
-                </button>
-                <button
-                  onClick={() => handleGenerate(key)}
-                  disabled={!!generating[key]}
-                  title={`AI 生成「${title}」`}
-                  className="inline-flex items-center justify-center rounded-r-full text-[11px] font-medium h-7 w-7 bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/25 hover:text-violet-300 transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  {generating[key]
-                    ? <LoadingOutlined style={{ fontSize: 10 }} />
-                    : <span>✦</span>
-                  }
-                </button>
-              </div>
-            ))}
+        {!readOnly && (
+          <div>
+            <Typography.Text className="text-zinc-600 opacity-50 text-[11px] block mb-3 mt-1">
+              點左側新增標題 · 點 ✦ 讓 AI 生成內容
+            </Typography.Text>
+            <div className="flex flex-wrap gap-2">
+              {SECTION_DEFS.map(({ key, title }) => (
+                <div key={key} className="flex items-stretch">
+                  <button
+                    onClick={() => handleInsertHeading(key)}
+                    className="inline-flex items-center gap-1.5 rounded-l-full text-[12px] font-medium h-7 pl-3 pr-2.5 bg-white/[0.04] border border-r-0 border-white/[0.09] text-zinc-400 hover:border-white/20 hover:text-zinc-200 hover:bg-white/[0.07] transition-all cursor-pointer"
+                  >
+                    {title}
+                  </button>
+                  <button
+                    onClick={() => handleGenerate(key)}
+                    disabled={!!generating[key]}
+                    title={`AI 生成「${title}」`}
+                    className="inline-flex items-center justify-center rounded-r-full text-[11px] font-medium h-7 w-7 bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/25 hover:text-violet-300 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {generating[key]
+                      ? <LoadingOutlined style={{ fontSize: 10 }} />
+                      : <span>✦</span>
+                    }
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Unified rich-text editor */}
-        <div className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden">
+        <div className={`bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden ${readOnly ? "read-only-notes" : ""}`}>
           <QuillEditor
             value={noteContent}
             onChange={setNoteContent}
-            placeholder="在這裡記下旅遊筆記，或點上方 ✦ 讓 AI 幫你生成各區塊內容..."
+            placeholder={readOnly ? "" : "在這裡記下旅遊筆記，或點上方 ✦ 讓 AI 幫你生成各區塊內容..."}
             extraClass="notes-quill"
+            readOnly={readOnly}
           />
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-full text-[14px] font-semibold h-10 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50"
-        >
-          {saving && <LoadingOutlined style={{ fontSize: 13 }} />}
-          儲存筆記
-        </button>
+        {!readOnly && (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-full text-[14px] font-semibold h-10 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50"
+          >
+            {saving && <LoadingOutlined style={{ fontSize: 13 }} />}
+            儲存筆記
+          </button>
+        )}
       </div>
     </>
   );
