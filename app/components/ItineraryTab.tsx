@@ -3,7 +3,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Button, Modal, Form, DatePicker, Select, Dropdown, Typography, Input, Skeleton, Timeline, Tooltip } from "antd";
+import { Button, Modal, Form, DatePicker, Select, Dropdown, Typography, Input, Skeleton, Timeline, Tooltip, App } from "antd";
 import { EditOutlined, DeleteOutlined, MoreOutlined, LoadingOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CategoryBadge } from "@/app/components/Icons";
 import dayjs from "dayjs";
@@ -127,6 +127,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherDay>>({});
+  const { modal, message } = App.useApp();
 
   // Health check
   const [healthLoading, setHealthLoading] = useState(false);
@@ -479,7 +480,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                         { type: "divider" },
                         {
                           key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                          onClick: () => Modal.confirm({
+                          onClick: () => modal.confirm({
                             title: "確定刪除這個行程？",
                             okText: "刪除", okType: "danger", cancelText: "取消",
                             onOk: () => handleDelete(item.id),

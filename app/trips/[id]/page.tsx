@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import {
   Button, Typography,
-  Skeleton, Popconfirm, Space, Tag, Timeline, message, Segmented, Modal, Dropdown, Tooltip,
+  Skeleton, Popconfirm, Space, Tag, Timeline, Segmented, Modal, Dropdown, Tooltip, App,
 } from "antd";
 import {
   DeleteOutlined, LoadingOutlined, EditOutlined, MoreOutlined,
@@ -23,7 +23,7 @@ const TripMap = dynamic(() => import("@/app/components/TripMap"), { ssr: false }
 import VehicleIconChip from "@/app/components/VehicleIconChip";
 import {
   PlaneIcon, PlusIcon, CalendarIcon, LocationIcon, UsersIcon,
-  CreditCardIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon,
+  CreditCardIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon,
 } from "@/app/components/Icons";
 
 interface Trip {
@@ -96,7 +96,7 @@ export default function TripPage() {
   const [sharing, setSharing] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
-  const [messageApi, contextHolder] = message.useMessage();
+  const { modal, message: messageApi } = App.useApp();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "transport");
   const [tabDirection, setTabDirection] = useState(1);
@@ -117,7 +117,7 @@ export default function TripPage() {
     const order = tabOrderRef.current;
     setTabDirection(order.indexOf(val) > order.indexOf(activeTab) ? 1 : -1);
     setActiveTab(val);
-    
+
     // Update URL param
     const current = new URLSearchParams(Array.from(searchParams.entries()));
     current.set("tab", val);
@@ -210,6 +210,7 @@ export default function TripPage() {
         const { shareUrl } = await res.json();
         await navigator.clipboard.writeText(shareUrl);
         messageApi.success(`分享連結已複製: ${shareUrl}`);
+        setShowMoreSheet(false);
       }
     } finally {
       setSharing(false);
@@ -224,6 +225,7 @@ export default function TripPage() {
         const { inviteUrl } = await res.json();
         await navigator.clipboard.writeText(inviteUrl);
         messageApi.success(`邀請連結已複製: ${inviteUrl}`);
+        setShowMoreSheet(false);
       }
     } finally {
       setInviting(false);
@@ -318,7 +320,7 @@ export default function TripPage() {
                 { type: "divider" },
                 {
                   key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                  onClick: () => Modal.confirm({
+                  onClick: () => modal.confirm({
                     title: "確定刪除這段交通？",
                     okText: "刪除", okType: "danger", cancelText: "取消",
                     onOk: () => handleDeleteSegment(seg.id),
@@ -397,7 +399,6 @@ export default function TripPage() {
 
   return (
     <div className="min-h-screen bg-[#09090b]">
-      {contextHolder}
       <header className="backdrop-blur-md flex backdrop-blur-md items-center gap-2 px-3 md:px-5 h-16 sticky top-0 z-[100] border-b border-white/[0.06]">
         {/* Back */}
         <button
@@ -418,11 +419,7 @@ export default function TripPage() {
             onClick={() => setShowMoreSheet(true)}
             className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <circle cx="12" cy="5" r="1" fill="currentColor" stroke="none" />
-              <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
-              <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none" />
-            </svg>
+            <MoreVerticalIcon size={16} strokeWidth={2.5} />
           </button>
         ) : (
           <div className="flex gap-1.5 shrink-0">
@@ -576,19 +573,29 @@ export default function TripPage() {
 
         <div className="mb-7">
           {!isMobile && (
-            <Segmented
-              block
-              className="cute-segmented mb-6"
-              value={activeTab}
-              onChange={handleTabChange}
-              options={[
-                { value: "transport", label: <span className="inline-flex items-center gap-[5px]"><PlaneIcon size={13} />路線</span> },
-                { value: "itinerary", label: <span className="inline-flex items-center gap-[5px]"><CalendarIcon size={13} />行程</span> },
-                { value: "expenses", label: <span className="inline-flex items-center gap-[5px]"><CreditCardIcon size={13} />費用</span> },
-                { value: "photos", label: <span className="inline-flex items-center gap-[5px]"><PhotoIcon size={13} />照片</span> },
-                { value: "notes", label: <span className="inline-flex items-center gap-[5px]"><NotepadIcon size={13} />筆記</span> },
-              ]}
-            />
+            <div className="flex items-center justify-center mb-8 sticky top-[80px] z-50">
+              <div className="flex bg-[#18181b]/80 border border-white/8 backdrop-blur-md rounded-full p-1.5 shadow-xl">
+                {[
+                  { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
+                  { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
+                  { key: "expenses", label: "費用", icon: <CreditCardIcon size={18} /> },
+                  { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
+                  { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => handleTabChange(tab.key)}
+                    className={`flex items-center gap-2 px-5 h-9 rounded-full text-sm font-medium transition-all duration-300 cursor-pointer ${activeTab === tab.key
+                      ? "bg-white/10 text-white shadow-sm"
+                      : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                  >
+                    {tab.icon}
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           <div style={{ overflow: 'clip' }}>
             <AnimatePresence mode="wait">
@@ -646,7 +653,7 @@ export default function TripPage() {
 
       {isMobile && (
         <nav
-          className="fixed bottom-0 left-0 right-0 z-[200]"
+          className="fixed bottom-0 left-0 right-0 z-[400]"
           style={{
             background: 'rgba(9,9,11,0.97)',
             backdropFilter: 'blur(24px)',
@@ -728,7 +735,7 @@ export default function TripPage() {
           <div className="space-y-0.5">
             {/* Share */}
             <button
-              onClick={() => { setShowMoreSheet(false); handleShare(); }}
+              onClick={() => { handleShare(); }}
               disabled={sharing}
               className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
             >
@@ -744,7 +751,7 @@ export default function TripPage() {
             {/* Invite (owner only) */}
             {isOwner && (
               <button
-                onClick={() => { setShowMoreSheet(false); handleInvite(); }}
+                onClick={() => { handleInvite(); }}
                 disabled={inviting}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
               >
@@ -779,7 +786,7 @@ export default function TripPage() {
                 <button
                   onClick={() => {
                     setShowMoreSheet(false);
-                    Modal.confirm({
+                    modal.confirm({
                       title: "確定要刪除這筆旅程嗎？",
                       okText: "刪除", okType: "danger", cancelText: "取消",
                       okButtonProps: { danger: true, loading: deleting },

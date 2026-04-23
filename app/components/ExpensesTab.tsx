@@ -4,7 +4,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo } from "react";
 import {
   Button, Modal, Form, Input, DatePicker, Select, InputNumber,
-  Dropdown, Typography, Tabs, Skeleton, Switch,
+  Dropdown, Typography, Tabs, Skeleton, Switch, App,
 } from "antd";
 import { EditOutlined, DeleteOutlined, MoreOutlined } from "@ant-design/icons";
 import { PlusIcon, CreditCardIcon, CategoryBadge, CategoryIcon } from "@/app/components/Icons";
@@ -138,6 +138,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
+  const { modal, message } = App.useApp();
   const currencyOptions = currencies.map((c) => ({ value: c, label: c }));
 
   const watchedAmount = Form.useWatch("amount", form);
@@ -503,7 +504,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         <>
           <div className="flex items-center justify-end text-zinc-500">
             {expenses.length > 0 && (
-              <span className="text-[13px]">
+              <span className="text-[13px] mb-2">
                 ≈ {currency} {convertedTotal.toFixed(0)}
               </span>
             )}
@@ -550,7 +551,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                         { type: "divider" },
                         {
                           key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                          onClick: () => Modal.confirm({
+                          onClick: () => modal.confirm({
                             title: "確定刪除這筆費用？",
                             okText: "刪除", okType: "danger", cancelText: "取消",
                             onOk: () => handleDelete(exp.id),
@@ -574,7 +575,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
   const statsContent = (
     <>
-      <div className="flex flex-col gap-2.5 mb-4">
+      <div className="flex flex-col gap-2.5 my-4">
         <div className="flex gap-2 items-center">
           <Select
             className="flex-1 cute-select"
@@ -734,7 +735,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
   const settlementContent = (
     <>
-      <Typography.Text strong className="text-zinc-100 text-[15px] block mb-4">
+      <Typography.Text strong className="text-zinc-100 text-[15px] block my-4">
         結算
       </Typography.Text>
       {people.length === 0 ? (

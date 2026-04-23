@@ -74,15 +74,21 @@ async function geocode(location: string): Promise<[number, number] | null> {
 
 interface Props {
   tripId: string;
+  initialItems?: ItineraryItem[];
 }
 
-export default function TripMap({ tripId }: Props) {
-  const [items, setItems] = useState<ItineraryItem[]>([]);
+export default function TripMap({ tripId, initialItems }: Props) {
+  const [items, setItems] = useState<ItineraryItem[]>(initialItems || []);
   const [points, setPoints] = useState<MapPoint[]>([]);
-  const [loadingItems, setLoadingItems] = useState(true);
+  const [loadingItems, setLoadingItems] = useState(!initialItems);
   const [loadingGeo, setLoadingGeo] = useState(false);
 
   useEffect(() => {
+    if (initialItems) {
+      setItems(initialItems);
+      setLoadingItems(false);
+      return;
+    }
     const cacheKey = `travel_itinerary_${tripId}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -98,7 +104,7 @@ export default function TripMap({ tripId }: Props) {
         })
         .finally(() => setLoadingItems(false));
     }
-  }, [tripId]);
+  }, [tripId, initialItems]);
 
   useEffect(() => {
     const withLocation = items.filter((i) => i.location);
