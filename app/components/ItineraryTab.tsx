@@ -440,28 +440,18 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                   {item.location && (
                     <div className="text-zinc-500 text-xs mb-0.5 flex items-center gap-1">
                       <LocationIcon size={10} />
-                      <Tooltip
-                        title={
+                      <a
+                        href={
                           item.location.startsWith("http")
-                            ? "在 Google Maps 開啟"
-                            : `在 Google Maps 搜尋「${item.location}」`
+                            ? item.location
+                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`
                         }
-                        placement="topLeft"
-                        mouseEnterDelay={0.4}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="location-link"
                       >
-                        <a
-                          href={
-                            item.location.startsWith("http")
-                              ? item.location
-                              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="location-link"
-                        >
-                          {item.location.startsWith("http") ? "查看地圖" : item.location}
-                        </a>
-                      </Tooltip>
+                        {item.location.startsWith("http") ? "查看地圖" : item.location}
+                      </a>
                     </div>
                   )}
                   {item.notes && (
