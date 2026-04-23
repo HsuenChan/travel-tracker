@@ -2,15 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Layout, Typography, Tag, Timeline, Spin, ConfigProvider, theme } from "antd";
 import VehicleIconChip from "@/app/components/VehicleIconChip";
-import { PlaneIcon, PhotoIcon, CalendarIcon, CreditCardIcon, FileTextIcon } from "@/app/components/Icons";
+import { PlaneIcon, PhotoIcon, CalendarIcon, CreditCardIcon, NotepadIcon, LocationIcon } from "@/app/components/Icons";
 import { getCountryFlags } from "@/lib/countries";
 import PhotoWall from "@/app/components/PhotoWall";
 import ItineraryTab from "@/app/components/ItineraryTab";
 import ExpensesTab from "@/app/components/ExpensesTab";
 import NotesTab from "@/app/components/NotesTab";
 import { motion, AnimatePresence } from "framer-motion";
+
+const TripMap = dynamic(() => import("@/app/components/TripMap"), { ssr: false });
 
 interface Trip {
   id: string;
@@ -42,16 +45,16 @@ export default function SharePage() {
   const { token } = useParams<{ token: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   const [trip, setTrip] = useState<Trip | null>(null);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [itinerary, setItinerary] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [note, setNote] = useState<any>(null);
-  
+
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  
+
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "itinerary");
 
   useEffect(() => {
@@ -67,7 +70,7 @@ export default function SharePage() {
           setItinerary(data.itinerary || []);
           setExpenses(data.expenses || []);
           setNote(data.note);
-          
+
           // If no itinerary but has segments, default to transport
           if ((data.itinerary || []).length === 0 && data.segments.length > 0 && !searchParams.get("tab")) {
             setActiveTab("transport");
@@ -152,29 +155,34 @@ export default function SharePage() {
     ),
   }));
 
+  const currencies = trip.currency ? trip.currency.split(",") : ["TWD"];
+  const primaryCurrency = currencies[0];
+
   const tabs = [
     { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
-    { key: "transport", label: "交通", icon: <PlaneIcon size={18} /> },
+    { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
     { key: "expenses", label: "費用", icon: <CreditCardIcon size={18} /> },
-    { key: "notes", label: "筆記", icon: <FileTextIcon size={18} /> },
+    { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
     ...(trip.photo_album_id ? [{ key: "photos", label: "照片", icon: <PhotoIcon size={18} /> }] : []),
   ];
 
   return (
     <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
       <Layout className="min-h-screen bg-[#09090b] text-zinc-400" style={{ overflow: 'clip' }}>
-        <Layout.Header className="flex items-center justify-between border-b border-white/[0.06] px-5 bg-[#09090b]/80 backdrop-blur-xl sticky top-0 z-[100] h-16 leading-none">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <PlaneIcon size={16} stroke="#fff" strokeWidth={2.5} />
+        <Layout.Header
+          style={{ background: 'transparent' }}
+          className="flex items-center justify-between backdrop-blur-md px-3! md:px-6 h-14 border-none shadow-none shrink-0 pointer-events-auto sticky top-0 z-[100]"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 shrink-0 drop-shadow-[0_2px_8px_rgba(139,92,246,0.5)]">
+              <img src="/icon.svg" alt="" className="w-full h-full" />
             </div>
-            <div className="flex flex-col">
-              <Typography.Text className="text-white text-sm font-bold tracking-tight">Travel Tracker</Typography.Text>
-              <Typography.Text className="text-zinc-500 text-[10px] font-medium tracking-wider uppercase">Shared View</Typography.Text>
-            </div>
+            <Typography.Text className="font-extrabold text-[16px] md:text-lg tracking-wider" style={{ fontFamily: 'var(--font-comfortaa)', background: 'linear-gradient(90deg, #818cf8, #a78bfa, #2dd4bf)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              Travel Tracker
+            </Typography.Text>
           </div>
           <div className="flex items-center gap-2">
-            <Tag color="blue" className="!rounded-full !m-0 !border-blue-500/30 !bg-blue-500/10 !text-blue-400 font-medium">唯讀模式</Tag>
+            <Tag color="blue" className="rounded-full! m-0! border-blue-500/30! bg-blue-500/10! text-blue-400! font-medium">唯讀模式</Tag>
           </div>
         </Layout.Header>
 
@@ -184,38 +192,51 @@ export default function SharePage() {
             <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
               <PlaneIcon size={120} />
             </div>
-            
+
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
                 {flags && <span className="text-2xl drop-shadow-md">{flags}</span>}
                 {countries.map(c => (
-                  <span key={c} className="text-xs font-medium text-zinc-500 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">{c}</span>
+                  <span
+                    key={c}
+                    className="rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5"
+                    style={{
+                      background: `#6366f112`,
+                      border: `1px solid #6366f128`,
+                      color: '#6366f1',
+                      boxShadow: `0 0 15px #6366f115`,
+                    }}
+                  >
+                    <LocationIcon size={11} />
+                    {c}
+                  </span>
                 ))}
               </div>
-              
-              <Typography.Title level={2} className="!text-white !m-0 !mb-4 !text-2xl !font-bold tracking-tight">
+
+              <Typography.Title level={2} className="text-white! m-0! mb-4! text-2xl! font-bold! tracking-tight">
                 {trip.name}
               </Typography.Title>
-              
+
               <div className="flex flex-wrap gap-3 items-center">
                 <div className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.08] rounded-full px-3 py-1.5">
                   <CalendarIcon size={14} className="text-blue-400" />
-                  <span className="text-[13px] font-medium text-zinc-300">
+                  <Typography.Text className="text-[13px] font-medium text-zinc-300">
                     {trip.start_date} → {trip.end_date}
-                  </span>
+                  </Typography.Text>
                   {duration !== null && (
-                    <span className="ml-1 text-zinc-500 text-xs border-l border-white/10 pl-2">
+                    <Typography.Text className="ml-1 text-zinc-500 text-xs border-l border-white/10 pl-2">
                       {duration} 天
-                    </span>
+                    </Typography.Text>
                   )}
                 </div>
               </div>
-              
+
               {trip.notes && (
                 <div className="mt-5 pt-5 border-t border-white/[0.06]">
-                  <Typography.Text className="text-zinc-500 text-[13px] leading-relaxed block whitespace-pre-wrap italic">
-                    「 {trip.notes} 」
-                  </Typography.Text>
+                  <div
+                    className="notes-content"
+                    dangerouslySetInnerHTML={{ __html: trip.notes }}
+                  />
                 </div>
               )}
             </div>
@@ -223,16 +244,15 @@ export default function SharePage() {
 
           {/* Desktop Tabs (Segmented-like) */}
           <div className="hidden md:flex items-center justify-center mb-8 sticky top-[80px] z-50">
-            <div className="flex bg-[#18181b]/80 border border-white/[0.08] backdrop-blur-md rounded-full p-1.5 shadow-xl">
+            <div className="flex bg-[#18181b]/80 border border-white/8 backdrop-blur-md rounded-full p-1.5 shadow-xl">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => handleTabChange(tab.key)}
-                  className={`flex items-center gap-2 px-5 h-9 rounded-full text-sm font-medium transition-all duration-300 cursor-pointer ${
-                    activeTab === tab.key
-                      ? "bg-white/10 text-white shadow-sm"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
+                  className={`flex items-center gap-2 px-5 h-9 rounded-full text-sm font-medium transition-all duration-300 cursor-pointer ${activeTab === tab.key
+                    ? "bg-white/10 text-white shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-300"
+                    }`}
                 >
                   {tab.icon}
                   {tab.label}
@@ -249,7 +269,7 @@ export default function SharePage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              transitionEnd={{ transform: "none" }}
+              onAnimationComplete={() => { }}
             >
               {activeTab === "itinerary" && (
                 <ItineraryTab
@@ -262,7 +282,7 @@ export default function SharePage() {
               )}
               {activeTab === "transport" && (
                 <div className="space-y-4">
-                  <Typography.Text strong className="text-zinc-100 text-[15px] block mb-2 px-1">交通安排</Typography.Text>
+                  <Typography.Text strong className="text-zinc-100 text-[15px] block mb-2 px-1">路線安排</Typography.Text>
                   {segments.length > 0 ? (
                     <Timeline items={timelineItems} />
                   ) : (
@@ -270,14 +290,21 @@ export default function SharePage() {
                       尚無交通安排
                     </div>
                   )}
+
+                  <div className="mt-7">
+                    <div className="mb-3 flex items-center justify-between px-1">
+                      <Typography.Text strong className="text-zinc-100 text-[15px]">旅程地圖</Typography.Text>
+                    </div>
+                    <TripMap tripId={trip.id} initialItems={itinerary} />
+                  </div>
                 </div>
               )}
               {activeTab === "expenses" && (
                 <ExpensesTab
                   tripId={trip.id}
                   people={trip.people || []}
-                  currency={trip.currency || "TWD"}
-                  currencies={["TWD", "USD", "EUR", "JPY", "KRW", "HKD", "SGD", "THB", "GBP", "AUD", "CNY", "MYR"]}
+                  currency={primaryCurrency}
+                  currencies={currencies}
                   readOnly={true}
                   initialExpenses={expenses}
                 />
@@ -299,38 +326,44 @@ export default function SharePage() {
           </AnimatePresence>
         </Layout.Content>
 
-        {/* Mobile Navbar */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[200] bg-[#09090b]/80 backdrop-blur-xl border-t border-white/[0.08] pt-2 pb-[safe-area-inset-bottom] h-[calc(70px+safe-area-inset-bottom)]">
-          <div className="flex items-center justify-around h-full max-w-sm mx-auto px-4">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => handleTabChange(tab.key)}
-                className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative group cursor-pointer ${
-                  activeTab === tab.key ? "text-blue-400" : "text-zinc-500"
-                }`}
-              >
-                <div className={`p-1.5 rounded-xl transition-all duration-300 ${
-                  activeTab === tab.key ? "bg-blue-400/10" : "group-hover:bg-white/5"
-                }`}>
-                  {tab.icon}
-                </div>
-                <span className={`text-[10px] font-semibold transition-all duration-300 ${
-                  activeTab === tab.key ? "opacity-100" : "opacity-60"
-                }`}>
-                  {tab.label}
-                </span>
-                {activeTab === tab.key && (
-                  <motion.div
-                    layoutId="shared-nav-indicator"
-                    className="absolute -top-2 w-1 h-1 bg-blue-400 rounded-full"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-              </button>
-            ))}
+        <nav
+          className="md:hidden fixed bottom-0 left-0 right-0 z-400"
+          style={{
+            background: 'rgba(9,9,11,0.97)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            borderTop: '1px solid rgba(255,255,255,0.07)',
+            paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+            willChange: 'transform',
+            transform: 'translateZ(0)',
+          }}
+        >
+          <div className="flex justify-around items-center pt-2 px-1 max-w-sm mx-auto">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => handleTabChange(tab.key)}
+                  className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-pointer"
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
+                    style={isActive ? { background: 'rgba(139,92,246,0.15)', color: '#a78bfa' } : { color: '#52525b' }}
+                  >
+                    {tab.icon}
+                  </div>
+                  <span
+                    className="text-[10px] font-medium transition-all duration-200"
+                    style={{ color: isActive ? '#a78bfa' : '#52525b' }}
+                  >
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </div>
+        </nav>
       </Layout>
     </ConfigProvider>
   );

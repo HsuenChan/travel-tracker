@@ -7,10 +7,10 @@ interface IconProps {
   strokeWidth?: number | string;
 }
 
-export function PlaneIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+export function PlaneIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2.2 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19.5 2.5S18 2 16.5 3.5L13 7l-8.2-1.8L3 7l7 4L8 14l-4 1 3 3 1-4 4-2 4 7z" />
+      <path d="M22 13.5l-6-4v-5c0-1.6-1.4-3-3-3s-3 1.4-3 3v5l-6 4c-0.6 0.4-0.8 1.1-0.4 1.7s1.1 0.8 1.7 0.4l4.7-2.1 1.2 4.1-2.1 1.7c-0.4 0.3-0.5 0.9-0.2 1.3 0.2 0.2 0.4 0.3 0.7 0.3 0.2 0 0.4-0.1 0.6-0.2l2.3-1 2.3 1c0.2 0.1 0.4 0.2 0.6 0.2 0.3 0 0.5-0.1 0.7-0.3 0.3-0.4 0.2-1-0.2-1.3l-2.1-1.7 1.2-4.1 4.7 2.1c0.2 0.1 0.5 0.2 0.8 0.2 0.3 0 0.7-0.1 0.9-0.5 0.4-0.6 0.2-1.3-0.4-1.7z" transform="rotate(45 12 12)" />
     </svg>
   );
 }
@@ -220,12 +220,24 @@ export function CatActivityIcon({ size = 12, stroke = "currentColor", strokeWidt
   );
 }
 
-export function CatOtherIcon({ size = 12, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+export function MoreHorizontalIcon({ size = 12, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="1" fill={stroke} /><circle cx="19" cy="12" r="1" fill={stroke} /><circle cx="5" cy="12" r="1" fill={stroke} />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="1" fill={stroke} stroke="none" /><circle cx="19" cy="12" r="1" fill={stroke} stroke="none" /><circle cx="5" cy="12" r="1" fill={stroke} stroke="none" />
     </svg>
   );
+}
+
+export function MoreVerticalIcon({ size = 12, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="1" fill={stroke} stroke="none" /><circle cx="12" cy="19" r="1" fill={stroke} stroke="none" /><circle cx="12" cy="5" r="1" fill={stroke} stroke="none" />
+    </svg>
+  );
+}
+
+export function CatOtherIcon(props: IconProps) {
+  return <MoreHorizontalIcon {...props} />;
 }
 
 const CATEGORY_BADGE_CONFIG: Record<string, {
@@ -279,11 +291,69 @@ export function NotepadIcon({ size = 13, className, stroke = "currentColor", str
 
 export function GoogleIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 18 18" className="mr-1.5 align-middle">
-      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
-      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
-      <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" />
-      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" />
+    <svg width="18" height="18" viewBox="0 0 18 18" className="shrink-0" aria-hidden="true">
+      <path
+        fill="white"
+        d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"
+      />
+      <path
+        fill="rgba(255,255,255,0.85)"
+        d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"
+      />
+      <path
+        fill="rgba(255,255,255,0.7)"
+        d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"
+      />
+      <path
+        fill="rgba(255,255,255,0.9)"
+        d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"
+      />
+    </svg>
+  );
+}
+export function TrainIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="4" y="3" width="16" height="14" rx="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+      <line x1="4" y1="11" x2="20" y2="11" />
+    </svg>
+  );
+}
+
+export function BusIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M8 6v6" />
+      <path d="M15 6v6" />
+      <path d="M2 12h19.6" />
+      <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3" />
+      <circle cx="7" cy="18" r="2" />
+      <path d="M9 18h5" />
+      <circle cx="16" cy="18" r="2" />
+    </svg>
+  );
+}
+
+export function FerryIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
+      <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76" />
+      <path d="M19 13V7a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v6" />
+      <line x1="12" y1="10" x2="12" y2="14" />
+    </svg>
+  );
+}
+
+export function CarIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M19 17H5v-5.5l1.89-5.29A2 2 0 0 1 8.76 5h6.48a2 2 0 0 1 1.87 1.21L19 11.5V17Z" />
+      <line x1="3" y1="17" x2="21" y2="17" />
+      <circle cx="8" cy="18" r="1" />
+      <circle cx="16" cy="18" r="1" />
     </svg>
   );
 }

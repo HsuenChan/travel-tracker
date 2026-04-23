@@ -22,6 +22,7 @@ import {
 } from "@/app/components/Icons";
 
 const TripGlobe = dynamic(() => import("./components/TripGlobe"), { ssr: false });
+const LoginGlobe = dynamic(() => import("./components/LoginGlobe"), { ssr: false });
 
 interface Trip {
   id: string;
@@ -134,11 +135,10 @@ function TripCard({
         ref={cardRef}
         onMouseMove={isMobile ? undefined : handleMouseMove}
         onMouseLeave={isMobile ? undefined : handleMouseLeave}
-        className={`relative rounded-[24px] py-4 pr-4 overflow-hidden border backdrop-blur-sm ${
-          selected
-            ? "bg-violet-500/10 border-[#8b5cf6]/40 pl-5 shadow-[0_0_24px_rgba(139,92,246,0.12),inset_0_0_0_1px_rgba(139,92,246,0.12)]"
-            : "bg-white/[0.04] border-white/[0.07] pl-4 hover:bg-white/[0.07] hover:border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-        }`}
+        className={`relative rounded-[24px] py-4 pr-4 overflow-hidden border backdrop-blur-sm ${selected
+          ? "bg-violet-500/10 border-[#8b5cf6]/40 pl-5 shadow-[0_0_24px_rgba(139,92,246,0.12),inset_0_0_0_1px_rgba(139,92,246,0.12)]"
+          : "bg-white/[0.04] border-white/[0.07] pl-4 hover:bg-white/[0.07] hover:border-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+          }`}
         style={{
           transform: `perspective(800px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)${selected ? " scale(1.01)" : ""}`,
           transition: isHovering ? "transform 0.1s ease" : "transform 0.5s ease, background-color 0.3s, border-color 0.3s",
@@ -302,38 +302,59 @@ export default function Home() {
 
   if (!authenticated) {
     return (
-      <div className="relative min-h-[100dvh] bg-[#09090b] overflow-hidden flex items-center justify-center">
-        {/* Globe background */}
-        <div className="absolute inset-0 opacity-55 pointer-events-none">
-          <TripGlobe
-            trips={[]}
-            segments={[]}
-            selectedTripId={null}
-            onTripClick={() => { }}
-            showAllTracks={false}
-          />
+      <div className="relative min-h-[100dvh] bg-[#09090b] overflow-hidden flex flex-col">
+        {/* Globe section */}
+        <div className="flex-1 relative flex items-center justify-center">
+          <div className="opacity-80 pointer-events-none scale-110 md:scale-125">
+            <LoginGlobe />
+          </div>
         </div>
 
-        {/* Glassmorphism login card */}
-        <div className="relative z-10 bg-[#09090b]/55 border border-white/10 rounded-3xl py-12 px-[52px] flex flex-col items-center gap-4 max-w-[380px] w-[88%] shadow-[0_24px_64px_rgba(0,0,0,0.5)]">
-          <div className="w-14 h-14 flex items-center justify-center mb-1">
-            <img src="/icon.svg" alt="" className="w-14 h-14 drop-shadow-[0_0_20px_rgba(139,92,246,0.4)]" />
-          </div>
-          <Typography.Title level={2} className="!text-white !m-0 !tracking-[-0.5px]">
-            Travel Tracker
-          </Typography.Title>
-          <Typography.Text className="text-zinc-400 text-sm text-center">
-            記錄你走過的每一段旅程
-          </Typography.Text>
-          <div className="w-full h-px bg-white/10 my-2" />
-          <a href="/api/auth/google" className="w-full">
-            <Button
-              size="large"
-              className="w-full !bg-white !text-[#09090b] !border-white rounded-xl font-semibold h-12 text-[15px]"
+        {/* Login section at bottom */}
+        <div className="relative z-10 pb-[20vh] flex flex-col items-center px-4 -mt-[30vh]">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="bg-[#09090b]/10 backdrop-blur-md border border-white/10 rounded-[32px] py-8 px-10 flex flex-col items-center gap-4 max-w-[380px] w-full shadow-[0_24px_64px_rgba(0,0,0,0.5),inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+          >
+            <div className="w-12 h-12 flex items-center justify-center mb-1">
+              <img src="/icon.svg" alt="" className="w-12 h-12 drop-shadow-[0_0_20px_rgba(139,92,246,0.3)]" />
+            </div>
+            <Typography.Text
+              className="font-extrabold text-2xl tracking-wider text-center"
+              style={{
+                fontFamily: 'var(--font-comfortaa)',
+                background: 'linear-gradient(90deg, #818cf8, #a78bfa, #2dd4bf)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}
             >
-              <GoogleIcon /> 使用 Google 登入
-            </Button>
-          </a>
+              Travel Tracker
+            </Typography.Text>
+            <Typography.Text className="text-zinc-500 text-[13px] text-center font-medium">
+              記錄你走過的每一段旅程
+            </Typography.Text>
+            <div className="w-full h-px bg-white/5 my-1" />
+            <a href="/api/auth/google" className="w-full group">
+              <Button
+                size="large"
+                className="w-full border-none! rounded-xl font-bold h-12 text-[15px] text-white! transition-all duration-300"
+                style={{
+                  background: 'linear-gradient(to right, #6366f1, #8b5cf6, #14b8a6)',
+                  boxShadow: '0 4px 20px rgba(99,102,241,0.4)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 28px rgba(99,102,241,0.6)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(99,102,241,0.4)'; e.currentTarget.style.transform = ''; }}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <GoogleIcon />
+                  <span>使用 Google 帳號登入</span>
+                </div>
+              </Button>
+            </a>
+          </motion.div>
         </div>
       </div>
     );
