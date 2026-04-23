@@ -26,6 +26,15 @@ const BASE_URL = "https://travel-tracker-nine-delta.vercel.app";
 export const metadata: Metadata = {
   title: "Travel Tracker",
   description: "記錄你走過的每一段旅程",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Travel Tracker",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
   openGraph: {
     title: "Travel Tracker",
     description: "記錄你走過的每一段旅程",

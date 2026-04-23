@@ -131,7 +131,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
   }
 
   return (
-    <div className="flex flex-col gap-4 max-w-2xl mx-auto pb-10">
+    <div className="flex flex-col gap-4 mx-auto pb-10">
       <div className="flex items-center justify-between px-1">
         <Typography.Text strong className="text-zinc-100 text-[15px]">伴手禮 & 購物清單</Typography.Text>
         {!readOnly && (
@@ -240,7 +240,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
       </Modal>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="flex flex-col rounded-[20px] border border-white/5 bg-white/5 overflow-hidden">
               <div className="w-full h-24 bg-white/[0.03]" />
@@ -267,7 +267,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {items.filter(item => !tagFilter || (item.tags && item.tags.includes(tagFilter))).map(item => (
             <div
               key={item.id}
