@@ -88,15 +88,70 @@ npm run dev
 Run the following in the Supabase SQL Editor to enable all features:
 
 ```sql
--- Itinerary range support
-ALTER TABLE itinerary_items ADD COLUMN IF NOT EXISTS end_date date;
-ALTER TABLE itinerary_items ADD COLUMN IF NOT EXISTS end_time text;
+-- 1. Trips table
+CREATE TABLE IF NOT EXISTS trips (
+  id text PRIMARY KEY,
+  user_id text NOT NULL,
+  name text NOT NULL,
+  start_date date,
+  end_date date,
+  countries text,
+  notes text,
+  photo_album_id text,
+  people text[],
+  currency text,
+  enabled_tabs jsonb,
+  destinations jsonb DEFAULT '[]',
+  ai_notes jsonb DEFAULT NULL,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
 
--- Region-level destinations + AI notes (stored on trips table)
-ALTER TABLE trips ADD COLUMN IF NOT EXISTS destinations JSONB DEFAULT '[]';
-ALTER TABLE trips ADD COLUMN IF NOT EXISTS ai_notes JSONB DEFAULT NULL;
+-- 2. Trip Members (Collaboration)
+CREATE TABLE IF NOT EXISTS trip_members (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  trip_id text NOT NULL,
+  user_id text NOT NULL,
+  name text NOT NULL,
+  email text,
+  avatar_url text,
+  is_owner boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
 
--- Expenses table
+-- 3. Transports / Route Segments
+CREATE TABLE IF NOT EXISTS segments (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  trip_id text NOT NULL,
+  "order" integer,
+  from_city text,
+  from_iata text,
+  to_city text,
+  to_iata text,
+  type text,
+  date date,
+  time text,
+  flight_no text,
+  aircraft text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+-- 4. Itinerary Items
+CREATE TABLE IF NOT EXISTS itinerary_items (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  trip_id text NOT NULL,
+  date date NOT NULL,
+  sort_order integer DEFAULT 0,
+  title text NOT NULL,
+  category text,
+  time text,
+  end_date date,
+  end_time text,
+  location text,
+  notes text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+-- 5. Expenses
 CREATE TABLE IF NOT EXISTS expenses (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   trip_id text NOT NULL,
@@ -111,7 +166,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
 );
 
--- Souvenirs & Shopping List
+-- 6. Souvenirs & Shopping List
 CREATE TABLE IF NOT EXISTS souvenirs (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   trip_id text NOT NULL,
@@ -210,15 +265,70 @@ npm run dev
 請於 Supabase SQL Editor 執行以下語法以啟用所有功能：
 
 ```sql
--- 行程支援跨日時間範圍
-ALTER TABLE itinerary_items ADD COLUMN IF NOT EXISTS end_date date;
-ALTER TABLE itinerary_items ADD COLUMN IF NOT EXISTS end_time text;
+-- 1. 旅程基本資料表 (trips)
+CREATE TABLE IF NOT EXISTS trips (
+  id text PRIMARY KEY,
+  user_id text NOT NULL,
+  name text NOT NULL,
+  start_date date,
+  end_date date,
+  countries text,
+  notes text,
+  photo_album_id text,
+  people text[],
+  currency text,
+  enabled_tabs jsonb,
+  destinations jsonb DEFAULT '[]',
+  ai_notes jsonb DEFAULT NULL,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
 
--- 地區級目的地坐標 + AI 筆記（儲存於 trips 表）
-ALTER TABLE trips ADD COLUMN IF NOT EXISTS destinations JSONB DEFAULT '[]';
-ALTER TABLE trips ADD COLUMN IF NOT EXISTS ai_notes JSONB DEFAULT NULL;
+-- 2. 旅程共同編輯成員 (trip_members)
+CREATE TABLE IF NOT EXISTS trip_members (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  trip_id text NOT NULL,
+  user_id text NOT NULL,
+  name text NOT NULL,
+  email text,
+  avatar_url text,
+  is_owner boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
 
--- 費用表結構
+-- 3. 交通路線段落 (segments)
+CREATE TABLE IF NOT EXISTS segments (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  trip_id text NOT NULL,
+  "order" integer,
+  from_city text,
+  from_iata text,
+  to_city text,
+  to_iata text,
+  type text,
+  date date,
+  time text,
+  flight_no text,
+  aircraft text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+-- 4. 每日行程事項 (itinerary_items)
+CREATE TABLE IF NOT EXISTS itinerary_items (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  trip_id text NOT NULL,
+  date date NOT NULL,
+  sort_order integer DEFAULT 0,
+  title text NOT NULL,
+  category text,
+  time text,
+  end_date date,
+  end_time text,
+  location text,
+  notes text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+-- 5. 費用與帳務記帳表 (expenses)
 CREATE TABLE IF NOT EXISTS expenses (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   trip_id text NOT NULL,
@@ -233,7 +343,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
 );
 
--- 伴手禮與購物清單表結構
+-- 6. 伴手禮與購物清單 (souvenirs)
 CREATE TABLE IF NOT EXISTS souvenirs (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   trip_id text NOT NULL,
