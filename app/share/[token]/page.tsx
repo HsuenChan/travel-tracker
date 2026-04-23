@@ -5,12 +5,13 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Layout, Typography, Tag, Timeline, Spin, ConfigProvider, theme } from "antd";
 import VehicleIconChip from "@/app/components/VehicleIconChip";
-import { PlaneIcon, PhotoIcon, CalendarIcon, CreditCardIcon, NotepadIcon, LocationIcon } from "@/app/components/Icons";
+import { PlaneIcon, PhotoIcon, CalendarIcon, CreditCardIcon, NotepadIcon, LocationIcon, GiftIcon } from "@/app/components/Icons";
 import { getCountryFlags } from "@/lib/countries";
 import PhotoWall from "@/app/components/PhotoWall";
 import ItineraryTab from "@/app/components/ItineraryTab";
 import ExpensesTab from "@/app/components/ExpensesTab";
 import NotesTab from "@/app/components/NotesTab";
+import SouvenirsTab from "@/app/components/SouvenirsTab";
 import { motion, AnimatePresence } from "framer-motion";
 
 const TripMap = dynamic(() => import("@/app/components/TripMap"), { ssr: false });
@@ -25,6 +26,7 @@ interface Trip {
   photo_album_id: string;
   people: string[];
   currency: string;
+  enabled_tabs?: string[] | null;
 }
 
 interface Segment {
@@ -159,12 +161,20 @@ export default function SharePage() {
   const primaryCurrency = currencies[0];
 
   const tabs = [
-    { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
     { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
+    { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
     { key: "expenses", label: "費用", icon: <CreditCardIcon size={18} /> },
+    { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
     { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
-    ...(trip.photo_album_id ? [{ key: "photos", label: "照片", icon: <PhotoIcon size={18} /> }] : []),
-  ];
+    { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
+  ]
+    .filter(tab => {
+      return !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key);
+    })
+    .sort((a, b) => {
+      if (!trip.enabled_tabs) return 0;
+      return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
+    });
 
   return (
     <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
@@ -316,10 +326,31 @@ export default function SharePage() {
                   initialContent={note?.content}
                 />
               )}
+              {activeTab === "souvenirs" && (
+                <SouvenirsTab
+                  tripId={trip.id}
+                  readOnly={true}
+                />
+              )}
               {activeTab === "photos" && (
                 <div className="space-y-4">
                   <Typography.Text strong className="text-zinc-100 text-[15px] block mb-2 px-1">相簿</Typography.Text>
-                  <PhotoWall albumUrl={trip.photo_album_id} />
+                  {trip.photo_album_id ? (
+                    <PhotoWall albumUrl={trip.photo_album_id} />
+                  ) : (
+                    <div
+                      className="flex flex-col items-center gap-4 py-20 rounded-3xl border border-white/5 bg-white/[0.02]"
+                      style={{ background: 'radial-gradient(circle at 50% 50%, rgba(236,72,153,0.05) 0%, transparent 70%)' }}
+                    >
+                      <div className="w-16 h-16 rounded-2xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20">
+                        <PhotoIcon size={32} stroke="#ec4899" strokeWidth={1.5} />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-zinc-200 font-medium mb-1">尚未連結相簿</div>
+                        <div className="text-zinc-500 text-xs px-10">此旅程目前還沒有提供 Google 相簿分享連結。</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>

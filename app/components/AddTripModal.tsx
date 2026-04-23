@@ -3,9 +3,20 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 import { useState, useEffect, useRef } from "react";
 import { Modal, Form, Input, DatePicker, Button, Row, Col, Select } from "antd";
+import { PlaneIcon, PhotoIcon, CalendarIcon, CreditCardIcon, NotepadIcon, LocationIcon, GiftIcon } from "@/app/components/Icons";
+
 import dayjs from "dayjs";
 
 import QuillEditor from "@/app/components/QuillEditor";
+
+const ALL_TABS = [
+  { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
+  { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
+  { key: "expenses", label: "費用", icon: <CreditCardIcon size={18} /> },
+  { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
+  { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
+  { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
+];
 
 interface Props {
   onClose: () => void;
@@ -116,6 +127,7 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
         photoAlbumId: values.photoAlbumId ?? "",
         people: values.people ?? [],
         currency: Array.isArray(values.currency) ? values.currency.join(",") : (values.currency || "TWD"),
+        enabledTabs: (values.enabledTabs as string[]) ?? ALL_TABS.map(t => t.key),
       }),
     });
     setSaving(false);
@@ -139,7 +151,7 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
         layout="vertical"
         onFinish={handleSubmit}
         className="mt-4 cute-form"
-        initialValues={{ currency: ["TWD"] }}
+        initialValues={{ currency: ["TWD"], enabledTabs: ALL_TABS.map(t => t.key) }}
       >
         <Form.Item name="name" label="旅程名稱" rules={[{ required: true, message: "請輸入旅程名稱" }]}>
           <Input placeholder="例如：日本春季旅行" />
@@ -198,6 +210,25 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
               (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
             }
           />
+        </Form.Item>
+
+        <Form.Item
+          name="enabledTabs"
+          label="顯示的分頁"
+          extra="選擇這趟旅程要顯示哪些功能分頁"
+        >
+          <Select
+            mode="multiple"
+            placeholder="選擇要顯示的分頁"
+          >
+            {ALL_TABS.map(t => (
+              <Select.Option key={t.key} value={t.key}>
+                <div className="flex items-center gap-2">
+                  {t.icon} {t.label}
+                </div>
+              </Select.Option>
+            ))}
+          </Select>
         </Form.Item>
 
         <Form.Item name="notes" label="備註">
