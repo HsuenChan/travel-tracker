@@ -33,6 +33,7 @@ export const metadata: Metadata = {
     title: "Travel Tracker",
   },
   icons: {
+    icon: "/icon.svg",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {

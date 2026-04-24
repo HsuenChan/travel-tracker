@@ -23,6 +23,7 @@ import {
 
 const TripGlobe = dynamic(() => import("./components/TripGlobe"), { ssr: false });
 const LoginGlobe = dynamic(() => import("./components/LoginGlobe"), { ssr: false });
+const GlobeLoader = dynamic(() => import("./components/GlobeLoader"), { ssr: false });
 
 interface Trip {
   id: string;
@@ -294,38 +295,64 @@ export default function Home() {
 
   if (authenticated === null) {
     return (
-      <div className="relative min-h-[100dvh] bg-[#09090b] overflow-hidden flex flex-col">
-        <div className="flex-1 relative flex items-center justify-center">
-          <div className="opacity-80 pointer-events-none scale-110 md:scale-125">
-            <LoginGlobe />
-          </div>
-        </div>
-        <div className="relative z-10 pb-[20vh] flex flex-col items-center px-4 -mt-[30vh]">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-            className="bg-[#09090b]/10 backdrop-blur-md border border-white/10 rounded-[32px] py-8 px-10 flex flex-col items-center gap-4 max-w-[380px] w-full shadow-[0_24px_64px_rgba(0,0,0,0.5),inset_0_0_0_1px_rgba(255,255,255,0.05)]"
-          >
-            <div className="w-12 h-12 flex items-center justify-center mb-1">
-              <img src="/icon.svg" alt="" className="w-12 h-12 drop-shadow-[0_0_20px_rgba(139,92,246,0.3)]" />
-            </div>
-            <Typography.Text
-              className="font-extrabold text-2xl tracking-wider text-center"
-              style={{
-                fontFamily: 'var(--font-comfortaa)',
-                background: 'linear-gradient(90deg, #818cf8, #a78bfa, #2dd4bf)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}
+      <div className="relative min-h-[100dvh] bg-[#09090b] overflow-hidden">
+        {/* 3D Globe — fades in after icon lands */}
+        <motion.div
+          className="absolute inset-0 pointer-events-none"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.8 }}
+        >
+          <GlobeLoader />
+        </motion.div>
+
+        {/* Card — lower portion of screen */}
+        <div className="absolute inset-x-0 bottom-0 flex justify-center z-10 pointer-events-none px-4 pb-[22%]">
+          <div className="max-w-[380px] w-full relative">
+            {/* Card background fades in */}
+            <motion.div
+              className="bg-[#09090b]/40 backdrop-blur-md border border-white/10 rounded-[32px] py-8 px-10 flex flex-col items-center gap-4 shadow-[0_24px_64px_rgba(0,0,0,0.5),inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.25, duration: 0.5 }}
             >
-              Travel Tracker
-            </Typography.Text>
-            <Typography.Text className="text-zinc-500 text-[13px] text-center font-medium">
-              記錄你走過的每一段旅程
-            </Typography.Text>
-          </motion.div>
+              {/* Placeholder that reserves space for the animated icon */}
+              <div className="w-12 h-12 mb-1" />
+              <motion.div
+                className="flex flex-col items-center gap-4"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45, duration: 0.5 }}
+              >
+                <Typography.Text
+                  className="font-extrabold text-2xl tracking-wider text-center"
+                  style={{
+                    fontFamily: 'var(--font-comfortaa)',
+                    background: 'linear-gradient(90deg, #818cf8, #a78bfa, #2dd4bf)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
+                  Travel Tracker
+                </Typography.Text>
+                <Typography.Text className="text-zinc-500 text-[13px] text-center font-medium">
+                  記錄你走過的每一段旅程
+                </Typography.Text>
+              </motion.div>
+            </motion.div>
+
+            {/* Icon — starts large at screen center, animates down into card */}
+            <motion.div
+              className="absolute flex items-center justify-center w-12 h-12"
+              style={{ top: 32, left: "calc(50% - 24px)" }}
+              initial={{ scale: 3.5, y: "-12vh" }}
+              animate={{ scale: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.25, 1, 0.5, 1] }}
+            >
+              <img src="/icon.svg" alt="" className="w-12 h-12 drop-shadow-[0_0_20px_rgba(139,92,246,0.3)]" />
+            </motion.div>
+          </div>
         </div>
       </div>
     );
