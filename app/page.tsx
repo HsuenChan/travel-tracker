@@ -15,10 +15,11 @@ import {
   Skeleton,
 } from "antd";
 import AddTripModal from "./components/AddTripModal";
+import LineBotBindModal from "./components/LineBotBindModal";
 import { getCountryFlags } from "@/lib/countries";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
-  MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon,
+  MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon, LineBotIcon,
 } from "@/app/components/Icons";
 
 const TripGlobe = dynamic(() => import("./components/TripGlobe"), { ssr: false });
@@ -208,6 +209,7 @@ export default function Home() {
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showLineBotModal, setShowLineBotModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showAllTracks, setShowAllTracks] = useState(false);
@@ -573,6 +575,13 @@ export default function Home() {
               <PlusIcon size={13} />
               {!isMobile && "新增旅程"}
             </button>
+            <button
+              onClick={() => setShowLineBotModal(true)}
+              title="LINE Bot 記帳"
+              className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200"
+            >
+              <LineBotIcon size={15} />
+            </button>
             <a href="/api/auth/logout">
               <button
                 title="登出"
@@ -639,6 +648,10 @@ export default function Home() {
           onSaved={() => { setShowModal(false); fetchTrips(); }}
         />
       )}
+      <LineBotBindModal
+        open={showLineBotModal}
+        onClose={() => setShowLineBotModal(false)}
+      />
     </div>
 
   );

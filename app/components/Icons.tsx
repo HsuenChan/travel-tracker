@@ -301,6 +301,17 @@ export function GiftIcon({ size = 13, className, stroke = "currentColor", stroke
   );
 }
 
+export function LineBotIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="2" y="3" width="20" height="16" rx="4" />
+      <path d="M8 10h8" />
+      <path d="M8 14h5" />
+      <path d="M6 19l2-3" />
+    </svg>
+  );
+}
+
 export function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" className="shrink-0" aria-hidden="true">

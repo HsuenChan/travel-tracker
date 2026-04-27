@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getAuthenticatedClient } from "@/lib/google-oauth";
+import { createClient } from "@/lib/supabase/server";
 
 const PROMPT = `Extract ALL flight segments from this document or image (including connecting flights).
 Return ONLY a JSON array. Each element represents one flight leg:
@@ -28,8 +28,9 @@ async function runGemini(mimeType: string, base64: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const authClient = await getAuthenticatedClient();
-  if (!authClient) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json({ error: "GEMINI_API_KEY is not configured on the server." }, { status: 500 });

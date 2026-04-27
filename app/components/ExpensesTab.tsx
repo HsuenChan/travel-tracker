@@ -831,15 +831,15 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
           {!isRange ? (
             <Form.Item name="date" label="日期">
-              <DatePicker className="w-full" />
+              <DatePicker className="w-full" defaultValue={dayjs()} />
             </Form.Item>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <Form.Item name="startDate" label="開始日期" rules={[{ required: true, message: "請選擇" }]}>
-                <DatePicker className="w-full" placeholder="開始" />
+                <DatePicker className="w-full" placeholder="開始" defaultValue={dayjs()} />
               </Form.Item>
               <Form.Item name="endDate" label="結束日期" rules={[{ required: true, message: "請選擇" }]}>
-                <DatePicker className="w-full" placeholder="結束" />
+                <DatePicker className="w-full" placeholder="結束" defaultValue={dayjs()} />
               </Form.Item>
             </div>
           )}
