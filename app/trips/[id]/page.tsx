@@ -20,11 +20,12 @@ import ItineraryTab from "@/app/components/ItineraryTab";
 import ExpensesTab from "@/app/components/ExpensesTab";
 import NotesTab from "@/app/components/NotesTab";
 import SouvenirsTab from "@/app/components/SouvenirsTab";
+import LineBotTripModal from "@/app/components/LineBotTripModal";
 const TripMap = dynamic(() => import("@/app/components/TripMap"), { ssr: false });
 import VehicleIconChip from "@/app/components/VehicleIconChip";
 import {
   PlaneIcon, PlusIcon, CalendarIcon, LocationIcon, UsersIcon, GiftIcon,
-  CreditCardIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon,
+  CreditCardIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
 } from "@/app/components/Icons";
 
 interface Trip {
@@ -97,7 +98,10 @@ export default function TripPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [sharing, setSharing] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+  const [showLineBotModal, setShowLineBotModal] = useState(false);
   const { modal, message: messageApi } = App.useApp();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "transport");
@@ -218,13 +222,27 @@ export default function TripPage() {
       const res = await fetchWithAuth(`/api/trips/${id}/share`);
       if (res.ok) {
         const { shareUrl } = await res.json();
-        await navigator.clipboard.writeText(shareUrl);
-        messageApi.success(`分享連結已複製: ${shareUrl}`);
+        const urlWithTab = `${shareUrl}?tab=${activeTab}`;
+        await navigator.clipboard.writeText(urlWithTab);
+        messageApi.success(`分享連結已複製: ${urlWithTab}`);
         setShowMoreSheet(false);
       }
     } finally {
       setSharing(false);
     }
+  }
+
+  async function handleLeave() {
+    setLeaving(true);
+    await fetchWithAuth(`/api/trips/${id}/leave`, { method: "DELETE" });
+    router.push("/");
+  }
+
+  async function handleRemoveMember(targetUserId: string) {
+    setRemovingMemberId(targetUserId);
+    await fetchWithAuth(`/api/trips/${id}/members?userId=${targetUserId}`, { method: "DELETE" });
+    await fetchMembers();
+    setRemovingMemberId(null);
   }
 
   async function handleInvite() {
@@ -243,6 +261,7 @@ export default function TripPage() {
   }
 
   const isOwner = !!(trip && userId && trip.user_id === userId);
+  const isMember = !isOwner && members.some(m => m.user_id === userId);
 
   function memberAvatarColor(uid: string) {
     const palette = ["#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#3b82f6"];
@@ -456,6 +475,15 @@ export default function TripPage() {
             )}
 
             <button
+              onClick={() => setShowLineBotModal(true)}
+              title="LINE Bot 記帳"
+              className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
+            >
+              <LineBotIcon size={13} />
+              LINE Bot
+            </button>
+
+            <button
               onClick={() => setShowEdit(true)}
               className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
             >
@@ -468,6 +496,15 @@ export default function TripPage() {
                 <button className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200 cursor-pointer">
                   <TrashIcon size={13} />
                   刪除
+                </button>
+              </Popconfirm>
+            )}
+
+            {isMember && (
+              <Popconfirm title="確定要離開此旅程嗎？" onConfirm={handleLeave} okText="離開" cancelText="取消" okButtonProps={{ danger: true, loading: leaving }}>
+                <button className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200 cursor-pointer">
+                  <TrashIcon size={13} />
+                  離開旅程
                 </button>
               </Popconfirm>
             )}
@@ -545,26 +582,43 @@ export default function TripPage() {
             {members.length > 0 && (
               <div className="flex items-center gap-2.5 mt-4">
                 <div className="flex items-center">
-                  {members.map((m, i) => (
-                    <Tooltip key={m.user_id} title={`${m.name}${m.is_owner ? " (owner)" : ""}`}>
-                      <div className="relative cursor-default" style={{ marginLeft: i === 0 ? 0 : -8, zIndex: members.length - i }}>
-                        {m.avatar_url ? (
-                          <img
-                            src={m.avatar_url}
-                            alt={m.name}
-                            className="w-7 h-7 rounded-full border-2 border-zinc-900 object-cover"
-                          />
-                        ) : (
-                          <div
-                            className="w-7 h-7 rounded-full border-2 border-zinc-900 flex items-center justify-center text-white text-[11px] font-bold"
-                            style={{ background: memberAvatarColor(m.user_id) }}
-                          >
-                            {m.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                  {members.map((m, i) => {
+                    const canRemove = isOwner && !m.is_owner;
+                    const isRemoving = removingMemberId === m.user_id;
+                    const avatar = m.avatar_url ? (
+                      <img src={m.avatar_url} alt={m.name} className="w-7 h-7 rounded-full border-2 border-zinc-900 object-cover" />
+                    ) : (
+                      <div
+                        className="w-7 h-7 rounded-full border-2 border-zinc-900 flex items-center justify-center text-white text-[11px] font-bold"
+                        style={{ background: memberAvatarColor(m.user_id) }}
+                      >
+                        {isRemoving ? <LoadingOutlined style={{ fontSize: 11 }} /> : m.name.charAt(0).toUpperCase()}
                       </div>
-                    </Tooltip>
-                  ))}
+                    );
+                    return canRemove ? (
+                      <Popconfirm
+                        key={m.user_id}
+                        title={`移除「${m.name}」？`}
+                        description="該成員將無法再存取此行程"
+                        okText="移除"
+                        cancelText="取消"
+                        okButtonProps={{ danger: true, loading: isRemoving }}
+                        onConfirm={() => handleRemoveMember(m.user_id)}
+                      >
+                        <Tooltip title={m.name}>
+                          <div className="relative cursor-pointer hover:opacity-75 transition-opacity" style={{ marginLeft: i === 0 ? 0 : -8, zIndex: members.length - i }}>
+                            {avatar}
+                          </div>
+                        </Tooltip>
+                      </Popconfirm>
+                    ) : (
+                      <Tooltip key={m.user_id} title={`${m.name}${m.is_owner ? " (owner)" : ""}`}>
+                        <div className="relative cursor-default" style={{ marginLeft: i === 0 ? 0 : -8, zIndex: members.length - i }}>
+                          {avatar}
+                        </div>
+                      </Tooltip>
+                    );
+                  })}
                 </div>
                 <span className="text-zinc-600 text-[12px]">共同編輯</span>
               </div>
@@ -790,6 +844,20 @@ export default function TripPage() {
               </button>
             )}
 
+            {/* LINE Bot */}
+            <button
+              onClick={() => { setShowMoreSheet(false); setShowLineBotModal(true); }}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer text-left"
+            >
+              <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(6,199,85,0.12)" }}>
+                <LineBotIcon size={16} stroke="#06C755" />
+              </div>
+              <div>
+                <div className="text-zinc-100 text-[14px] font-medium">LINE Bot 記帳</div>
+                <div className="text-zinc-500 text-[11px] mt-0.5">連結此行程到 LINE 群組</div>
+              </div>
+            </button>
+
             {/* Edit */}
             <button
               onClick={() => { setShowMoreSheet(false); setShowEdit(true); }}
@@ -807,7 +875,6 @@ export default function TripPage() {
             {isOwner && (
               <>
                 <div className="mx-1 my-1.5" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }} />
-                {/* Delete */}
                 <button
                   onClick={() => {
                     setShowMoreSheet(false);
@@ -830,6 +897,32 @@ export default function TripPage() {
                 </button>
               </>
             )}
+
+            {isMember && (
+              <>
+                <div className="mx-1 my-1.5" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }} />
+                <button
+                  onClick={() => {
+                    setShowMoreSheet(false);
+                    modal.confirm({
+                      title: "確定要離開此旅程嗎？",
+                      okText: "離開", okType: "danger", cancelText: "取消",
+                      okButtonProps: { danger: true, loading: leaving },
+                      onOk: handleLeave,
+                    });
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-red-500/[0.08] active:bg-red-500/[0.12] transition-colors cursor-pointer text-left"
+                >
+                  <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(239,68,68,0.12)" }}>
+                    <TrashIcon size={16} stroke="#f87171" />
+                  </div>
+                  <div>
+                    <div className="text-red-400 text-[14px] font-medium">離開旅程</div>
+                    <div className="text-[11px] mt-0.5" style={{ color: "rgba(239,68,68,0.5)" }}>離開後需重新接受邀請</div>
+                  </div>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -837,6 +930,12 @@ export default function TripPage() {
       {showEdit && (
         <EditTripModal trip={trip} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); fetchTrip(); }} />
       )}
+      <LineBotTripModal
+        open={showLineBotModal}
+        tripId={id}
+        tripName={trip.name}
+        onClose={() => setShowLineBotModal(false)}
+      />
       {showAddSegment && (
         <AddSegmentModal
           tripId={id}

@@ -36,6 +36,7 @@ interface Trip {
   currency: string | null;
   destinations?: Destination[] | null;
   enabled_tabs?: string[] | null;
+  country_codes?: string | null;
 }
 
 interface Props {
@@ -54,6 +55,7 @@ interface DestOption {
   label: string;
   lat: number;
   lng: number;
+  countryCode?: string;
 }
 
 export default function EditTripModal({ trip, onClose, onSaved }: Props) {
@@ -64,6 +66,7 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
   const [destOptions, setDestOptions] = useState<DestOption[]>([]);
   const [destSearching, setDestSearching] = useState(false);
   const destCoordsRef = useRef<Record<string, { lat: number; lng: number }>>({});
+  const destCodesRef = useRef<Record<string, string>>({});
 
   // Seed coord map from existing destinations
   useEffect(() => {
@@ -125,6 +128,7 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
           const { results } = await res.json() as { results: DestOption[] };
           setDestOptions(results);
           results.forEach((r) => { destCoordsRef.current[r.value] = { lat: r.lat, lng: r.lng }; });
+          results.forEach((r) => { if (r.countryCode) destCodesRef.current[r.value] = r.countryCode; });
         }
       } finally {
         setDestSearching(false);
@@ -141,6 +145,8 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
       .filter((n) => destCoordsRef.current[n])
       .map((n) => ({ name: n, ...destCoordsRef.current[n] }));
     const countries = destNames.join("、");
+    const uniqueCodes = [...new Set(destNames.map(n => destCodesRef.current[n]).filter(Boolean))];
+    const country_codes = uniqueCodes.length > 0 ? uniqueCodes.join(",") : (trip.country_codes ?? "");
 
     await fetchWithAuth("/api/sheets", {
       method: "PUT",
@@ -152,6 +158,7 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
         endDate: values.endDate ? (values.endDate as typeof dayjs.prototype).format("YYYY-MM-DD") : "",
         countries,
         destinations,
+        country_codes,
         notes: values.notes ?? "",
         photoAlbumId: values.photoAlbumId ?? "",
         people: values.people ?? [],

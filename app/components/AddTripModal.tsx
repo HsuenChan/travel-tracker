@@ -33,6 +33,7 @@ interface DestOption {
   label: string;
   lat: number;
   lng: number;
+  countryCode?: string;
 }
 
 export default function AddTripModal({ onClose, onSaved }: Props) {
@@ -44,6 +45,7 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
   const [destSearching, setDestSearching] = useState(false);
   // Map from destination name → coords, accumulated across searches
   const destCoordsRef = useRef<Record<string, { lat: number; lng: number }>>({});
+  const destCodesRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     const CURRENCY_API = "https://openexchangerates.org/api/currencies.json";
@@ -97,6 +99,7 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
           const { results } = await res.json() as { results: DestOption[] };
           setDestOptions(results);
           results.forEach((r) => { destCoordsRef.current[r.value] = { lat: r.lat, lng: r.lng }; });
+          results.forEach((r) => { if (r.countryCode) destCodesRef.current[r.value] = r.countryCode; });;
         }
       } finally {
         setDestSearching(false);
@@ -113,6 +116,8 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
       .filter((n) => destCoordsRef.current[n])
       .map((n) => ({ name: n, ...destCoordsRef.current[n] }));
     const countries = destNames.join("、");
+    const uniqueCodes = [...new Set(destNames.map(n => destCodesRef.current[n]).filter(Boolean))];
+    const country_codes = uniqueCodes.join(",");
 
     await fetchWithAuth("/api/sheets", {
       method: "POST",
@@ -123,6 +128,7 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
         endDate: values.endDate ? (values.endDate as typeof dayjs.prototype).format("YYYY-MM-DD") : "",
         countries,
         destinations,
+        country_codes,
         notes: values.notes ?? "",
         photoAlbumId: values.photoAlbumId ?? "",
         people: values.people ?? [],

@@ -7,7 +7,7 @@ import {
   Dropdown, Typography, Tabs, Skeleton, Switch, App,
 } from "antd";
 import { EditOutlined, DeleteOutlined, MoreOutlined } from "@ant-design/icons";
-import { PlusIcon, CreditCardIcon, CategoryBadge, CategoryIcon } from "@/app/components/Icons";
+import { PlusIcon, CreditCardIcon, CategoryBadge } from "@/app/components/Icons";
 import dayjs from "dayjs";
 import {
   PieChart, Pie, Cell, Tooltip as ChartTooltip, ResponsiveContainer,
@@ -44,6 +44,7 @@ interface CurrencyOption {
 }
 
 const EXPENSE_CATEGORIES = [
+  { value: "flight", label: "機票" },
   { value: "transport", label: "交通" },
   { value: "hotel", label: "住宿" },
   { value: "food", label: "餐飲" },
@@ -58,6 +59,7 @@ const CATEGORY_MAP: Record<string, string> = Object.fromEntries(
 );
 
 const CATEGORY_COLORS: Record<string, string> = {
+  flight: "#0ea5e9",
   transport: "#3b82f6",
   hotel: "#8b5cf6",
   food: "#f59e0b",
@@ -131,14 +133,15 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+  const [paidByFilter, setPaidByFilter] = useState<string[]>([]);
+  const [statsCategoryFilter, setStatsCategoryFilter] = useState<string[]>([]);
   const [rates, setRates] = useState<Record<string, number> | null>(null);
   const [statsMemberFilter, setStatsMemberFilter] = useState<string | null>(null);
-  const [excludeTransport, setExcludeTransport] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  const { modal, message } = App.useApp();
+  const { modal } = App.useApp();
   const currencyOptions = currencies.map((c) => ({ value: c, label: c }));
 
   const watchedAmount = Form.useWatch("amount", form);
@@ -198,7 +201,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
     const payload = {
       tripId,
-      date: startDate,
+      date: startDate || dayjs().format("YYYY-MM-DD"),
       end_date: endDate,
       category: values.category ?? null,
       description: values.description,
@@ -258,7 +261,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   function openAdd() {
     setEditingExpense(null);
     form.resetFields();
-    form.setFieldsValue({ currency, split_with: people });
+    form.setFieldsValue({ currency, split_with: people, date: dayjs(), startDate: dayjs() });
     setShowModal(true);
   }
 
@@ -268,29 +271,52 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     form.resetFields();
   }
 
+  const fmtAmt = (n: number) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtTotal = (n: number) => Math.round(n).toLocaleString("en-US");
+
+  const statsBaseExpenses = useMemo(() => {
+    return expenses.filter(e => {
+      if (statsMemberFilter && !e.split_with.includes(statsMemberFilter) && e.paid_by !== statsMemberFilter) return false;
+      return true;
+    });
+  }, [expenses, statsMemberFilter]);
+
   const statsFilteredExpenses = useMemo(() => {
-    let list = expenses;
-    if (excludeTransport) {
-      list = list.filter(e => e.category !== "transport");
-    }
-    return list;
-  }, [expenses, excludeTransport]);
+    if (statsCategoryFilter.length === 0) return statsBaseExpenses;
+    return statsBaseExpenses.filter(e => statsCategoryFilter.includes(e.category ?? ""));
+  }, [statsBaseExpenses, statsCategoryFilter]);
 
   const convertedTotal = useMemo(
     () => statsFilteredExpenses.reduce((sum, e) => {
       const amount = toBaseCurrency(Number(e.amount), e.currency, currency, rates);
       if (statsMemberFilter) {
-        if (!e.split_with.includes(statsMemberFilter)) return sum;
-        return sum + (amount / e.split_with.length);
+        if (!e.split_with.includes(statsMemberFilter) && e.paid_by !== statsMemberFilter) return sum;
+        if (e.split_with.includes(statsMemberFilter) && e.split_with.length > 0)
+          return sum + (amount / e.split_with.length);
+        return sum + amount;
       }
       return sum + amount;
     }, 0),
     [statsFilteredExpenses, rates, currency, statsMemberFilter]
   );
 
-  const filteredExpenses = useMemo(
-    () => categoryFilter ? expenses.filter((e) => e.category === categoryFilter) : expenses,
-    [expenses, categoryFilter]
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(e => {
+      if (categoryFilter.length > 0 && !categoryFilter.includes(e.category ?? "")) return false;
+      if (paidByFilter.length > 0 && !paidByFilter.includes(e.paid_by ?? "")) return false;
+      return true;
+    });
+  }, [expenses, categoryFilter, paidByFilter]);
+
+  const usedPaidBy = useMemo(
+    () => [...new Set(expenses.map(e => e.paid_by).filter(Boolean))] as string[],
+    [expenses]
+  );
+
+  const filteredTotal = useMemo(
+    () => filteredExpenses.reduce((sum, e) =>
+      sum + toBaseCurrency(Number(e.amount), e.currency, currency, rates), 0),
+    [filteredExpenses, rates, currency]
   );
 
   const sortedExpenses = useMemo(() => {
@@ -322,7 +348,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
   const categoryStats = useMemo(() => {
     const map: Record<string, { total: number; count: number }> = {};
-    statsFilteredExpenses.forEach((e) => {
+    statsBaseExpenses.forEach((e) => {
       const amount = toBaseCurrency(Number(e.amount), e.currency, currency, rates);
       let share = amount;
       if (statsMemberFilter) {
@@ -344,7 +370,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         color: CATEGORY_COLORS[cat] ?? "#71717a",
       }))
       .sort((a, b) => b.total - a.total);
-  }, [statsFilteredExpenses, rates, currency, statsMemberFilter]);
+  }, [statsBaseExpenses, rates, currency, statsMemberFilter]);
 
   const dailyStats = useMemo(() => {
     const map: Record<string, number> = {};
@@ -437,32 +463,29 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        {/* Category Filters */}
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setCategoryFilter(null)}
-            className={`h-7 px-3 rounded-full text-xs font-medium transition-all cursor-pointer border ${categoryFilter === null
-              ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
-              : "bg-white/[0.04] border-white/[0.08] text-zinc-500 hover:text-zinc-300 hover:border-white/20"
-              }`}
-          >
-            全部
-          </button>
-          {usedCategories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setCategoryFilter(cat === categoryFilter ? null : cat)}
-              className={`h-7 px-2.5 rounded-full text-xs font-medium transition-all cursor-pointer border inline-flex items-center gap-1 ${categoryFilter === cat
-                ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
-                : "bg-white/[0.04] border-white/[0.08] text-zinc-500 hover:text-zinc-300 hover:border-white/20"
-                }`}
-            >
-              <CategoryIcon category={cat} size={10} />
-              {CATEGORY_MAP[cat] ?? cat}
-            </button>
-          ))}
-        </div>
+      <div className="flex gap-2 mb-4">
+        <Select
+          mode="multiple"
+          className="flex-1"
+          placeholder="篩選類別"
+          allowClear
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          options={usedCategories.map(c => ({ value: c, label: CATEGORY_MAP[c] ?? c }))}
+          maxTagCount="responsive"
+        />
+        {usedPaidBy.length > 0 && (
+          <Select
+            mode="multiple"
+            className="flex-1"
+            placeholder="篩選付款人"
+            allowClear
+            value={paidByFilter}
+            onChange={setPaidByFilter}
+            options={usedPaidBy.map(p => ({ value: p, label: p }))}
+            maxTagCount="responsive"
+          />
+        )}
       </div>
 
       {loading ? (
@@ -499,15 +522,13 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
           )}
         </div>
       ) : filteredExpenses.length === 0 ? (
-        <div className="text-zinc-600 text-center py-8 text-sm">此類別沒有費用</div>
+        <div className="text-zinc-600 text-center py-8 text-sm">此條件沒有費用</div>
       ) : (
         <>
-          <div className="flex items-center justify-end text-zinc-500">
-            {expenses.length > 0 && (
-              <span className="text-[13px] mb-2">
-                ≈ {currency} {convertedTotal.toFixed(0)}
-              </span>
-            )}
+          <div className="flex justify-end mb-2">
+            <span className="text-zinc-500 text-xs">
+              {filteredExpenses.length} 筆{(categoryFilter.length > 0 || paidByFilter.length > 0) ? "（篩選中）" : ""} ≈ {currency} {fmtTotal(filteredTotal)}
+            </span>
           </div>
           {sortedExpenses.map((exp) => (
             <div key={exp.id} className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-[14px] py-3 mb-2">
@@ -524,11 +545,11 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                   </div>
                   <div className="flex gap-3 flex-wrap items-center">
                     <Typography.Text strong className="text-blue-400 text-[15px]">
-                      {exp.currency} {Number(exp.amount).toFixed(2)}
+                      {exp.currency} {fmtAmt(Number(exp.amount))}
                     </Typography.Text>
                     {exp.currency !== currency && rates && (
                       <span className="text-zinc-600 text-xs">
-                        ≈ {currency} {toBaseCurrency(Number(exp.amount), exp.currency, currency, rates).toFixed(0)}
+                        ≈ {currency} {fmtTotal(toBaseCurrency(Number(exp.amount), exp.currency, currency, rates))}
                       </span>
                     )}
                     {exp.paid_by && (
@@ -575,25 +596,15 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
   const statsContent = (
     <>
-      <div className="flex flex-col gap-2.5 my-4">
-        <div className="flex gap-2 items-center">
-          <Select
-            className="flex-1 cute-select"
-            placeholder="視角：所有人"
-            allowClear
-            value={statsMemberFilter}
-            onChange={setStatsMemberFilter}
-            options={people.map(p => ({ value: p, label: `視角：${p}` }))}
-          />
-          <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 h-8">
-            <span className="text-zinc-500 text-[11px]">排除交通</span>
-            <Switch
-              size="small"
-              checked={excludeTransport}
-              onChange={setExcludeTransport}
-            />
-          </div>
-        </div>
+      <div className="flex justify-end my-4">
+        <Select
+          className="w-36"
+          placeholder="視角：所有人"
+          allowClear
+          value={statsMemberFilter}
+          onChange={setStatsMemberFilter}
+          options={people.map(p => ({ value: p, label: p }))}
+        />
       </div>
 
       {expenses.length === 0 ? (
@@ -603,9 +614,11 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
           {/* Total card */}
           <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl px-5 py-4 mb-4 flex items-center justify-between">
             <div>
-              <div className="text-zinc-500 text-xs mb-1">總花費</div>
+              <div className="text-zinc-500 text-xs mb-1">
+                總花費{(statsCategoryFilter.length > 0 || statsMemberFilter) ? "（篩選中）" : ""}
+              </div>
               <div className="text-[26px] font-bold text-zinc-100 leading-none">
-                {currency} {convertedTotal.toFixed(0)}
+                {currency} {fmtTotal(convertedTotal)}
               </div>
             </div>
             <div className="text-zinc-600 text-[11px] text-right leading-relaxed">
@@ -615,53 +628,74 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
           {/* Pie + category cards */}
           <div className="flex gap-3 mb-4 items-stretch">
-            <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-3 flex flex-col items-center justify-center w-[148px] flex-shrink-0">
+            <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-3 flex flex-col items-center justify-center w-[148px] md:w-[400px] flex-shrink-0">
               <div className="text-zinc-500 text-[11px] mb-2 self-start">類別佔比</div>
-              <ResponsiveContainer width={110} height={110}>
-                <PieChart>
-                  <Pie
-                    data={categoryStats}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={32}
-                    outerRadius={52}
-                    dataKey="total"
-                    nameKey="label"
-                    strokeWidth={0}
-                  >
-                    {categoryStats.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      return (
-                        <div className="bg-[#18181b] border border-white/10 rounded-xl px-3 py-2 shadow-xl text-xs">
-                          <div className="font-semibold text-zinc-200 mb-0.5">{payload[0].name}</div>
-                          <div className="text-blue-400">{currency} {Number(payload[0].value).toFixed(0)}</div>
-                        </div>
-                      );
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="w-full h-[110px] md:h-[360px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryStats}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="38%"
+                      outerRadius="68%"
+                      dataKey="total"
+                      nameKey="label"
+                      strokeWidth={0}
+                    >
+                      {categoryStats.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        return (
+                          <div className="bg-[#18181b] border border-white/10 rounded-xl px-3 py-2 shadow-xl text-xs">
+                            <div className="font-semibold text-zinc-200 mb-0.5">{payload[0].name}</div>
+                            <div className="text-blue-400">{currency} {Number(payload[0].value).toFixed(0)}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
             <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
-              {categoryStats.map((cat) => (
-                <div key={cat.category} className="bg-white/[0.03] border border-white/[0.07] rounded-[12px] px-3 py-2 flex items-center gap-2.5">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-zinc-300 text-xs font-medium leading-none">{cat.label}</div>
-                    <div className="text-zinc-600 text-[10px] mt-0.5">{cat.count} 筆</div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-zinc-200 text-xs font-semibold leading-none">{currency} {cat.total.toFixed(0)}</div>
-                    <div className="text-zinc-600 text-[10px] mt-0.5">{convertedTotal > 0 ? Math.round((cat.total / convertedTotal) * 100) : 0}%</div>
-                  </div>
-                </div>
-              ))}
+              {(() => {
+                const pieTotal = categoryStats.reduce((s, c) => s + c.total, 0);
+                const anySelected = statsCategoryFilter.length > 0;
+                return categoryStats.map((cat) => {
+                  const isSelected = statsCategoryFilter.includes(cat.category);
+                  return (
+                    <button
+                      key={cat.category}
+                      onClick={() => setStatsCategoryFilter(prev =>
+                        prev.includes(cat.category) ? prev.filter(c => c !== cat.category) : [...prev, cat.category]
+                      )}
+                      className={`rounded-[12px] px-3 py-2 flex items-center gap-2.5 cursor-pointer transition-all text-left border ${isSelected
+                        ? "bg-white/[0.06]"
+                        : anySelected
+                          ? "bg-white/[0.02] border-white/[0.05] opacity-40"
+                          : "bg-white/[0.03] border-white/[0.07]"
+                        }`}
+                      style={isSelected ? { borderColor: `${cat.color}70` } : undefined}
+                    >
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-zinc-300 text-xs font-medium leading-none">{cat.label}</div>
+                        <div className="text-zinc-600 text-[10px] mt-0.5">{cat.count} 筆</div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-zinc-200 text-xs font-semibold leading-none">{currency} {fmtTotal(cat.total)}</div>
+                        <div className="text-zinc-600 text-[10px] mt-0.5">{pieTotal > 0 ? Math.round((cat.total / pieTotal) * 100) : 0}%</div>
+                      </div>
+                    </button>
+                  );
+                });
+              })()}
             </div>
           </div>
 
@@ -691,7 +725,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                       return (
                         <div className="bg-[#18181b] border border-white/10 rounded-xl px-3 py-2 shadow-xl text-xs">
                           <div className="text-zinc-400 mb-0.5">{label}</div>
-                          <div className="font-semibold text-blue-400">{currency} {Number(payload[0].value).toFixed(0)}</div>
+                          <div className="font-semibold text-blue-400">{currency} {fmtTotal(Number(payload[0].value))}</div>
                         </div>
                       );
                     }}
@@ -704,7 +738,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
           {/* Per-person spending */}
           {people.length > 0 && (
-            <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-4">
+            <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-4 mb-4">
               <div className="text-zinc-500 text-[11px] mb-3">每人花費</div>
               {personStats.map((p, i) => {
                 const pct = convertedTotal > 0 ? p.total / convertedTotal : 0;
@@ -712,7 +746,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                   <div key={p.name} className="mb-3 last:mb-0">
                     <div className="flex justify-between items-center mb-1.5">
                       <span className="text-zinc-300 text-xs font-medium">{p.name}</span>
-                      <span className="text-zinc-200 text-xs font-semibold">{currency} {p.total.toFixed(0)}</span>
+                      <span className="text-zinc-200 text-xs font-semibold">{currency} {fmtTotal(p.total)}</span>
                     </div>
                     <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                       <div
@@ -728,6 +762,42 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
               })}
             </div>
           )}
+
+          {/* Filtered expense items */}
+          <div>
+            <div className="text-zinc-500 text-[11px] mb-2">
+              費用明細（{statsFilteredExpenses.length} 筆）
+            </div>
+            {statsFilteredExpenses
+              .slice()
+              .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
+              .map(exp => {
+                const converted = toBaseCurrency(Number(exp.amount), exp.currency, currency, rates);
+                return (
+                  <div key={exp.id} className="flex items-center gap-3 py-2.5 border-b border-white/[0.05] last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-zinc-200 text-sm font-medium">{exp.description}</span>
+                        {exp.category && <CategoryBadge category={exp.category} />}
+                      </div>
+                      <div className="flex gap-2 mt-0.5 flex-wrap">
+                        {exp.date && <span className="text-zinc-600 text-[11px]">{exp.date}</span>}
+                        {exp.paid_by && <span className="text-zinc-600 text-[11px]">{exp.paid_by} 付</span>}
+                        {exp.split_with?.length > 0 && (
+                          <span className="text-zinc-600 text-[11px]">{exp.split_with.join("、")} 分攤</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-blue-400 text-sm font-semibold">{exp.currency} {fmtAmt(Number(exp.amount))}</div>
+                      {exp.currency !== currency && rates && (
+                        <div className="text-zinc-600 text-[11px]">≈ {currency} {fmtTotal(converted)}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </>
       )}
     </>
@@ -831,15 +901,15 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
           {!isRange ? (
             <Form.Item name="date" label="日期">
-              <DatePicker className="w-full" defaultValue={dayjs()} />
+              <DatePicker className="w-full" />
             </Form.Item>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <Form.Item name="startDate" label="開始日期" rules={[{ required: true, message: "請選擇" }]}>
-                <DatePicker className="w-full" placeholder="開始" defaultValue={dayjs()} />
+                <DatePicker className="w-full" placeholder="開始" />
               </Form.Item>
               <Form.Item name="endDate" label="結束日期" rules={[{ required: true, message: "請選擇" }]}>
-                <DatePicker className="w-full" placeholder="結束" defaultValue={dayjs()} />
+                <DatePicker className="w-full" placeholder="結束" />
               </Form.Item>
             </div>
           )}

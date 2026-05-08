@@ -19,44 +19,6 @@ async function replyMessage(replyToken: string, messages: object[]) {
   });
 }
 
-
-async function fetchCurrencyCodes(): Promise<Set<string>> {
-  try {
-    const res = await fetch("https://openexchangerates.org/api/currencies.json", { next: { revalidate: 86400 } });
-    const data: Record<string, string> = await res.json();
-    return new Set(Object.keys(data));
-  } catch {
-    return new Set(["TWD", "JPY", "USD", "EUR", "HKD", "KRW", "THB", "SGD", "CNY", "MYR", "AUD", "GBP"]);
-  }
-}
-
-// 格式：描述 金額 [幣別] [付款人]
-async function parseExpenseMessage(text: string) {
-  const knownCurrencies = await fetchCurrencyCodes();
-  const parts = text.trim().split(/\s+/);
-  if (parts.length < 2) return null;
-  const description = parts[0];
-  const amount = parseFloat(parts[1]);
-  if (isNaN(amount) || amount <= 0) return null;
-  let currency: string | null = null;
-  let paid_by: string | null = null;
-  let idx = 2;
-  if (idx < parts.length && knownCurrencies.has(parts[idx].toUpperCase())) { currency = parts[idx].toUpperCase(); idx++; }
-  if (idx < parts.length && !parts[idx].startsWith("/")) { paid_by = parts[idx]; }
-  return { description, amount, currency, paid_by };
-}
-
-// 解析數字選人：0=全部, 1=第一個人, 12=第一二個人
-function parseNumberSelection(text: string, allPeople: string[]): string[] | null {
-  const cleaned = text.trim();
-  if (!/^[0-9][0-9,，\s]*$/.test(cleaned)) return null;
-  const digits = cleaned.replace(/[,，\s]/g, "");
-  if (digits === "0") return [...allPeople];
-  const indices = [...new Set([...digits].map(Number))];
-  const selected = indices.filter(i => i >= 1 && i <= allPeople.length).map(i => allPeople[i - 1]);
-  return selected.length > 0 ? selected : null;
-}
-
 // ────────────────────────────────────────────────────────────────
 // Types
 // ────────────────────────────────────────────────────────────────
@@ -75,17 +37,8 @@ type PendingExpense = {
   expires_at: string;
 };
 
-type TripRow = { id: string; name: string; currency: string | null; people: string[] | null };
-type MappingRow = {
-  user_id: string;
-  default_trip_id: string | null;
-  default_person: string | null;
-  trips: TripRow | TripRow[] | null;
-};
-type GroupMappingRow = {
-  default_trip_id: string | null;
-  trips: TripRow | TripRow[] | null;
-};
+type TripRow = { id: string; name: string; currency: string | null; people: string[] | null; user_id: string };
+
 type Mentionee = { index: number; length: number; userId: string; type: string };
 type LineEvent = {
   type: string;
@@ -95,8 +48,12 @@ type LineEvent = {
   postback?: { data: string };
 };
 
+function chatId(event: LineEvent): string {
+  return event.source.groupId ?? event.source.roomId ?? event.source.userId;
+}
+
 function isBotMentioned(message: NonNullable<LineEvent["message"]>): boolean {
-  if (!BOT_USER_ID) return true; // if not configured, always respond
+  if (!BOT_USER_ID) return true;
   return message.mention?.mentionees.some(m => m.userId === BOT_USER_ID) ?? false;
 }
 
@@ -108,7 +65,46 @@ function stripMentions(text: string, mentionees: Mentionee[]): string {
 }
 
 // ────────────────────────────────────────────────────────────────
-// Flex Messages
+// Expense parsing
+// ────────────────────────────────────────────────────────────────
+
+async function fetchCurrencyCodes(): Promise<Set<string>> {
+  try {
+    const res = await fetch("https://openexchangerates.org/api/currencies.json", { next: { revalidate: 86400 } });
+    const data: Record<string, string> = await res.json();
+    return new Set(Object.keys(data));
+  } catch {
+    return new Set(["TWD", "JPY", "USD", "EUR", "HKD", "KRW", "THB", "SGD", "CNY", "MYR", "AUD", "GBP"]);
+  }
+}
+
+async function parseExpenseMessage(text: string) {
+  const knownCurrencies = await fetchCurrencyCodes();
+  const parts = text.trim().split(/\s+/);
+  if (parts.length < 2) return null;
+  const description = parts[0];
+  const amount = parseFloat(parts[1]);
+  if (isNaN(amount) || amount <= 0) return null;
+  let currency: string | null = null;
+  let paid_by: string | null = null;
+  let idx = 2;
+  if (idx < parts.length && knownCurrencies.has(parts[idx].toUpperCase())) { currency = parts[idx].toUpperCase(); idx++; }
+  if (idx < parts.length && !parts[idx].startsWith("/")) { paid_by = parts[idx]; }
+  return { description, amount, currency, paid_by };
+}
+
+function parseNumberSelection(text: string, allPeople: string[]): string[] | null {
+  const cleaned = text.trim();
+  if (!/^[0-9][0-9,，\s]*$/.test(cleaned)) return null;
+  const digits = cleaned.replace(/[,，\s]/g, "");
+  if (digits === "0") return [...allPeople];
+  const indices = [...new Set([...digits].map(Number))];
+  const selected = indices.filter(i => i >= 1 && i <= allPeople.length).map(i => allPeople[i - 1]);
+  return selected.length > 0 ? selected : null;
+}
+
+// ────────────────────────────────────────────────────────────────
+// Flex messages
 // ────────────────────────────────────────────────────────────────
 
 function buildSplitNumberFlex(pending: PendingExpense) {
@@ -274,36 +270,6 @@ function buildSuccessFlex(
   };
 }
 
-function buildPersonSelectFlex(people: string[], currentPerson: string | null, tripName: string) {
-  return {
-    type: "flex",
-    altText: "選擇你的身份",
-    contents: {
-      type: "bubble",
-      header: {
-        type: "box", layout: "vertical", backgroundColor: "#18181b", paddingAll: "14px",
-        contents: [
-          { type: "text", text: "你是誰？", color: "#ffffff", weight: "bold", size: "md" },
-          { type: "text", text: "選擇後，記帳時付款人預設為你", color: "#71717a", size: "xs", margin: "sm" },
-        ],
-      },
-      body: {
-        type: "box", layout: "vertical", spacing: "sm", backgroundColor: "#1c1c1f",
-        contents: [
-          { type: "text", text: tripName, weight: "bold", size: "sm", color: "#a1a1aa", margin: "sm" },
-          ...people.map((p) => ({
-            type: "button",
-            action: { type: "postback", label: p, data: `action=setperson&name=${encodeURIComponent(p)}` },
-            style: "primary",
-            color: p === currentPerson ? "#6366f1" : "#3f3f46",
-            height: "sm", margin: "sm",
-          })),
-        ],
-      },
-    },
-  };
-}
-
 // ────────────────────────────────────────────────────────────────
 // Postback handler
 // ────────────────────────────────────────────────────────────────
@@ -313,44 +279,9 @@ async function handlePostback(
   lineUserId: string,
   replyToken: string,
   supabase: ReturnType<typeof createServiceClient>,
-  groupId: string | null = null,
 ) {
   const params = new URLSearchParams(data);
   const action = params.get("action");
-
-  // 選行程
-  if (action === "settrip") {
-    const tripId = params.get("id")!;
-    const { data: trip } = await supabase.from("trips").select("id, name, currency, people")
-      .eq("id", tripId).single() as { data: TripRow | null };
-    if (!trip) { await replyMessage(replyToken, [{ type: "text", text: "找不到該行程。" }]); return; }
-    const { data: mapping } = await supabase.from("line_user_mappings")
-      .select("user_id").eq("line_user_id", lineUserId).single() as { data: { user_id: string } | null };
-    if (!mapping) return;
-    await supabase.from("line_user_mappings").update({ default_trip_id: tripId, default_person: null }).eq("line_user_id", lineUserId);
-    if (groupId) {
-      await supabase.from("line_group_mappings").upsert(
-        { group_id: groupId, default_trip_id: tripId, created_by: mapping.user_id },
-        { onConflict: "group_id" }
-      );
-    }
-    const people = trip.people ?? [];
-    const prefix = groupId ? "群組" : "";
-    const messages: object[] = [{ type: "text", text: `已設定${prefix}預設行程「${trip.name}」✓` }];
-    if (people.length > 0 && !groupId) messages.push(buildPersonSelectFlex(people, null, trip.name));
-    await replyMessage(replyToken, messages);
-    return;
-  }
-
-  // 選身份
-  if (action === "setperson") {
-    const person = params.get("name")!;
-    await supabase.from("line_user_mappings").update({ default_person: person }).eq("line_user_id", lineUserId);
-    await replyMessage(replyToken, [{ type: "text", text: `已設定「${person}」為預設付款人 ✓` }]);
-    return;
-  }
-
-  // 確認 / 取消費用
   const pendingId = params.get("id");
   if (!pendingId) return;
 
@@ -401,18 +332,17 @@ async function handlePostback(
 async function handleEvent(event: LineEvent) {
   const lineUserId = event.source.userId;
   const replyToken = event.replyToken!;
-  const groupId = event.source.groupId ?? event.source.roomId ?? null;
-  const isGroup = !!groupId;
+  const isGroup = !!(event.source.groupId ?? event.source.roomId);
+  const cid = chatId(event);
   const supabase = createServiceClient();
 
   if (event.type === "postback" && event.postback) {
-    await handlePostback(event.postback.data, lineUserId, replyToken, supabase, groupId);
+    await handlePostback(event.postback.data, lineUserId, replyToken, supabase);
     return;
   }
 
   if (event.type !== "message" || event.message?.type !== "text") return;
 
-  // 群組裡：純數字回覆（選人）不要求 @mention，其他都要
   const rawText = event.message.text.trim();
   if (isGroup) {
     const isNumberReply = /^[0-9][0-9,，\s]*$/.test(rawText);
@@ -425,65 +355,83 @@ async function handleEvent(event: LineEvent) {
 
   if (!text) return;
 
-  // 綁定驗證碼（1 對 1 才支援）
-  if (/^\d{6}$/.test(text)) {
-    if (isGroup) {
-      await replyMessage(replyToken, [{ type: "text", text: "請在與 Bot 的私人對話中完成帳號綁定。" }]);
+  // Token activation: TRIP-XXXX-XXXX
+  const tokenMatch = text.match(/^TRIP-([A-Z0-9]{4})-([A-Z0-9]{4})$/i);
+  if (tokenMatch) {
+    const raw = (tokenMatch[1] + tokenMatch[2]).toUpperCase();
+    const { data: trip } = await supabase
+      .from("trips")
+      .select("id, name, user_id")
+      .eq("line_token", raw)
+      .single() as { data: { id: string; name: string; user_id: string } | null };
+
+    if (!trip) {
+      await replyMessage(replyToken, [{ type: "text", text: "連結碼無效或已失效，請在 App 重新取得。" }]);
       return;
     }
-    const { data: codeRow } = await supabase
-      .from("line_binding_codes").select("user_id, expires_at, used").eq("code", text).single();
-    if (!codeRow || codeRow.used || new Date(codeRow.expires_at) < new Date()) {
-      await replyMessage(replyToken, [{ type: "text", text: "驗證碼無效或已過期，請在 App 重新產生。" }]);
-      return;
-    }
-    await supabase.from("line_binding_codes").update({ used: true }).eq("code", text);
-    await supabase.from("line_user_mappings").upsert(
-      { line_user_id: lineUserId, user_id: codeRow.user_id }, { onConflict: "line_user_id" }
+
+    await supabase.from("line_group_mappings").upsert(
+      { group_id: cid, default_trip_id: trip.id, created_by: trip.user_id },
+      { onConflict: "group_id" }
     );
-    await replyMessage(replyToken, [{ type: "text", text: "帳號綁定成功！\n\n接下來：\n1. 輸入 /trips 選擇行程\n2. 選完行程後選擇你是誰\n3. 就可以開始快速記帳了！" }]);
+
+    await replyMessage(replyToken, [{
+      type: "flex",
+      altText: `已連結行程「${trip.name}」`,
+      contents: {
+        type: "bubble",
+        header: {
+          type: "box", layout: "vertical",
+          background: { type: "linearGradient", angle: "90deg", startColor: "#6366f1", centerColor: "#8b5cf6", endColor: "#14b8a6" },
+          paddingAll: "14px",
+          contents: [
+            { type: "text", text: "✓ 行程已連結", color: "#ffffff", weight: "bold", size: "md" },
+            { type: "text", text: trip.name, color: "#ffffffaa", size: "sm", margin: "sm" },
+          ],
+        },
+        body: {
+          type: "box", layout: "vertical", backgroundColor: "#1c1c1f", paddingAll: "16px",
+          contents: [
+            { type: "text", text: "現在可以直接記帳了！", color: "#e4e4e7", size: "sm", wrap: true },
+            { type: "separator", margin: "md", color: "#27272a" },
+            { type: "text", text: "格式：描述 金額 [幣別] [付款人]", color: "#71717a", size: "xs", margin: "md", wrap: true },
+            { type: "text", text: "例如：晚餐 500　　計程車 200 JPY", color: "#71717a", size: "xs", margin: "sm", wrap: true },
+          ],
+        },
+      },
+    }]);
     return;
   }
 
-  // 查詢使用者設定
-  const { data: mapping } = await supabase
-    .from("line_user_mappings")
-    .select("user_id, default_trip_id, default_person, trips(id, name, currency, people)")
-    .eq("line_user_id", lineUserId)
-    .single() as { data: MappingRow | null };
+  // Look up trip for this chat
+  const { data: chatMapping } = await supabase
+    .from("line_group_mappings")
+    .select("default_trip_id, trips(id, name, currency, people, user_id)")
+    .eq("group_id", cid)
+    .single() as { data: { default_trip_id: string | null; trips: TripRow | TripRow[] | null } | null };
 
-  if (!mapping) {
-    await replyMessage(replyToken, [{ type: "text", text: "請先在與 Bot 的私人對話中完成帳號綁定！" }]);
+  const tripRow = chatMapping
+    ? (Array.isArray(chatMapping.trips) ? chatMapping.trips[0] : chatMapping.trips) as TripRow | null
+    : null;
+
+  if (!tripRow || !chatMapping?.default_trip_id) {
+    const hint = isGroup
+      ? "請先在 App 開啟行程並複製連結碼，傳到此群組即可開始記帳。"
+      : "請先在 App 開啟行程並複製連結碼，傳給我即可開始記帳。";
+    await replyMessage(replyToken, [{ type: "text", text: hint }]);
     return;
   }
 
-  // 群組有共用行程設定時，優先使用群組行程
-  let effectiveTripId = mapping.default_trip_id;
-  let effectiveTripRow = (Array.isArray(mapping.trips) ? mapping.trips[0] : mapping.trips) as TripRow | null;
+  const tripPeople = tripRow.people ?? [];
+  const primaryCurrency = tripRow.currency ? tripRow.currency.split(",")[0] : "TWD";
 
-  if (isGroup && groupId) {
-    const { data: groupMapping } = await supabase
-      .from("line_group_mappings")
-      .select("default_trip_id, trips(id, name, currency, people)")
-      .eq("group_id", groupId)
-      .single() as { data: GroupMappingRow | null };
-    if (groupMapping?.default_trip_id) {
-      effectiveTripId = groupMapping.default_trip_id;
-      const gt = (Array.isArray(groupMapping.trips) ? groupMapping.trips[0] : groupMapping.trips) as TripRow | null;
-      if (gt) effectiveTripRow = gt;
-    }
-  }
-
-  const tripPeople = effectiveTripRow?.people ?? [];
-  const primaryCurrency = effectiveTripRow?.currency ? effectiveTripRow.currency.split(",")[0] : "TWD";
-
-  // 指令
+  // Commands
   if (text.startsWith("/")) {
-    await handleCommand(text, lineUserId, mapping, effectiveTripRow, tripPeople, replyToken, supabase, groupId, effectiveTripId);
+    await handleCommand(text, lineUserId, tripRow, tripPeople, replyToken, supabase, chatMapping.default_trip_id);
     return;
   }
 
-  // 數字選人回覆（有待確認的 pending 時）
+  // Number reply for split selection
   if (/^[0-9][0-9,，\s]*$/.test(text)) {
     const { data: pending } = await supabase
       .from("line_pending_expenses").select("*")
@@ -495,15 +443,14 @@ async function handleEvent(event: LineEvent) {
     if (pending) {
       const splitWith = parseNumberSelection(text, pending.all_people);
       if (splitWith) {
-        await supabase.from("line_pending_expenses")
-          .update({ selected_people: splitWith }).eq("id", pending.id);
+        await supabase.from("line_pending_expenses").update({ selected_people: splitWith }).eq("id", pending.id);
         await replyMessage(replyToken, [buildConfirmationFlex({ ...pending, selected_people: splitWith }, splitWith)]);
         return;
       }
     }
   }
 
-  // 解析記帳訊息
+  // Expense message
   const parsed = await parseExpenseMessage(text);
   if (!parsed) {
     await replyMessage(replyToken, [{
@@ -513,34 +460,25 @@ async function handleEvent(event: LineEvent) {
     return;
   }
 
-  if (!effectiveTripId) {
-    const hint = isGroup ? "請先用 @Bot /settrip 設定群組行程。" : "還沒設定預設行程，請輸入 /trips 選擇行程。";
-    await replyMessage(replyToken, [{ type: "text", text: hint }]);
-    return;
-  }
-
   const currency = parsed.currency ?? primaryCurrency;
-  const paid_by = parsed.paid_by ?? mapping.default_person ?? null;
+  const paid_by = parsed.paid_by ?? null;
 
-  // 清除舊 pending
   await supabase.from("line_pending_expenses").delete().eq("line_user_id", lineUserId);
 
-  // 無成員 → 直接跳確認卡
   if (tripPeople.length === 0) {
     const { data: pendingRow } = await supabase.from("line_pending_expenses").insert({
-      line_user_id: lineUserId, trip_id: effectiveTripId, user_id: mapping.user_id,
+      line_user_id: lineUserId, trip_id: tripRow.id, user_id: tripRow.user_id,
       description: parsed.description, amount: parsed.amount, currency, paid_by,
-      selected_people: [], all_people: [], trip_name: effectiveTripRow?.name ?? "我的行程",
+      selected_people: [], all_people: [], trip_name: tripRow.name,
     }).select().single() as { data: PendingExpense | null };
     if (pendingRow) await replyMessage(replyToken, [buildConfirmationFlex(pendingRow, [])]);
     return;
   }
 
-  // 有成員 → 顯示數字選人卡
   const { data: pendingRow } = await supabase.from("line_pending_expenses").insert({
-    line_user_id: lineUserId, trip_id: effectiveTripId, user_id: mapping.user_id,
+    line_user_id: lineUserId, trip_id: tripRow.id, user_id: tripRow.user_id,
     description: parsed.description, amount: parsed.amount, currency, paid_by,
-    selected_people: [], all_people: tripPeople, trip_name: effectiveTripRow?.name ?? "我的行程",
+    selected_people: [], all_people: tripPeople, trip_name: tripRow.name,
   }).select().single() as { data: PendingExpense | null };
 
   if (pendingRow) await replyMessage(replyToken, [buildSplitNumberFlex(pendingRow)]);
@@ -553,18 +491,45 @@ async function handleEvent(event: LineEvent) {
 async function handleCommand(
   text: string,
   lineUserId: string,
-  mapping: MappingRow,
-  tripRow: TripRow | null,
+  tripRow: TripRow,
   tripPeople: string[],
   replyToken: string,
   supabase: ReturnType<typeof createServiceClient>,
-  groupId: string | null = null,
-  effectiveTripId: string | null = null,
+  tripId: string,
 ) {
   const parts = text.split(/\s+/);
   const cmd = parts[0].toLowerCase();
-
   const reply = (msgs: object[]) => replyMessage(replyToken, msgs);
+
+  if (cmd === "/info") {
+    await reply([{
+      type: "flex", altText: `目前行程：${tripRow.name}`,
+      contents: {
+        type: "bubble",
+        header: {
+          type: "box", layout: "vertical", backgroundColor: "#18181b", paddingAll: "14px",
+          contents: [{ type: "text", text: "目前行程", color: "#ffffff", weight: "bold", size: "md" }],
+        },
+        body: {
+          type: "box", layout: "vertical", backgroundColor: "#1c1c1f", paddingAll: "16px", spacing: "sm",
+          contents: [
+            { type: "text", text: tripRow.name, weight: "bold", size: "xl", color: "#f4f4f5" },
+            ...(tripRow.currency ? [{ type: "text", text: `幣別：${tripRow.currency}`, size: "sm", color: "#a1a1aa" }] : []),
+            ...(tripPeople.length > 0 ? [{ type: "text", text: `成員：${tripPeople.join("、")}`, size: "sm", color: "#a1a1aa", wrap: true }] : []),
+          ],
+        },
+        footer: {
+          type: "box", layout: "vertical", backgroundColor: "#1c1c1f",
+          contents: [{
+            type: "button",
+            action: { type: "uri", label: "查看行程", uri: `${APP_BASE_URL}/trips/${tripId}` },
+            style: "primary", color: "#6366f1", height: "sm",
+          }],
+        },
+      },
+    }]);
+    return;
+  }
 
   if (cmd === "/divided") {
     const peopleStr = parts.slice(1).join(" ");
@@ -591,82 +556,14 @@ async function handleCommand(
   if (cmd === "/help") {
     await reply([{
       type: "text",
-      text: "指令列表：\n\n/trips — 選擇預設行程\n/me — 設定我是誰\n/list — 最近 5 筆費用\n/help — 顯示此說明\n\n記帳格式：\n描述 金額 [幣別] [付款人]\n\n輸入後回覆號碼選平分對象\n0 全選　12 選第1和第2人",
+      text: "指令列表：\n\n/info — 目前連結的行程\n/list — 最近 5 筆費用\n/help — 顯示此說明\n\n記帳格式：\n描述 金額 [幣別] [付款人]\n\n輸入後回覆號碼選平分對象\n0 全選　12 選第1和第2人",
     }]);
-    return;
-  }
-
-  if (cmd === "/trips") {
-    const { data: trips } = await supabase.from("trips").select("id, name, currency")
-      .eq("user_id", mapping.user_id).order("created_at", { ascending: false }).limit(8);
-    if (!trips?.length) { await reply([{ type: "text", text: "還沒有行程，請先在 App 建立行程。" }]); return; }
-    await reply([{
-      type: "flex", altText: "選擇預設行程",
-      contents: {
-        type: "bubble",
-        header: {
-          type: "box", layout: "vertical", backgroundColor: "#18181b", paddingAll: "14px",
-          contents: [
-            { type: "text", text: "選擇預設行程", color: "#ffffff", weight: "bold", size: "md" },
-            { type: "text", text: "點選行程來設為預設", color: "#71717a", size: "xs", margin: "sm" },
-          ],
-        },
-        body: {
-          type: "box", layout: "vertical", spacing: "sm", backgroundColor: "#1c1c1f",
-          contents: trips.map((t) => ({
-            type: "button",
-            action: { type: "postback", label: t.name, data: `action=settrip&id=${t.id}` },
-            style: "primary",
-            color: t.id === effectiveTripId ? "#6366f1" : "#3f3f46",
-            height: "sm", margin: "sm",
-          })),
-        },
-      },
-    }]);
-    return;
-  }
-
-  if (cmd === "/settrip") {
-    const tripId = parts[1];
-    if (!tripId) { await reply([{ type: "text", text: "請輸入 /settrip <行程ID>" }]); return; }
-    const { data: trip } = await supabase.from("trips").select("id, name, currency, people")
-      .eq("id", tripId).single() as { data: TripRow | null };
-    if (!trip) { await reply([{ type: "text", text: "找不到該行程。" }]); return; }
-    await supabase.from("line_user_mappings").update({ default_trip_id: tripId, default_person: null }).eq("line_user_id", lineUserId);
-    if (groupId) {
-      await supabase.from("line_group_mappings").upsert(
-        { group_id: groupId, default_trip_id: tripId, created_by: mapping.user_id },
-        { onConflict: "group_id" }
-      );
-    }
-    const people = trip.people ?? [];
-    const prefix = groupId ? "群組" : "";
-    const messages: object[] = [{ type: "text", text: `已設定${prefix}預設行程「${trip.name}」✓` }];
-    if (people.length > 0 && !groupId) messages.push(buildPersonSelectFlex(people, null, trip.name));
-    await reply(messages);
-    return;
-  }
-
-  if (cmd === "/me") {
-    if (!tripRow) { await reply([{ type: "text", text: "還沒設定預設行程，請先輸入 /trips。" }]); return; }
-    if (tripPeople.length === 0) { await reply([{ type: "text", text: "這個行程還沒有設定成員，請先在 App 編輯行程。" }]); return; }
-    await reply([buildPersonSelectFlex(tripPeople, mapping.default_person, tripRow.name)]);
-    return;
-  }
-
-  if (cmd === "/setperson") {
-    const person = parts.slice(1).join(" ");
-    if (!person) { await reply([{ type: "text", text: "請輸入 /setperson <姓名>" }]); return; }
-    await supabase.from("line_user_mappings").update({ default_person: person }).eq("line_user_id", lineUserId);
-    await reply([{ type: "text", text: `已設定「${person}」為預設付款人 ✓\n之後記帳付款人預設就是你！` }]);
     return;
   }
 
   if (cmd === "/list") {
-    const tripIdToUse = effectiveTripId ?? mapping.default_trip_id;
-    if (!tripIdToUse) { await reply([{ type: "text", text: "還沒設定預設行程，請輸入 /trips 選擇。" }]); return; }
-    const { data: expenses } = await supabase.from("expenses").select("description, amount, currency, paid_by, split_with, created_at")
-      .eq("trip_id", tripIdToUse).order("created_at", { ascending: false }).limit(5);
+    const { data: expenses } = await supabase.from("expenses").select("description, amount, currency, paid_by, split_with, date")
+      .eq("trip_id", tripId).order("date", { ascending: false }).limit(5);
     if (!expenses?.length) { await reply([{ type: "text", text: "這個行程還沒有費用紀錄。" }]); return; }
     const expenseRows = expenses.map((e, i) => ({
       type: "box", layout: "vertical",
@@ -696,7 +593,7 @@ async function handleCommand(
           type: "box", layout: "vertical", backgroundColor: "#18181b", paddingAll: "14px",
           contents: [
             { type: "text", text: "最近費用", color: "#ffffff", weight: "bold", size: "md" },
-            { type: "text", text: tripRow?.name ?? "我的行程", color: "#71717a", size: "xs", margin: "sm" },
+            { type: "text", text: tripRow.name, color: "#71717a", size: "xs", margin: "sm" },
           ],
         },
         body: { type: "box", layout: "vertical", backgroundColor: "#1c1c1f", contents: expenseRows },
@@ -704,7 +601,7 @@ async function handleCommand(
           type: "box", layout: "vertical", backgroundColor: "#1c1c1f",
           contents: [{
             type: "button",
-            action: { type: "uri", label: "查看全部費用", uri: `${APP_BASE_URL}/trips/${tripIdToUse}?tab=expenses` },
+            action: { type: "uri", label: "查看全部費用", uri: `${APP_BASE_URL}/trips/${tripId}?tab=expenses` },
             style: "primary", color: "#6366f1", height: "sm",
           }],
         },

@@ -9,6 +9,7 @@ create table if not exists trips (
   start_date date,
   end_date date,
   countries text,
+  country_codes text,               -- comma-separated ISO 3166-1 alpha-2 codes (e.g. "TW,JP")
   notes text,
   photo_album_id text,
   people text[],
@@ -16,8 +17,11 @@ create table if not exists trips (
   enabled_tabs text[] default array['transport','itinerary','expenses','photos','notes'],
   destinations jsonb default '[]',
   ai_notes jsonb default null,
+  line_token text unique,           -- one-time token for linking a LINE chat to this trip
   created_at timestamptz not null default now()
 );
+
+create index if not exists trips_line_token_idx on trips(line_token) where line_token is not null;
 
 alter table trips enable row level security;
 create policy "users can manage own trips" on trips for all using (auth.uid() = user_id);

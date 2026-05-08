@@ -46,3 +46,28 @@ export async function GET(
 
   return NextResponse.json({ members: userInfos });
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const { searchParams } = new URL(request.url);
+  const targetUserId = searchParams.get("userId");
+  if (!targetUserId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+
+  const service = createServiceClient();
+
+  const { data: trip } = await service.from("trips").select("user_id").eq("id", id).single();
+  if (!trip) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (trip.user_id !== user.id) return NextResponse.json({ error: "Only owner can remove members" }, { status: 403 });
+  if (targetUserId === user.id) return NextResponse.json({ error: "Cannot remove yourself" }, { status: 400 });
+
+  await service.from("trip_members").delete().eq("trip_id", id).eq("user_id", targetUserId);
+
+  return NextResponse.json({ success: true });
+}
