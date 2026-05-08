@@ -6,8 +6,9 @@ import {
   Button, Modal, Form, Input, DatePicker, Select, InputNumber,
   Dropdown, Typography, Tabs, Skeleton, Switch, App,
 } from "antd";
-import { EditOutlined, DeleteOutlined, MoreOutlined } from "@ant-design/icons";
+import { EditOutlined, DeleteOutlined, MoreOutlined, CheckOutlined } from "@ant-design/icons";
 import { PlusIcon, CreditCardIcon, CategoryBadge } from "@/app/components/Icons";
+import { motion, AnimatePresence } from "framer-motion";
 import dayjs from "dayjs";
 import {
   PieChart, Pie, Cell, Tooltip as ChartTooltip, ResponsiveContainer,
@@ -140,6 +141,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   const [statsMemberFilter, setStatsMemberFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [paidTransactions, setPaidTransactions] = useState<Set<string>>(new Set());
 
   const { modal } = App.useApp();
   const currencyOptions = currencies.map((c) => ({ value: c, label: c }));
@@ -530,8 +532,17 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
               {filteredExpenses.length} 筆{(categoryFilter.length > 0 || paidByFilter.length > 0) ? "（篩選中）" : ""} ≈ {currency} {fmtTotal(filteredTotal)}
             </span>
           </div>
+          <AnimatePresence initial={false}>
           {sortedExpenses.map((exp) => (
-            <div key={exp.id} className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-[14px] py-3 mb-2">
+            <motion.div
+              key={exp.id}
+              layout
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
+              className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-[14px] py-3 mb-2"
+            >
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
@@ -587,8 +598,9 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                   </Dropdown>
                 )}
               </div>
-            </div>
+            </motion.div>
           ))}
+          </AnimatePresence>
         </>
       )}
     </>
@@ -836,15 +848,34 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
               <Typography.Text className="text-zinc-500 text-[13px] block mb-2.5">
                 應付款項
               </Typography.Text>
-              {transactions.map((t, i) => (
-                <div key={i} className="bg-[#18181b] border border-[#27272a] rounded-[10px] px-[14px] py-2.5 mb-2">
-                  <span className="text-blue-400 font-semibold">{t.from}</span>
-                  <span className="text-zinc-500"> 付給 </span>
-                  <span className="text-teal-400 font-semibold">{t.to}</span>
-                  <span className="text-zinc-500">：</span>
-                  <span className="text-violet-400 font-semibold">{currency} {t.amount.toFixed(2)}</span>
-                </div>
-              ))}
+              {transactions.map((t, i) => {
+                const txKey = `${t.from}→${t.to}`;
+                const isPaid = paidTransactions.has(txKey);
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between bg-[#18181b] border rounded-[10px] px-[14px] py-2.5 mb-2 transition-all duration-200 ${isPaid ? "border-green-900/40 opacity-40" : "border-[#27272a]"}`}
+                  >
+                    <span className={isPaid ? "line-through" : ""}>
+                      <span className="text-blue-400 font-semibold">{t.from}</span>
+                      <span className="text-zinc-500"> 付給 </span>
+                      <span className="text-teal-400 font-semibold">{t.to}</span>
+                      <span className="text-zinc-500">：</span>
+                      <span className="text-violet-400 font-semibold">{currency} {t.amount.toFixed(2)}</span>
+                    </span>
+                    <button
+                      onClick={() => setPaidTransactions(prev => {
+                        const next = new Set(prev);
+                        isPaid ? next.delete(txKey) : next.add(txKey);
+                        return next;
+                      })}
+                      className={`ml-3 w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 ${isPaid ? "bg-green-500/20 border-green-500/50 text-green-400" : "border-zinc-700 text-zinc-700 hover:border-zinc-500 hover:text-zinc-400"}`}
+                    >
+                      {isPaid && <CheckOutlined style={{ fontSize: 11 }} />}
+                    </button>
+                  </div>
+                );
+              })}
             </>
           ) : (
             expenses.length > 0 && (
