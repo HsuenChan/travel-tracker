@@ -12,15 +12,15 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 
 ### Key Features
 
-- **Interactive 3D Globe** — WebGL rendering with animated flight arcs, region-level markers, and smooth transitions. Destinations stored as precise lat/lng coordinates via Nominatim / OpenStreetMap.
+- **Interactive 3D Globe** — WebGL rendering with animated flight arcs, region-level markers, and smooth transitions. Destinations stored as precise lat/lng coordinates via Nominatim / OpenStreetMap. Country flags auto-resolved from Nominatim ISO codes.
 - **Route Tab** — Combine transport segments (flights, trains, buses) and an interactive Leaflet map in one view.
 - **Rich Text Notes + AI** — Full Quill editor with six section chips that trigger AI-generated content (travel tips, packing list, transit guides, etc.) via Google Gemini. Shared across all trip members.
 - **Itinerary Planning** — Multi-day events with a unified date-time range picker. Timeline shows day-of-week labels. Per-item rich text notes with clickable links.
-- **Multi-Currency Expenses** — Track costs across currencies (TWD, EUR, JPY, …) with automatic settlement calculations.
-- **LINE Bot Expense Input** — Quickly log expenses from LINE chat. Supports description, amount, currency, payer, and split — synced to the web app in real time.
+- **Multi-Currency Expenses** — Track costs across currencies (TWD, EUR, JPY, …) with live exchange rates, sortable list, and automatic settlement calculations. Stats tab includes a clickable pie chart for category filtering and a per-member perspective view.
+- **LINE Bot Expense Input** — Link a LINE group or DM to any trip via a one-time trip token. Quickly log expenses from LINE chat with support for description, amount, currency, payer, and split — synced to the web app in real time.
 - **AI Ticket Import** — Extract flight details from boarding pass images or PDFs using Google Gemini.
 - **Photo Wall** — Google Photos album integration with masonry layout and skeleton loading.
-- **Sharing & Collaboration** — Shareable links and co-editing for trip members. Member avatars shown on trip cards.
+- **Sharing & Collaboration** — Generate shareable read-only links (with active tab preserved in URL). Trip members with edit access are automatically redirected to the full editor when opening a share link. Owners can remove members; members can leave trips.
 - **Souvenirs & Shopping List** — Card grid with custom tags, image support, and quick check-off.
 - **PWA & Offline Caching** — Local storage caching across all tabs with skeleton screens for fast perceived load.
 - **Responsive UI** — Sidebar layout on desktop, bottom-drawer on mobile. Built with Tailwind CSS 4 and Ant Design 6.
@@ -97,9 +97,13 @@ Run the SQL files in `supabase/` in order via the [Supabase SQL Editor](https://
 2. Set the webhook URL to `https://your-domain.com/api/line-webhook`
 3. Copy `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` into `.env.local`
 4. Copy the **Bot User ID** (Messaging API → Bot information) into `LINE_BOT_USER_ID`
-5. In the app, open the LINE Bot panel (header icon) to get a binding code, then send it to the bot
+5. In the app, open any trip → LINE Bot button → copy the trip token, then send it to the bot in LINE
 
-**Expense format (1-on-1 or group chat):**
+**Linking a chat to a trip:**
+
+Send the trip token (format `TRIP-XXXX-XXXX`) in a LINE 1-on-1 or group chat. The bot confirms the link and the chat is now bound to that trip.
+
+**Expense format (after linking):**
 
 ```
 午餐 500
@@ -109,7 +113,7 @@ Run the SQL files in `supabase/` in order via the [Supabase SQL Editor](https://
 
 After sending, the bot asks who to split with. Reply with numbers (`0` = everyone, `12` = persons 1 & 2), then confirm.
 
-**Group chat:** Add the bot to a group and @mention it before any command (`@BotName /trips`). Pure number replies for split selection do not require a mention.
+**Group chat:** Add the bot to a group, send the trip token once to link. Subsequent expense messages and number replies do not require @mention.
 
 ---
 
@@ -121,15 +125,15 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 
 ### 核心功能
 
-- **互動式 3D 地球儀** — WebGL 渲染飛行弧線動畫，目的地精確到地區層級座標（Nominatim / OpenStreetMap）。
+- **互動式 3D 地球儀** — WebGL 渲染飛行弧線動畫，目的地精確到地區層級座標（Nominatim / OpenStreetMap）。國旗 emoji 從 Nominatim ISO code 自動解析，無需維護硬編碼對照表。
 - **路線分頁** — 整合交通段落（航班、火車、巴士）與 Leaflet 互動地圖。
 - **筆記分頁（富文字 + AI）** — 完整 Quill 富文字編輯器，六個區塊 Chip 可觸發 AI 生成旅遊內容（旅遊注意事項、該帶什麼、地鐵攻略等），由 Google Gemini 驅動，所有成員共享。
 - **進階行程規劃** — 支援跨日事件與日期時間範圍選擇器，時間軸顯示星期標籤，備註支援富文字與可點擊連結。
-- **多幣別費用追蹤** — 支援多種貨幣（TWD、EUR、JPY…）並自動計算結算金額。
-- **LINE Bot 快速記帳** — 直接在 LINE 聊天室輸入費用，支援金額、幣別、付款人與平分設定，即時同步至網頁。
+- **多幣別費用追蹤** — 支援多種貨幣（TWD、EUR、JPY…）含即時匯率換算、可排序列表與自動結算。統計分頁支援圓餅圖類別篩選（點擊亮起）及個人視角切換。
+- **LINE Bot 快速記帳** — 以旅程 Token 連結 LINE 群組或私訊，無需帳號綁定。支援金額、幣別、付款人與分攤設定，即時同步至網頁。
 - **AI 機票自動匯入** — 透過 Google Gemini 解析登機證圖片或 PDF，一鍵填入航班資訊。
 - **旅遊照片牆** — 整合 Google Photos 相簿，瀑布流佈局與 Skeleton 載入效果。
-- **分享與共同編輯** — 可生成分享連結或邀請隊友共同編輯；旅程卡片顯示成員頭像。
+- **分享與共同編輯** — 可生成唯讀分享連結（URL 保留當前分頁狀態）。具編輯權限的成員開啟分享連結時自動跳轉至完整編輯介面。旅程擁有者可移除成員，成員可自行離開旅程。
 - **伴手禮與購物清單** — 卡片式網格，支援自訂標籤篩選、圖片預覽與快速打勾。
 - **PWA 與快取** — LocalStorage 暫存機制搭配骨架圖，確保網路不佳時操作依然流暢。
 - **響應式介面** — 桌機側欄、手機抽屜，Tailwind CSS 4 + Ant Design 6。
@@ -199,9 +203,13 @@ npm run dev
 2. Webhook URL 設為 `https://your-domain.com/api/line-webhook`
 3. 將 `LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN` 填入 `.env.local`
 4. 將 **Bot User ID**（Messaging API → Bot information）填入 `LINE_BOT_USER_ID`
-5. 在 App 中開啟 LINE Bot 面板（Header 圖示）取得驗證碼，傳給 Bot 完成綁定
+5. 在 App 中開啟任一旅程 → LINE Bot 按鈕 → 複製旅程 Token，並將其傳送給 Bot
 
-**記帳格式（私訊或群組皆可）：**
+**連結聊天室與旅程：**
+
+在 LINE 私訊或群組中傳送旅程 Token（格式：`TRIP-XXXX-XXXX`），Bot 確認後該聊天室即與旅程綁定。
+
+**記帳格式（連結後即可使用）：**
 
 ```
 午餐 500
@@ -211,4 +219,4 @@ npm run dev
 
 傳送後 Bot 會詢問平分對象，回覆號碼（`0` = 全部，`12` = 第 1、2 人）後確認即完成記帳。
 
-**群組使用：** 將 Bot 加入群組後，指令需先 @提及 Bot（`@BotName /trips`）。純數字回覆選擇平分對象時不需要 @mention。
+**群組使用：** 將 Bot 加入群組後，傳送一次旅程 Token 完成連結。後續記帳及數字回覆均不需 @mention。

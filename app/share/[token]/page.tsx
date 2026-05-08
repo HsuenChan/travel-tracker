@@ -65,21 +65,43 @@ export default function SharePage() {
         if (!res.ok) { setNotFound(true); return null; }
         return res.json();
       })
-      .then((data) => {
-        if (data) {
-          setTrip(data.trip);
-          setSegments(data.segments);
-          setItinerary(data.itinerary || []);
-          setExpenses(data.expenses || []);
-          setNote(data.note);
+      .then(async (data) => {
+        if (!data) { setLoading(false); return; }
 
-          // If no itinerary but has segments, default to transport
-          if ((data.itinerary || []).length === 0 && data.segments.length > 0 && !searchParams.get("tab")) {
-            setActiveTab("transport");
+        // If the viewer is a trip member, redirect to the full edit view
+        try {
+          const authRes = await fetch("/api/auth/status");
+          if (authRes.ok) {
+            const { userId } = await authRes.json();
+            if (userId) {
+              const membersRes = await fetch(`/api/trips/${data.trip.id}/members`);
+              if (membersRes.ok) {
+                const { members } = await membersRes.json();
+                if (members.some((m: { user_id: string }) => m.user_id === userId)) {
+                  const tab = searchParams.get("tab");
+                  router.replace(`/trips/${data.trip.id}${tab ? `?tab=${tab}` : ""}`);
+                  return;
+                }
+              }
+            }
           }
+        } catch {
+          // fall through and show read-only share page
         }
+
+        setTrip(data.trip);
+        setSegments(data.segments);
+        setItinerary(data.itinerary || []);
+        setExpenses(data.expenses || []);
+        setNote(data.note);
+
+        if ((data.itinerary || []).length === 0 && data.segments.length > 0 && !searchParams.get("tab")) {
+          setActiveTab("transport");
+        }
+
+        setLoading(false);
       })
-      .finally(() => setLoading(false));
+      .catch(() => setLoading(false));
   }, [token]);
 
   useEffect(() => {

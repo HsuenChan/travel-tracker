@@ -4,6 +4,7 @@ interface NominatimResult {
   display_name: string;
   lat: string;
   lon: string;
+  address?: { country_code?: string };
 }
 
 function shortenDisplayName(displayName: string): string {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
   if (!q || q.length < 2) return NextResponse.json({ results: [] });
 
   try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=0`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`;
     const res = await fetch(url, {
       headers: { "User-Agent": "travel-tracker-app/1.0" },
     });
@@ -32,6 +33,7 @@ export async function GET(request: NextRequest) {
           label,
           lat: parseFloat(item.lat),
           lng: parseFloat(item.lon),
+          countryCode: item.address?.country_code?.toUpperCase() ?? "",
         };
       });
 

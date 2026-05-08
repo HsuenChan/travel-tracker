@@ -13,13 +13,14 @@ import {
   Drawer,
   Tag,
   Skeleton,
+  Dropdown,
 } from "antd";
 import AddTripModal from "./components/AddTripModal";
-import LineBotBindModal from "./components/LineBotBindModal";
 import { getCountryFlags } from "@/lib/countries";
+import { UserOutlined } from "@ant-design/icons";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
-  MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon, LineBotIcon,
+  MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon,
 } from "@/app/components/Icons";
 
 const TripGlobe = dynamic(() => import("./components/TripGlobe"), { ssr: false });
@@ -36,6 +37,7 @@ interface Trip {
   photo_album_id: string;
   created_at: string;
   destinations?: { name: string; lat: number; lng: number }[] | null;
+  country_codes?: string | null;
 }
 
 interface Segment {
@@ -97,7 +99,7 @@ function TripCard({
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [glowPos, setGlowPos] = useState({ x: 50, y: 50 });
   const accent = getDestinationAccent(trip.countries ?? "");
-  const flags = getCountryFlags(trip.countries ?? "");
+  const flags = getCountryFlags(trip.countries ?? "", trip.country_codes ?? "");
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     const card = cardRef.current;
@@ -209,7 +211,7 @@ export default function Home() {
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showLineBotModal, setShowLineBotModal] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showAllTracks, setShowAllTracks] = useState(false);
@@ -575,21 +577,25 @@ export default function Home() {
               <PlusIcon size={13} />
               {!isMobile && "新增旅程"}
             </button>
-            <button
-              onClick={() => setShowLineBotModal(true)}
-              title="LINE Bot 記帳"
-              className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200"
+            <Dropdown
+              trigger={["click"]}
+              open={dropdownOpen}
+              onOpenChange={setDropdownOpen}
+              popupRender={() => (
+                <div className="bg-[#18181b] border border-white/[0.08] rounded-xl overflow-hidden shadow-2xl min-w-[160px]">
+                  <a href="/api/auth/logout" className="block">
+                    <button className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-400 hover:bg-white/[0.06] transition-colors text-left">
+                      <LogoutIcon size={13} />
+                      登出
+                    </button>
+                  </a>
+                </div>
+              )}
             >
-              <LineBotIcon size={15} />
-            </button>
-            <a href="/api/auth/logout">
-              <button
-                title="登出"
-                className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200"
-              >
-                <LogoutIcon size={14} />
+              <button className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200">
+                <UserOutlined style={{ fontSize: 14 }} />
               </button>
-            </a>
+            </Dropdown>
           </div>
         </Layout.Header>
 
@@ -648,10 +654,6 @@ export default function Home() {
           onSaved={() => { setShowModal(false); fetchTrips(); }}
         />
       )}
-      <LineBotBindModal
-        open={showLineBotModal}
-        onClose={() => setShowLineBotModal(false)}
-      />
     </div>
 
   );

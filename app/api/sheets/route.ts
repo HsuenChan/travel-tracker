@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { name, startDate, endDate, countries, notes, photoAlbumId, people, currency, destinations, enabledTabs } = body;
+  const { name, startDate, endDate, countries, notes, photoAlbumId, people, currency, destinations, enabledTabs, country_codes } = body;
 
   const { data, error } = await supabase
     .from("trips")
@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       currency: currency || "TWD",
       destinations: destinations ?? [],
       enabled_tabs: enabledTabs ?? ['transport','itinerary','expenses','photos','notes'],
+      country_codes: country_codes || null,
     })
     .select()
     .single();
@@ -51,7 +52,7 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, name, startDate, endDate, countries, notes, photoAlbumId, people, currency, destinations, enabledTabs } = body;
+  const { id, name, startDate, endDate, countries, notes, photoAlbumId, people, currency, destinations, enabledTabs, country_codes } = body;
 
   const { error } = await supabase
     .from("trips")
@@ -66,6 +67,7 @@ export async function PUT(request: NextRequest) {
       currency: currency || "TWD",
       destinations: destinations ?? [],
       enabled_tabs: enabledTabs ?? ['transport','itinerary','expenses','photos','notes'],
+      country_codes: country_codes || null,
     })
     .eq("id", id);
 
