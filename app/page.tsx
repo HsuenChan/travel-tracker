@@ -532,7 +532,7 @@ export default function Home() {
   return (
     <div className="h-[100dvh] w-full bg-[#09090b] relative overflow-hidden">
       {/* 1. Global Background Globe */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 md:-translate-x-[170px]">
         <TripGlobe
           trips={trips}
           segments={segments}
