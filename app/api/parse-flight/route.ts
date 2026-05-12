@@ -11,8 +11,10 @@ Return ONLY a JSON array. Each element represents one flight leg:
     "to": "destination city name",
     "fromIata": "departure airport IATA code (3 letters) or empty string",
     "toIata": "destination airport IATA code (3 letters) or empty string",
-    "date": "YYYY-MM-DD or empty string",
-    "time": "HH:mm 24-hour format or empty string",
+    "date": "departure date YYYY-MM-DD or empty string",
+    "time": "departure time HH:mm 24-hour format or empty string",
+    "arrivalDate": "arrival date YYYY-MM-DD or empty string (may differ from departure date for overnight flights)",
+    "arrivalTime": "arrival time HH:mm 24-hour format in local time at destination or empty string",
     "flightNo": "airline + flight number e.g. CI061 or empty string",
     "aircraft": "aircraft type e.g. A350-900 or empty string"
   }
@@ -22,7 +24,7 @@ Return only the JSON array, no markdown, no explanation.`;
 
 async function runGemini(mimeType: string, base64: string) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash" });
   const result = await model.generateContent([{ inlineData: { mimeType, data: base64 } }, PROMPT]);
   return result.response.text().trim().replace(/^```json\s*/i, "").replace(/```\s*$/, "");
 }

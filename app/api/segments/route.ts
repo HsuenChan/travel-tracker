@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { tripId, order, from, fromIata, to, toIata, type, date, time, flightNo, aircraft } = body;
+  const { tripId, order, from, fromIata, to, toIata, type, date, time, arrivalDate, arrivalTime, flightNo, aircraft } = body;
 
   const { data, error } = await supabase
     .from("segments")
@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
       type,
       date: date || null,
       time: time || null,
+      arrival_date: arrivalDate || null,
+      arrival_time: arrivalTime || null,
       flight_no: flightNo || null,
       aircraft: aircraft || null,
     })
@@ -58,7 +60,7 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, from, fromIata, to, toIata, type, date, time, flightNo, aircraft } = body;
+  const { id, from, fromIata, to, toIata, type, date, time, arrivalDate, arrivalTime, flightNo, aircraft } = body;
 
   const { error } = await supabase
     .from("segments")
@@ -70,6 +72,8 @@ export async function PUT(request: NextRequest) {
       type,
       date: date || null,
       time: time || null,
+      arrival_date: arrivalDate || null,
+      arrival_time: arrivalTime || null,
       flight_no: flightNo || null,
       aircraft: aircraft || null,
     })

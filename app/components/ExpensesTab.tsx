@@ -4,7 +4,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo } from "react";
 import {
   Button, Modal, Form, Input, DatePicker, Select, InputNumber,
-  Dropdown, Typography, Tabs, Skeleton, Switch, App,
+  Dropdown, Typography, Tabs, Skeleton, Switch, App, Popover,
 } from "antd";
 import { EditOutlined, DeleteOutlined, MoreOutlined, CheckOutlined } from "@ant-design/icons";
 import { PlusIcon, CreditCardIcon, CategoryBadge } from "@/app/components/Icons";
@@ -142,6 +142,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [paidTransactions, setPaidTransactions] = useState<Set<string>>(new Set());
+  const [dateFilter, setDateFilter] = useState<string[]>([]);
 
   const { modal } = App.useApp();
   const currencyOptions = currencies.map((c) => ({ value: c, label: c }));
@@ -302,13 +303,19 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     [statsFilteredExpenses, rates, currency, statsMemberFilter]
   );
 
+  const availableDates = useMemo(
+    () => [...new Set(expenses.map(e => e.date).filter(Boolean))].sort() as string[],
+    [expenses]
+  );
+
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => {
       if (categoryFilter.length > 0 && !categoryFilter.includes(e.category ?? "")) return false;
       if (paidByFilter.length > 0 && !paidByFilter.includes(e.paid_by ?? "")) return false;
+      if (dateFilter.length > 0 && !dateFilter.includes(e.date ?? "")) return false;
       return true;
     });
-  }, [expenses, categoryFilter, paidByFilter]);
+  }, [expenses, categoryFilter, paidByFilter, dateFilter]);
 
   const usedPaidBy = useMemo(
     () => [...new Set(expenses.map(e => e.paid_by).filter(Boolean))] as string[],
@@ -465,6 +472,52 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         )}
       </div>
 
+      {availableDates.length > 0 && (() => {
+        const VISIBLE = 5;
+        const visibleDates = availableDates.slice(0, VISIBLE);
+        const overflowDates = availableDates.slice(VISIBLE);
+        const chipClass = (isActive: boolean) =>
+          `h-7 px-3 rounded-full text-[12px] font-medium transition-all duration-150 border cursor-pointer ${isActive
+            ? "bg-white/[0.1] border-white/20 text-zinc-100"
+            : "bg-transparent border-white/[0.07] text-zinc-500 hover:text-zinc-300 hover:border-white/15"
+          }`;
+        const toggleDate = (date: string) =>
+          setDateFilter(prev =>
+            prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date]
+          );
+        return (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {visibleDates.map((date) => (
+              <button key={date} onClick={() => toggleDate(date)} className={chipClass(dateFilter.includes(date))}>
+                {dayjs(date).format("M/D")}
+              </button>
+            ))}
+            {(overflowDates.length > 0 || dateFilter.length > 0) && (
+              <Popover
+                trigger="click"
+                placement="bottomLeft"
+                content={
+                  <div className="flex flex-wrap gap-1.5 max-w-[240px] p-1">
+                    {overflowDates.map((date) => (
+                      <button key={date} onClick={() => toggleDate(date)} className={chipClass(dateFilter.includes(date))}>
+                        {dayjs(date).format("M/D")}
+                      </button>
+                    ))}
+                    <button onClick={() => setDateFilter([])} className={chipClass(false)}>
+                      取消選擇
+                    </button>
+                  </div>
+                }
+              >
+                <button className={chipClass(overflowDates.some(d => dateFilter.includes(d)))}>
+                  +{overflowDates.length}
+                </button>
+              </Popover>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="flex gap-2 mb-4">
         <Select
           mode="multiple"
@@ -472,8 +525,13 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
           placeholder="篩選類別"
           allowClear
           value={categoryFilter}
-          onChange={setCategoryFilter}
-          options={usedCategories.map(c => ({ value: c, label: CATEGORY_MAP[c] ?? c }))}
+          onChange={(vals: string[]) =>
+            setCategoryFilter(vals.includes("__all__") ? usedCategories : vals)
+          }
+          options={[
+            { value: "__all__", label: "全選" },
+            ...usedCategories.map(c => ({ value: c, label: CATEGORY_MAP[c] ?? c })),
+          ]}
           maxTagCount="responsive"
         />
         {usedPaidBy.length > 0 && (
@@ -483,8 +541,10 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
             placeholder="篩選付款人"
             allowClear
             value={paidByFilter}
-            onChange={setPaidByFilter}
-            options={usedPaidBy.map(p => ({ value: p, label: p }))}
+            onChange={(vals: string[]) =>
+              setPaidByFilter(vals.includes("__all__") ? usedPaidBy : vals)
+            }
+            options={[...usedPaidBy.map(p => ({ value: p, label: p }))]}
             maxTagCount="responsive"
           />
         )}
@@ -529,77 +589,77 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         <>
           <div className="flex justify-end mb-2">
             <span className="text-zinc-500 text-xs">
-              {filteredExpenses.length} 筆{(categoryFilter.length > 0 || paidByFilter.length > 0) ? "（篩選中）" : ""} ≈ {currency} {fmtTotal(filteredTotal)}
+              {filteredExpenses.length} 筆{(categoryFilter.length > 0 || paidByFilter.length > 0 || dateFilter.length > 0) ? "（篩選中）" : ""} ≈ {currency} {fmtTotal(filteredTotal)}
             </span>
           </div>
           <AnimatePresence initial={false}>
-          {sortedExpenses.map((exp) => (
-            <motion.div
-              key={exp.id}
-              layout
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.18 }}
-              className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-[14px] py-3 mb-2"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <Typography.Text strong className="text-zinc-100 text-sm">{exp.description}</Typography.Text>
-                    {exp.category && <CategoryBadge category={exp.category} />}
-                    {exp.date && (
-                      <span className="text-zinc-600 text-xs">
-                        {exp.date} {exp.end_date ? `→ ${exp.end_date}` : ""}
-                      </span>
+            {sortedExpenses.map((exp) => (
+              <motion.div
+                key={exp.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18 }}
+                className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-[14px] py-3 mb-2"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <Typography.Text strong className="text-zinc-100 text-sm">{exp.description}</Typography.Text>
+                      {exp.category && <CategoryBadge category={exp.category} />}
+                      {exp.date && (
+                        <span className="text-zinc-600 text-xs">
+                          {exp.date} {exp.end_date ? `→ ${exp.end_date}` : ""}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-3 flex-wrap items-center">
+                      <Typography.Text strong className="text-blue-400 text-[15px]">
+                        {exp.currency} {fmtAmt(Number(exp.amount))}
+                      </Typography.Text>
+                      {exp.currency !== currency && rates && (
+                        <span className="text-zinc-600 text-xs">
+                          ≈ {currency} {fmtTotal(toBaseCurrency(Number(exp.amount), exp.currency, currency, rates))}
+                        </span>
+                      )}
+                      {exp.paid_by && (
+                        <span className="text-zinc-500 text-xs">由 {exp.paid_by} 付款</span>
+                      )}
+                      {exp.split_with && exp.split_with.length > 0 && (
+                        <span className="text-zinc-500 text-xs">分攤：{exp.split_with.join("、")}</span>
+                      )}
+                    </div>
+                    {exp.notes && (
+                      <div className="text-zinc-600 text-xs mt-1">{exp.notes}</div>
                     )}
                   </div>
-                  <div className="flex gap-3 flex-wrap items-center">
-                    <Typography.Text strong className="text-blue-400 text-[15px]">
-                      {exp.currency} {fmtAmt(Number(exp.amount))}
-                    </Typography.Text>
-                    {exp.currency !== currency && rates && (
-                      <span className="text-zinc-600 text-xs">
-                        ≈ {currency} {fmtTotal(toBaseCurrency(Number(exp.amount), exp.currency, currency, rates))}
-                      </span>
-                    )}
-                    {exp.paid_by && (
-                      <span className="text-zinc-500 text-xs">由 {exp.paid_by} 付款</span>
-                    )}
-                    {exp.split_with && exp.split_with.length > 0 && (
-                      <span className="text-zinc-500 text-xs">分攤：{exp.split_with.join("、")}</span>
-                    )}
-                  </div>
-                  {exp.notes && (
-                    <div className="text-zinc-600 text-xs mt-1">{exp.notes}</div>
+                  {!readOnly && (
+                    <Dropdown
+                      trigger={["click"]}
+                      menu={{
+                        items: [
+                          { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(exp) },
+                          { type: "divider" },
+                          {
+                            key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
+                            onClick: () => modal.confirm({
+                              title: "確定刪除這筆費用？",
+                              okText: "刪除", okType: "danger", cancelText: "取消",
+                              onOk: () => handleDelete(exp.id),
+                            }),
+                          },
+                        ],
+                      }}
+                    >
+                      <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
+                        <MoreOutlined />
+                      </button>
+                    </Dropdown>
                   )}
                 </div>
-                {!readOnly && (
-                  <Dropdown
-                    trigger={["click"]}
-                    menu={{
-                      items: [
-                        { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(exp) },
-                        { type: "divider" },
-                        {
-                          key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                          onClick: () => modal.confirm({
-                            title: "確定刪除這筆費用？",
-                            okText: "刪除", okType: "danger", cancelText: "取消",
-                            onOk: () => handleDelete(exp.id),
-                          }),
-                        },
-                      ],
-                    }}
-                  >
-                    <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
-                      <MoreOutlined />
-                    </button>
-                  </Dropdown>
-                )}
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            ))}
           </AnimatePresence>
         </>
       )}

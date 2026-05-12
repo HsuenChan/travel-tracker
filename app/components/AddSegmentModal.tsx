@@ -24,6 +24,8 @@ interface ParsedSegment {
   toIata: string;
   date: string;
   time: string;
+  arrivalDate: string;
+  arrivalTime: string;
   flightNo: string;
   aircraft: string;
 }
@@ -60,6 +62,8 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
         type: values.type,
         date: values.date ? (values.date as typeof dayjs.prototype).format("YYYY-MM-DD") : "",
         time: values.time ? (values.time as typeof dayjs.prototype).format("HH:mm") : "",
+        arrivalDate: values.arrivalDate ? (values.arrivalDate as typeof dayjs.prototype).format("YYYY-MM-DD") : "",
+        arrivalTime: values.arrivalTime ? (values.arrivalTime as typeof dayjs.prototype).format("HH:mm") : "",
         flightNo: values.flightNo ?? "",
         aircraft: values.aircraft ?? "",
       }),
@@ -86,6 +90,8 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
           type: seg.type || "飛機",
           date: seg.date,
           time: seg.time,
+          arrivalDate: seg.arrivalDate,
+          arrivalTime: seg.arrivalTime,
           flightNo: seg.flightNo,
           aircraft: seg.aircraft,
         }),
@@ -113,6 +119,8 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
       if (seg.toIata) filled.toIata = seg.toIata;
       if (seg.date) filled.date = dayjs(seg.date);
       if (seg.time) filled.time = dayjs(seg.time, "HH:mm");
+      if (seg.arrivalDate) filled.arrivalDate = dayjs(seg.arrivalDate);
+      if (seg.arrivalTime) filled.arrivalTime = dayjs(seg.arrivalTime, "HH:mm");
       if (seg.flightNo) filled.flightNo = seg.flightNo;
       if (seg.aircraft) filled.aircraft = seg.aircraft;
       form.setFieldsValue(filled);
@@ -200,7 +208,10 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
               </Space>
               <div className="mt-1">
                 <Space size={4} wrap>
-                  {seg.date && <Tag color="geekblue">{seg.date}{seg.time && ` ${seg.time}`}</Tag>}
+                  {seg.date && <Tag color="geekblue">出發 {seg.date}{seg.time && ` ${seg.time}`}</Tag>}
+                  {(seg.arrivalDate || seg.arrivalTime) && (
+                    <Tag color="purple">抵達{seg.arrivalDate ? ` ${seg.arrivalDate}` : ""}{seg.arrivalTime && ` ${seg.arrivalTime}`}</Tag>
+                  )}
                   {seg.flightNo && <Tag color="purple">{seg.flightNo}</Tag>}
                   {seg.aircraft && <Tag color="cyan">{seg.aircraft}</Tag>}
                 </Space>
@@ -246,58 +257,80 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
           <Select options={TRANSPORT_OPTIONS} onChange={setType} />
         </Form.Item>
 
-        <Row gutter={12}>
-          <Col span={12}>
-            <Form.Item name="from" label="出發地" rules={[{ required: true, message: "請輸入出發地" }]}>
-              <Input placeholder="例如：台北、台北松山" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="to" label="目的地" rules={[{ required: true, message: "請輸入目的地" }]}>
-              <Input placeholder="例如：伊斯坦堡" />
-            </Form.Item>
-          </Col>
-        </Row>
+        {/* Departure block */}
+        <div className="border border-blue-500/30 rounded-xl px-3 pt-3 pb-1 mb-2">
+          <div className="text-[11px] font-semibold text-blue-400 uppercase tracking-wider mb-2">出發</div>
+          <Row gutter={12}>
+            <Col span={14}>
+              <Form.Item name="from" label="城市" rules={[{ required: true, message: "請輸入出發地" }]}>
+                <Input placeholder="例如：台北、台北松山" />
+              </Form.Item>
+            </Col>
+            <Col span={10}>
+              <Form.Item name="fromIata" label="機場 IATA">
+                <AutoComplete
+                  options={AIRPORT_OPTIONS}
+                  filterOption={(input, option) =>
+                    option?.value.toLowerCase().includes(input.toLowerCase()) ||
+                    (option?.label as string).toLowerCase().includes(input.toLowerCase())
+                  }
+                  placeholder="例如：TSA"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={14}>
+              <Form.Item name="date" label="日期">
+                <DatePicker className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={10}>
+              <Form.Item name="time" label="時間">
+                <TimePicker className="w-full" format="HH:mm" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </div>
 
-        <Row gutter={12}>
-          <Col span={12}>
-            <Form.Item name="fromIata" label="出發機場 IATA">
-              <AutoComplete
-                options={AIRPORT_OPTIONS}
-                filterOption={(input, option) =>
-                  option?.value.toLowerCase().includes(input.toLowerCase()) ||
-                  (option?.label as string).toLowerCase().includes(input.toLowerCase())
-                }
-                placeholder="例如：TSA"
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="toIata" label="抵達機場 IATA">
-              <AutoComplete
-                options={AIRPORT_OPTIONS}
-                filterOption={(input, option) =>
-                  option?.value.toLowerCase().includes(input.toLowerCase()) ||
-                  (option?.label as string).toLowerCase().includes(input.toLowerCase())
-                }
-                placeholder="例如：IST"
-              />
-            </Form.Item>
-          </Col>
-        </Row>
+        {/* Arrow separator */}
+        <div className="flex items-center justify-center text-zinc-600 text-lg my-1 select-none">↓</div>
 
-        <Row gutter={12}>
-          <Col span={12}>
-            <Form.Item name="date" label="出發日期">
-              <DatePicker className="w-full" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="time" label="出發時間">
-              <TimePicker className="w-full" format="HH:mm" />
-            </Form.Item>
-          </Col>
-        </Row>
+        {/* Arrival block */}
+        <div className="border border-violet-500/30 rounded-xl px-3 pt-3 pb-1 mb-3">
+          <div className="text-[11px] font-semibold text-violet-400 uppercase tracking-wider mb-2">抵達</div>
+          <Row gutter={12}>
+            <Col span={14}>
+              <Form.Item name="to" label="城市" rules={[{ required: true, message: "請輸入目的地" }]}>
+                <Input placeholder="例如：伊斯坦堡" />
+              </Form.Item>
+            </Col>
+            <Col span={10}>
+              <Form.Item name="toIata" label="機場 IATA">
+                <AutoComplete
+                  options={AIRPORT_OPTIONS}
+                  filterOption={(input, option) =>
+                    option?.value.toLowerCase().includes(input.toLowerCase()) ||
+                    (option?.label as string).toLowerCase().includes(input.toLowerCase())
+                  }
+                  placeholder="例如：IST"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={14}>
+              <Form.Item name="arrivalDate" label="日期">
+                <DatePicker className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={10}>
+              <Form.Item name="arrivalTime" label="時間（當地）">
+                <TimePicker className="w-full" format="HH:mm" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </div>
 
         {toTransportKey(type) === "plane" && (
           <Row gutter={12}>
