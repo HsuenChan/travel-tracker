@@ -1010,7 +1010,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                 ref={receiptInputRef}
                 type="file"
                 accept="image/*,.pdf"
-                className="hidden"
+                className="hidden!"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleReceiptUpload(file);
