@@ -153,7 +153,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
         ref={fileInputRef}
         type="file"
         accept="image/*,.pdf"
-        className="hidden"
+        className="hidden!"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleFileImport(file);
