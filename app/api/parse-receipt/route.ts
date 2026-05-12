@@ -24,7 +24,7 @@ Rules:
 
 async function runGemini(mimeType: string, base64: string) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash" });
   const result = await model.generateContent([{ inlineData: { mimeType, data: base64 } }, PROMPT]);
   return result.response.text().trim().replace(/^```json\s*/i, "").replace(/```\s*$/, "");
 }
