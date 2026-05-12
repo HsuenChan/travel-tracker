@@ -269,6 +269,80 @@ const EN_CITY_COORDS: Record<string, { lat: number; lng: number }> = {
   "cape town": { lat: -33.9249, lng: 18.4241 }, "marrakech": { lat: 31.6295, lng: -7.9811 },
 };
 
+export const AIRPORT_TIMEZONES: Record<string, string> = {
+  // 台灣
+  TPE: "Asia/Taipei", TSA: "Asia/Taipei", KHH: "Asia/Taipei", RMQ: "Asia/Taipei",
+  // 日本
+  NRT: "Asia/Tokyo", HND: "Asia/Tokyo", KIX: "Asia/Tokyo", ITM: "Asia/Tokyo",
+  CTS: "Asia/Tokyo", FUK: "Asia/Tokyo", KMJ: "Asia/Tokyo", OIT: "Asia/Tokyo",
+  KOJ: "Asia/Tokyo", OKA: "Asia/Tokyo", NGO: "Asia/Tokyo",
+  // 韓國
+  ICN: "Asia/Seoul", GMP: "Asia/Seoul", PUS: "Asia/Seoul",
+  // 中國
+  PEK: "Asia/Shanghai", PKX: "Asia/Shanghai", PVG: "Asia/Shanghai", SHA: "Asia/Shanghai",
+  CAN: "Asia/Shanghai", SZX: "Asia/Shanghai", CTU: "Asia/Shanghai",
+  // 香港 / 澳門
+  HKG: "Asia/Hong_Kong", MFM: "Asia/Macau",
+  // 東南亞
+  SIN: "Asia/Singapore",
+  BKK: "Asia/Bangkok", DMK: "Asia/Bangkok",
+  KUL: "Asia/Kuala_Lumpur",
+  CGK: "Asia/Jakarta",
+  DPS: "Asia/Makassar",
+  MNL: "Asia/Manila",
+  SGN: "Asia/Ho_Chi_Minh", HAN: "Asia/Ho_Chi_Minh",
+  REP: "Asia/Phnom_Penh",
+  // 南亞
+  BOM: "Asia/Kolkata", DEL: "Asia/Kolkata",
+  CMB: "Asia/Colombo",
+  MLE: "Indian/Maldives",
+  KTM: "Asia/Kathmandu",
+  // 中東
+  IST: "Europe/Istanbul", SAW: "Europe/Istanbul",
+  DXB: "Asia/Dubai", AUH: "Asia/Dubai",
+  DOH: "Asia/Qatar",
+  TLV: "Asia/Jerusalem",
+  AMM: "Asia/Amman",
+  // 歐洲
+  LHR: "Europe/London", LGW: "Europe/London", STN: "Europe/London",
+  CDG: "Europe/Paris", ORY: "Europe/Paris",
+  AMS: "Europe/Amsterdam",
+  FRA: "Europe/Berlin", MUC: "Europe/Berlin",
+  ZRH: "Europe/Zurich",
+  VIE: "Europe/Vienna",
+  ARN: "Europe/Stockholm",
+  OSL: "Europe/Oslo", TOS: "Europe/Oslo", BOO: "Europe/Oslo",
+  EVE: "Europe/Oslo", TRD: "Europe/Oslo", BGO: "Europe/Oslo",
+  LYR: "Arctic/Longyearbyen", RVK: "Europe/Oslo",
+  HEL: "Europe/Helsinki",
+  CPH: "Europe/Copenhagen",
+  MAD: "Europe/Madrid", BCN: "Europe/Madrid",
+  FCO: "Europe/Rome", MXP: "Europe/Rome",
+  ATH: "Europe/Athens",
+  BRU: "Europe/Brussels",
+  PRG: "Europe/Prague",
+  BUD: "Europe/Budapest",
+  WAW: "Europe/Warsaw",
+  KEF: "Atlantic/Reykjavik",
+  DUB: "Europe/Dublin",
+  LIS: "Europe/Lisbon",
+  // 北美
+  JFK: "America/New_York", EWR: "America/New_York",
+  LAX: "America/Los_Angeles", SFO: "America/Los_Angeles", SEA: "America/Los_Angeles",
+  ORD: "America/Chicago",
+  YYZ: "America/Toronto",
+  YVR: "America/Vancouver",
+  // 大洋洲
+  SYD: "Australia/Sydney",
+  MEL: "Australia/Melbourne",
+  AKL: "Pacific/Auckland",
+  // 非洲
+  CAI: "Africa/Cairo",
+  CMN: "Africa/Casablanca",
+  JNB: "Africa/Johannesburg",
+  NBO: "Africa/Nairobi",
+};
+
 export function resolveLocation(iataOrName: string): { lat: number; lng: number } | null {
   if (!iataOrName || !iataOrName.trim()) return null;
   const trimmed = iataOrName.trim();

@@ -61,6 +61,10 @@ export async function POST(
     interests?: string[];
     startTime?: string;
     endTime?: string;
+    mustVisit?: string[];
+    transport?: "public" | "self" | "mixed";
+    carRentalStart?: string | null;
+    carRentalEnd?: string | null;
   };
   const { action } = body;
 
@@ -84,7 +88,7 @@ export async function POST(
     : (trip.countries ?? "未指定目的地");
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash" });
 
   // ── Health check ──────────────────────────────────────────
   if (action === "health_check") {
@@ -131,13 +135,13 @@ level 定義：
       return NextResponse.json({ issues });
     } catch (err) {
       console.error("Health check AI error:", err);
-      return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
+      return NextResponse.json({ error: "AI generation failed", detail: String(err) }, { status: 500 });
     }
   }
 
   // ── Generate schedule ─────────────────────────────────────
   if (action === "generate") {
-    const { pace = "normal", interests = [], startTime = "09:00", endTime = "21:00" } = body;
+    const { pace = "normal", interests = [], startTime = "09:00", endTime = "21:00", mustVisit = [], transport = "public", carRentalStart, carRentalEnd } = body;
 
     let weatherSummary = "";
     try {
@@ -162,6 +166,14 @@ level 定義：
       ? Math.round((new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()) / 86400000) + 1
       : "?";
 
+    const transportLabel =
+      transport === "self" ? "全程自駕" :
+      transport === "mixed"
+        ? carRentalStart && carRentalEnd
+          ? `混合（自駕期間 ${carRentalStart} ~ ${carRentalEnd}，其餘搭大眾運輸）`
+          : "混合（租車日期未定，請根據目的地分布在 notes 欄位建議最適合自駕的時段）"
+        : "大眾運輸";
+
     const prompt = `你是一個旅遊規劃助手，請為以下旅程生成每日行程安排。
 
 旅程：${trip.name}
@@ -171,6 +183,8 @@ ${weatherSummary ? `天氣：${weatherSummary}` : ""}
 節奏：${paceLabel}
 興趣偏好：${interests.length > 0 ? interests.join("、") : "綜合"}
 每日時間：${startTime} – ${endTime}
+交通方式：${transportLabel}
+${mustVisit.length > 0 ? `必去地點（必須全部排入，AI 自行安排最佳順序）：${mustVisit.join("、")}` : ""}
 
 已有行程（請保留，只填補空白）：
 ${existingStr}
@@ -181,7 +195,8 @@ ${existingStr}
 規則：
 - 必須包含每天早餐、午餐、晚餐（category: food）
 - 時間不可與已有行程衝突
-- 必須涵蓋 ${trip.start_date} 到 ${trip.end_date} 每一天`;
+- 必須涵蓋 ${trip.start_date} 到 ${trip.end_date} 每一天
+- 必去地點必須全部出現，依地理位置安排最有效率的順序`;
 
     try {
       const result = await model.generateContent(prompt);
@@ -205,7 +220,7 @@ ${existingStr}
       return NextResponse.json({ items: preview });
     } catch (err) {
       console.error("Generate AI error:", err);
-      return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
+      return NextResponse.json({ error: "AI generation failed", detail: String(err) }, { status: 500 });
     }
   }
 

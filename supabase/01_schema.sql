@@ -53,6 +53,8 @@ create table if not exists segments (
   type text,
   date date,
   time text,
+  arrival_date date,
+  arrival_time text,
   flight_no text,
   aircraft text,
   created_at timestamptz not null default now()

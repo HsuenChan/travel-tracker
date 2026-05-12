@@ -1814,6 +1814,297 @@
   </p>
 </div>
 
+
+<!-- ============================================================ -->
+<!-- AI 行程生成設定面板 mockup -->
+<!-- ============================================================ -->
+<style>
+  .ai-section { max-width: 480px; margin: 60px auto 0; padding: 0 0 80px; }
+  .ai-section h2 { font-size: 13px; font-weight: 700; color: #71717a; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 24px; }
+  .ai-panel { background: #18181b; border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; padding: 20px; }
+  .ai-panel-title { font-size: 15px; font-weight: 700; color: #f4f4f5; margin-bottom: 18px; }
+  .ai-field { margin-bottom: 18px; }
+  .ai-label { font-size: 11px; color: #71717a; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; }
+  .ai-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ai-chip { padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #a1a1aa; cursor: pointer; transition: all .15s; }
+  .ai-chip.active { background: linear-gradient(135deg, #6366f1, #8b5cf6); border-color: transparent; color: #fff; box-shadow: 0 2px 10px rgba(99,102,241,0.35); }
+  .ai-chip.pace-active { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.4); color: #a5b4fc; }
+  .ai-time-row { display: flex; align-items: center; gap: 8px; }
+  .ai-time-box { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 12px; font-size: 13px; color: #d4d4d8; text-align: center; }
+  .ai-time-sep { color: #52525b; font-size: 13px; }
+  .ai-tag-input { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 8px 10px; min-height: 40px; }
+  .ai-tag { display: flex; align-items: center; gap: 4px; background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3); border-radius: 999px; padding: 3px 10px 3px 10px; font-size: 12px; color: #c4b5fd; font-weight: 500; }
+  .ai-tag-x { color: #7c3aed; font-size: 10px; margin-left: 2px; cursor: pointer; opacity: .7; }
+  .ai-tag-placeholder { font-size: 12px; color: #52525b; }
+  .ai-hint { font-size: 11px; color: #3f3f46; margin-top: 6px; }
+  .ai-transport-options { display: flex; gap: 6px; }
+  .ai-transport-chip { flex: 1; text-align: center; padding: 7px 0; border-radius: 10px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.03); color: #71717a; cursor: pointer; }
+  .ai-transport-chip.active { background: rgba(20,184,166,0.12); border-color: rgba(20,184,166,0.35); color: #5eead4; }
+  .ai-rental-period { margin-top: 10px; background: rgba(20,184,166,0.06); border: 1px solid rgba(20,184,166,0.15); border-radius: 12px; padding: 10px 12px; }
+  .ai-rental-label { font-size: 11px; color: #5eead4; font-weight: 600; margin-bottom: 6px; letter-spacing: .04em; }
+  .ai-rental-dates { display: flex; align-items: center; gap: 8px; }
+  .ai-rental-date { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(20,184,166,0.2); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: #d4d4d8; text-align: center; }
+  .ai-divider { height: 1px; background: rgba(255,255,255,0.05); margin: 18px 0; }
+  .ai-generate-btn { width: 100%; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #6366f1, #8b5cf6, #14b8a6); border: none; cursor: pointer; box-shadow: 0 4px 20px rgba(99,102,241,0.35); letter-spacing: .02em; }
+  .ai-note { font-size: 11px; color: #3f3f46; margin-top: 12px; line-height: 1.6; }
+</style>
+
+<div class="ai-section">
+  <h2>AI 行程生成設定面板</h2>
+
+  <!-- Panel -->
+  <div class="ai-panel">
+    <div class="ai-panel-title">✨ 智慧行程生成</div>
+
+    <!-- 節奏 -->
+    <div class="ai-field">
+      <div class="ai-label">旅遊節奏</div>
+      <div class="ai-chips">
+        <div class="ai-chip ai-chip">輕鬆・3–4 個景點/天</div>
+        <div class="ai-chip pace-active">普通・4–5 個景點/天</div>
+        <div class="ai-chip">密集・6–7 個景點/天</div>
+      </div>
+    </div>
+
+    <!-- 興趣 -->
+    <div class="ai-field">
+      <div class="ai-label">興趣偏好</div>
+      <div class="ai-chips">
+        <div class="ai-chip active">🍜 美食</div>
+        <div class="ai-chip active">🏛️ 文化</div>
+        <div class="ai-chip">🌿 自然</div>
+        <div class="ai-chip">🛍️ 購物</div>
+        <div class="ai-chip">🌙 夜生活</div>
+        <div class="ai-chip">🎭 藝術</div>
+      </div>
+    </div>
+
+    <!-- 時間 -->
+    <div class="ai-field">
+      <div class="ai-label">每日時間範圍</div>
+      <div class="ai-time-row">
+        <div class="ai-time-box">09:00</div>
+        <div class="ai-time-sep">—</div>
+        <div class="ai-time-box">21:00</div>
+      </div>
+    </div>
+
+    <!-- 想去的地方 -->
+    <div class="ai-field">
+      <div class="ai-label">想去的地方（選填）</div>
+      <div class="ai-tag-input">
+        <div class="ai-tag">嵐山<span class="ai-tag-x">✕</span></div>
+        <div class="ai-tag">金閣寺<span class="ai-tag-x">✕</span></div>
+        <div class="ai-tag">伏見稻荷<span class="ai-tag-x">✕</span></div>
+        <div class="ai-tag-placeholder">輸入地點後按 Enter…</div>
+      </div>
+      <div class="ai-hint">AI 會依地理位置自動安排最佳順序</div>
+    </div>
+
+    <!-- 交通方式 -->
+    <div class="ai-field">
+      <div class="ai-label">交通方式</div>
+      <div class="ai-transport-options">
+        <div class="ai-transport-chip">🚇 大眾運輸</div>
+        <div class="ai-transport-chip">🚗 自駕</div>
+        <div class="ai-transport-chip active">🔀 混合</div>
+      </div>
+      <!-- 展開：選「自駕」或「混合」時顯示 -->
+      <div class="ai-rental-period">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="ai-rental-label" style="margin-bottom:0">🚗 租車期間</div>
+          <div style="font-size:10px;color:#3f3f46;font-weight:500;">選填</div>
+        </div>
+        <div class="ai-rental-dates">
+          <div class="ai-rental-date" style="border-style:dashed;color:#52525b;">開始日期</div>
+          <div class="ai-time-sep">—</div>
+          <div class="ai-rental-date" style="border-style:dashed;color:#52525b;">結束日期</div>
+        </div>
+        <div style="font-size:11px;color:#3f3f46;margin-top:6px;">不填則由 AI 根據目的地分布建議最適合自駕的時段</div>
+      </div>
+    </div>
+
+    <div class="ai-divider"></div>
+    <button class="ai-generate-btn">生成行程預覽</button>
+  </div>
+
+  <div class="ai-note">
+    注意事項：<br>
+    · 「想去的地方」為必排景點，AI 會自動插入最合適的時段<br>
+    · 交通方式選「混合」時，自駕期間內 AI 會規劃較分散的景點，其餘天以大眾運輸動線為主<br>
+    · 租車期間可以只設定部分天數（例如只租中間幾天）
+  </div>
+</div>
+
+<!-- ===== Segment Modal 欄位排版 Guideline ===== -->
+<div class="max-w-md mx-auto mt-12 space-y-4">
+  <h2 class="text-lg font-bold text-zinc-200">交通段落 Modal — 欄位排版（新版）</h2>
+  <p class="text-zinc-500 text-sm">將出發與抵達資訊分區塊呈現，減少認知跳躍。</p>
+
+  <div style="background:rgba(24,24,27,0.6);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:16px;">
+
+    <!-- 交通方式 -->
+    <div>
+      <div style="font-size:11px;color:#71717a;margin-bottom:6px;">交通方式</div>
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:8px 12px;font-size:13px;color:#a1a1aa;">飛機</div>
+    </div>
+
+    <!-- 出發區塊 -->
+    <div style="border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <div style="font-size:11px;color:#60a5fa;font-weight:600;letter-spacing:0.05em;">出發</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <div style="font-size:10px;color:#71717a;margin-bottom:4px;">城市</div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">台北</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#71717a;margin-bottom:4px;">機場 IATA</div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">TPE</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <div style="font-size:10px;color:#71717a;margin-bottom:4px;">日期</div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">2025-04-15</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#71717a;margin-bottom:4px;">時間</div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">14:30</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 箭頭 -->
+    <div style="text-align:center;color:#52525b;font-size:18px;">↓</div>
+
+    <!-- 抵達區塊 -->
+    <div style="border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <div style="font-size:11px;color:#a78bfa;font-weight:600;letter-spacing:0.05em;">抵達</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <div style="font-size:10px;color:#71717a;margin-bottom:4px;">城市</div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">東京</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#71717a;margin-bottom:4px;">機場 IATA</div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">NRT</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <div style="font-size:10px;color:#71717a;margin-bottom:4px;">日期（當地）</div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">2025-04-15</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#71717a;margin-bottom:4px;">時間（當地）</div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">18:45</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 航班資訊（飛機限定） -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div>
+        <div style="font-size:10px;color:#71717a;margin-bottom:4px;">航班號</div>
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">CI 061</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#71717a;margin-bottom:4px;">機型</div>
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-size:13px;color:#e4e4e7;">A350-900</div>
+      </div>
+    </div>
+
+  </div>
+  <p class="text-zinc-600 text-xs">出發 / 抵達各自成一個區塊，欄位從上到下：城市、IATA、日期、時間。</p>
+</div>
+
+<!-- ===== Segment Card 顯示排版 Guideline ===== -->
+<div class="max-w-md mx-auto mt-12 space-y-4">
+  <h2 class="text-lg font-bold text-zinc-200">交通段落 Card — 顯示排版（新版）</h2>
+  <p class="text-zinc-500 text-sm">城市用連接線串起，時間對齊在城市正下方。</p>
+
+  <!-- 飛機（有抵達資訊）-->
+  <div style="background:rgba(24,24,27,0.5);border:1px solid rgba(255,255,255,0.07);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+
+    <!-- Row 1：icon + 航班資訊 + 選單 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:30px;height:30px;border-radius:9px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.25);display:flex;align-items:center;justify-content:center;font-size:14px;">✈️</div>
+        <span style="font-size:12px;color:#71717a;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:2px 8px;">CI 061</span>
+        <span style="font-size:12px;color:#71717a;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:2px 8px;">A350-900</span>
+      </div>
+      <div style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#52525b;font-size:16px;">⋯</div>
+    </div>
+
+    <!-- Row 2：城市 + 連接線 -->
+    <div style="display:flex;align-items:center;gap:0;">
+      <div style="flex-shrink:0;">
+        <div style="font-size:18px;font-weight:700;color:#f4f4f5;line-height:1.1;">台北</div>
+        <div style="font-size:11px;color:#52525b;letter-spacing:0.06em;margin-top:1px;">TPE</div>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;padding:0 10px;margin-bottom:12px;">
+        <div style="flex:1;border-top:1px dashed rgba(255,255,255,0.1);"></div>
+        <div style="font-size:12px;color:#3f3f46;padding:0 6px;">✈</div>
+        <div style="flex:1;border-top:1px dashed rgba(255,255,255,0.1);"></div>
+      </div>
+      <div style="flex-shrink:0;text-align:right;">
+        <div style="font-size:18px;font-weight:700;color:#f4f4f5;line-height:1.1;">東京</div>
+        <div style="font-size:11px;color:#52525b;letter-spacing:0.06em;margin-top:1px;">NRT</div>
+      </div>
+    </div>
+
+    <!-- Row 3：時間（對齊城市）-->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-size:11px;color:#60a5fa;font-weight:500;margin-bottom:2px;">出發</div>
+        <div style="font-size:13px;color:#a1a1aa;">4/15</div>
+        <div style="font-size:20px;font-weight:700;color:#e4e4e7;line-height:1.2;">14:30</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:#a78bfa;font-weight:500;margin-bottom:2px;">抵達</div>
+        <div style="font-size:13px;color:#a1a1aa;">4/15</div>
+        <div style="font-size:20px;font-weight:700;color:#e4e4e7;line-height:1.2;">18:45</div>
+        <div style="font-size:11px;color:#52525b;margin-top:2px;">台灣 17:45</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 非飛機 / 無抵達時間（降級）-->
+  <div style="background:rgba(24,24,27,0.5);border:1px solid rgba(255,255,255,0.07);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="width:30px;height:30px;border-radius:9px;background:rgba(20,184,166,0.12);border:1px solid rgba(20,184,166,0.2);display:flex;align-items:center;justify-content:center;font-size:14px;">🚂</div>
+      <div style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#52525b;font-size:16px;">⋯</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:0;">
+      <div style="flex-shrink:0;">
+        <div style="font-size:18px;font-weight:700;color:#f4f4f5;line-height:1.1;">台北</div>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;padding:0 10px;margin-bottom:0px;">
+        <div style="flex:1;border-top:1px dashed rgba(255,255,255,0.1);"></div>
+        <div style="font-size:12px;color:#3f3f46;padding:0 6px;">→</div>
+        <div style="flex:1;border-top:1px dashed rgba(255,255,255,0.1);"></div>
+      </div>
+      <div style="flex-shrink:0;text-align:right;">
+        <div style="font-size:18px;font-weight:700;color:#f4f4f5;line-height:1.1;">高雄</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-size:11px;color:#60a5fa;font-weight:500;margin-bottom:2px;">出發</div>
+        <div style="font-size:13px;color:#a1a1aa;">4/15</div>
+        <div style="font-size:20px;font-weight:700;color:#e4e4e7;line-height:1.2;">08:00</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:#a78bfa;font-weight:500;margin-bottom:2px;">抵達</div>
+        <div style="font-size:20px;font-weight:300;color:#3f3f46;line-height:1.2;margin-top:18px;">—</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-zinc-600 text-xs">城市列用虛線連接，出發 / 抵達標籤分別藍色 / 紫色，時間加大字體，台灣時間灰色小字。</p>
+</div>
+
 </body>
 
 </html>

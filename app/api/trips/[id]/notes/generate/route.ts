@@ -127,12 +127,12 @@ export async function POST(
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
     const content = result.response.text().trim();
     return NextResponse.json({ content });
   } catch (err) {
     console.error("Gemini error:", err);
-    return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
+    return NextResponse.json({ error: "AI generation failed", detail: String(err) }, { status: 500 });
   }
 }

@@ -141,6 +141,9 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   const [aiInterests, setAIInterests] = useState<string[]>(["food", "attraction"]);
   const [aiStartTime, setAIStartTime] = useState("09:00");
   const [aiEndTime, setAIEndTime] = useState("21:00");
+  const [aiMustVisit, setAIMustVisit] = useState<string[]>([]);
+  const [aiTransport, setAITransport] = useState<"public" | "self" | "mixed">("public");
+  const [aiCarRental, setAICarRental] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [aiGenerating, setAIGenerating] = useState(false);
   const [aiPreview, setAIPreview] = useState<PreviewItem[]>([]);
   const [aiConfirming, setAIConfirming] = useState(false);
@@ -306,7 +309,17 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
       const res = await fetchWithAuth(`/api/trips/${tripId}/itinerary/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate", pace: aiPace, interests: aiInterests, startTime: aiStartTime, endTime: aiEndTime }),
+        body: JSON.stringify({
+          action: "generate",
+          pace: aiPace,
+          interests: aiInterests,
+          startTime: aiStartTime,
+          endTime: aiEndTime,
+          mustVisit: aiMustVisit,
+          transport: aiTransport,
+          carRentalStart: aiCarRental[0]?.format("YYYY-MM-DD") ?? null,
+          carRentalEnd: aiCarRental[1]?.format("YYYY-MM-DD") ?? null,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -721,6 +734,65 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                   size="small"
                 />
               </div>
+            </div>
+
+            {/* Must-visit places */}
+            <div>
+              <div className="text-zinc-400 text-[12px] font-medium mb-2">
+                想去的地方 <span className="text-zinc-600 font-normal">（選填）</span>
+              </div>
+              <Select
+                mode="tags"
+                value={aiMustVisit}
+                onChange={setAIMustVisit}
+                placeholder="輸入地點後按 Enter…"
+                className="w-full"
+                size="small"
+                tokenSeparators={[","]}
+                open={false}
+              />
+              <div className="text-zinc-600 text-[11px] mt-1">AI 會依地理位置自動安排最佳順序</div>
+            </div>
+
+            {/* Transport */}
+            <div>
+              <div className="text-zinc-400 text-[12px] font-medium mb-2">交通方式</div>
+              <div className="flex gap-2">
+                {([
+                  { value: "public", label: "🚇 大眾運輸" },
+                  { value: "self",   label: "🚗 自駕" },
+                  { value: "mixed",  label: "🔀 混合" },
+                ] as const).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setAITransport(value)}
+                    className="flex-1 py-2 rounded-xl text-[12px] font-medium border transition-all cursor-pointer"
+                    style={aiTransport === value
+                      ? { background: "rgba(20,184,166,0.12)", borderColor: "rgba(20,184,166,0.35)", color: "#5eead4", fontWeight: 600 }
+                      : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "#71717a" }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Car rental period — shown for self/mixed */}
+              {(aiTransport === "self" || aiTransport === "mixed") && (
+                <div className="mt-2 rounded-xl px-3 py-2.5" style={{ background: "rgba(20,184,166,0.06)", border: "1px solid rgba(20,184,166,0.15)" }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-semibold text-teal-400">租車期間</span>
+                    <span className="text-[10px] text-zinc-600">選填・不填則由 AI 建議</span>
+                  </div>
+                  <DatePicker.RangePicker
+                    value={aiCarRental}
+                    onChange={(dates) => setAICarRental(dates ? [dates[0], dates[1]] : [null, null])}
+                    size="small"
+                    className="w-full"
+                    placeholder={["開始日期", "結束日期"]}
+                    allowEmpty={[true, true]}
+                  />
+                </div>
+              )}
             </div>
 
             {items.length > 0 && (
