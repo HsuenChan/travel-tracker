@@ -1,12 +1,12 @@
 "use client";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Button, Modal, Form, Input, DatePicker, Select, InputNumber,
   Dropdown, Typography, Tabs, Skeleton, Switch, App, Popover,
 } from "antd";
-import { EditOutlined, DeleteOutlined, MoreOutlined, CheckOutlined } from "@ant-design/icons";
+import { EditOutlined, DeleteOutlined, MoreOutlined, CheckOutlined, CameraOutlined } from "@ant-design/icons";
 import { PlusIcon, CreditCardIcon, CategoryBadge } from "@/app/components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import dayjs from "dayjs";
@@ -143,8 +143,10 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [paidTransactions, setPaidTransactions] = useState<Set<string>>(new Set());
   const [dateFilter, setDateFilter] = useState<string[]>([]);
+  const [parsingReceipt, setParsingReceipt] = useState(false);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
 
-  const { modal } = App.useApp();
+  const { modal, message } = App.useApp();
   const currencyOptions = currencies.map((c) => ({ value: c, label: c }));
 
   const watchedAmount = Form.useWatch("amount", form);
@@ -189,6 +191,34 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
       fetchExpenses();
     }
   }, [tripId, initialExpenses]);
+
+  async function handleReceiptUpload(file: File) {
+    setParsingReceipt(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetchWithAuth("/api/parse-receipt", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        message.error(err.error ?? "收據解析失敗");
+        return;
+      }
+      const data = await res.json();
+      const filled: Record<string, unknown> = {};
+      if (data.description) filled.description = data.description;
+      if (data.category) filled.category = data.category;
+      if (data.amount) filled.amount = Number(data.amount);
+      if (data.currency) filled.currency = data.currency;
+      if (data.date) filled.date = dayjs(data.date);
+      if (data.notes) filled.notes = data.notes;
+      form.setFieldsValue(filled);
+      message.success("已解析收據，請確認後送出");
+    } catch {
+      message.error("收據解析失敗，請稍後再試");
+    } finally {
+      setParsingReceipt(false);
+    }
+  }
 
   async function handleSave(values: Record<string, unknown>) {
     setSaving(true);
@@ -973,7 +1003,32 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         width={480}
         centered={true}
       >
-        <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4">
+        <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4" disabled={saving || parsingReceipt}>
+          {!editingExpense && (
+            <>
+              <input
+                ref={receiptInputRef}
+                type="file"
+                accept="image/*,.pdf"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleReceiptUpload(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                icon={<CameraOutlined />}
+                onClick={() => receiptInputRef.current?.click()}
+                loading={parsingReceipt}
+                disabled={parsingReceipt}
+                className="w-full mb-4"
+              >
+                {parsingReceipt ? "AI 解析收據中…" : "拍照 / 上傳收據自動填入"}
+              </Button>
+            </>
+          )}
           <Form.Item name="description" label="費用名稱" rules={[{ required: true, message: "請輸入費用名稱" }]}>
             <Input placeholder="例如：晚餐" />
           </Form.Item>

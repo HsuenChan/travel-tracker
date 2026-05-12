@@ -93,6 +93,7 @@ export default function EditSegmentModal({ segment, onClose, onSaved }: Props) {
         onFinish={handleSubmit}
         initialValues={initialValues}
         className="mt-4"
+        disabled={saving}
       >
         <Form.Item name="type" label="交通方式">
           <Select options={TRANSPORT_OPTIONS} onChange={setType} />

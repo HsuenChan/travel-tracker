@@ -203,7 +203,7 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
             onChange={setNoteContent}
             placeholder={readOnly ? "" : "在這裡記下旅遊筆記，或點上方 ✦ 讓 AI 幫你生成各區塊內容..."}
             extraClass="notes-quill"
-            readOnly={readOnly}
+            readOnly={readOnly || saving || Object.values(generating).some(Boolean)}
           />
         </div>
 

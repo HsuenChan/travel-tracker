@@ -208,6 +208,7 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
           currency: trip.currency ? trip.currency.split(",") : ["TWD"],
           enabledTabs: trip.enabled_tabs ?? ALL_TABS.map(t => t.key),
         }}
+        disabled={saving || destSearching}
       >
         <Form.Item name="name" label="旅程名稱" rules={[{ required: true, message: "請輸入旅程名稱" }]}>
           <Input />

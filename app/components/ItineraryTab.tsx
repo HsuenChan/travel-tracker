@@ -626,7 +626,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
         width={520}
         centered={true}
       >
-        <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4">
+        <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4" disabled={saving}>
           <Form.Item
             name="dateRange"
             label="開始 → 結束時間"

@@ -158,6 +158,7 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
         onFinish={handleSubmit}
         className="mt-4 cute-form"
         initialValues={{ currency: ["TWD"], enabledTabs: ALL_TABS.map(t => t.key) }}
+        disabled={saving || destSearching}
       >
         <Form.Item name="name" label="旅程名稱" rules={[{ required: true, message: "請輸入旅程名稱" }]}>
           <Input placeholder="例如：日本春季旅行" />
