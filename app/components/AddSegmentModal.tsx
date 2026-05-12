@@ -252,6 +252,7 @@ export default function AddSegmentModal({ tripId, nextOrder, onClose, onSaved }:
         layout="vertical"
         onFinish={handleSubmit}
         initialValues={{ type: "飛機" }}
+        disabled={saving || parsing}
       >
         <Form.Item name="type" label="交通方式">
           <Select options={TRANSPORT_OPTIONS} onChange={setType} />
