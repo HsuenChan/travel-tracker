@@ -217,7 +217,7 @@ export default function PhotoFramePreview({ photo, onClose }: Props) {
         centered
         zIndex={2500}
         styles={{
-          content: { background: "#18181b", borderRadius: 16, padding: "24px 24px 28px" },
+          container: { background: "#18181b", borderRadius: 16, padding: "24px 24px 28px" },
           mask:    { background: "rgba(0,0,0,0.75)" },
           wrapper: { zIndex: 2500 },
         }}
