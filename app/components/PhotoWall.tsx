@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Spin, Typography } from "antd";
 import { PictureOutlined } from "@ant-design/icons";
+import PhotoFramePreview from "./PhotoFramePreview";
 
 interface MediaItem {
   id: string;
@@ -25,6 +26,7 @@ export default function PhotoWall({ albumUrl }: Props) {
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [videoError, setVideoError] = useState(false);
+  const [previewPhoto, setPreviewPhoto] = useState<MediaItem | null>(null);
 
   // /album/{id} URLs → use albumId mode directly (no server-side resolution needed).
   // All other URLs (including /share/{token}) → pass as shareUrl and let the API handle them.
@@ -196,6 +198,13 @@ export default function PhotoWall({ albumUrl }: Props) {
       )}
 
       {/* ── Lightbox ──────────────────────────────────────────────────────── */}
+      {previewPhoto && (
+        <PhotoFramePreview
+          photo={previewPhoto}
+          onClose={() => setPreviewPhoto(null)}
+        />
+      )}
+
       {currentPhoto && (
         <div
           onClick={closeLightbox}
@@ -242,6 +251,19 @@ export default function PhotoWall({ albumUrl }: Props) {
               onClick={(e) => e.stopPropagation()}
               className="max-w-[92vw] max-h-[90vh] object-contain rounded-md select-none"
             />
+          )}
+
+          {/* Download / preview (photos only) */}
+          {!currentPhoto.isVideo && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setPreviewPhoto(currentPhoto); }}
+              title="下載（含邊框與相機資訊）"
+              className="absolute top-4 right-[60px] bg-white/[0.12] border-none rounded-full w-[42px] h-[42px] text-white cursor-pointer flex items-center justify-center"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 1v9M5 7l3 3 3-3M2 14h12" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
           )}
 
           {/* Close */}

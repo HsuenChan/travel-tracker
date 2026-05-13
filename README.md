@@ -15,11 +15,13 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 - **Interactive 3D Globe** — WebGL rendering with animated flight arcs, region-level markers, and smooth transitions. Destinations stored as precise lat/lng coordinates via Nominatim / OpenStreetMap. Country flags auto-resolved from Nominatim ISO codes.
 - **Route Tab** — Combine transport segments (flights, trains, buses) and an interactive Leaflet map in one view.
 - **Rich Text Notes + AI** — Full Quill editor with six section chips that trigger AI-generated content (travel tips, packing list, transit guides, etc.) via Google Gemini. Shared across all trip members.
-- **Itinerary Planning** — Multi-day events with a unified date-time range picker. Timeline shows day-of-week labels. Per-item rich text notes with clickable links.
+- **Itinerary Planning** — Multi-day events with a unified date-time range picker. Timeline shows day-of-week labels and real-time weather forecasts per day. Per-item rich text notes with clickable links.
 - **Multi-Currency Expenses** — Track costs across currencies (TWD, EUR, JPY, …) with live exchange rates, sortable list, and automatic settlement calculations. Stats tab includes a clickable pie chart for category filtering and a per-member perspective view.
+- **AI Receipt Scan** — Photograph or upload a receipt and let Gemini extract the amount, currency, category, and description automatically into the expense form.
 - **LINE Bot Expense Input** — Link a LINE group or DM to any trip via a one-time trip token. Quickly log expenses from LINE chat with support for description, amount, currency, payer, and split — synced to the web app in real time.
 - **AI Ticket Import** — Extract flight details from boarding pass images or PDFs using Google Gemini.
-- **Photo Wall** — Google Photos album integration with masonry layout and skeleton loading.
+- **Photo Wall** — Google Photos album integration with justified gallery layout, lazy loading, lightbox viewer, and inline video playback.
+- **Photo Frame Export** — Export any photo with a styled camera info bar: EXIF data (focal length, aperture, shutter speed, ISO, date/time), camera brand logo (Sony, Canon, Fujifilm, Leica, Nikon, Apple, Samsung, Vivo), and choice of aspect ratio (Original / 1:1 / 3:4 / 4:3 / 9:16 / 16:9), frame, and background color. Modal on desktop, bottom sheet on mobile.
 - **Sharing & Collaboration** — Generate shareable read-only links (with active tab preserved in URL). Trip members with edit access are automatically redirected to the full editor when opening a share link. Owners can remove members; members can leave trips.
 - **Souvenirs & Shopping List** — Card grid with custom tags, image support, and quick check-off.
 - **PWA & Offline Caching** — Local storage caching across all tabs with skeleton screens for fast perceived load.
@@ -44,7 +46,9 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 | Database | Supabase (PostgreSQL) |
 | Auth | Supabase Auth (Google OAuth) |
 | AI | Google Gemini 2.5 Flash |
+| Image Processing | Sharp + exifr |
 | Geocoding | Nominatim / OpenStreetMap |
+| Weather | Open-Meteo |
 | LINE Bot | LINE Messaging API |
 
 ### Local Development
@@ -128,11 +132,13 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 - **互動式 3D 地球儀** — WebGL 渲染飛行弧線動畫，目的地精確到地區層級座標（Nominatim / OpenStreetMap）。國旗 emoji 從 Nominatim ISO code 自動解析，無需維護硬編碼對照表。
 - **路線分頁** — 整合交通段落（航班、火車、巴士）與 Leaflet 互動地圖。
 - **筆記分頁（富文字 + AI）** — 完整 Quill 富文字編輯器，六個區塊 Chip 可觸發 AI 生成旅遊內容（旅遊注意事項、該帶什麼、地鐵攻略等），由 Google Gemini 驅動，所有成員共享。
-- **進階行程規劃** — 支援跨日事件與日期時間範圍選擇器，時間軸顯示星期標籤，備註支援富文字與可點擊連結。
+- **進階行程規劃** — 支援跨日事件與日期時間範圍選擇器，時間軸顯示星期標籤與每日即時天氣預報，備註支援富文字與可點擊連結。
 - **多幣別費用追蹤** — 支援多種貨幣（TWD、EUR、JPY…）含即時匯率換算、可排序列表與自動結算。統計分頁支援圓餅圖類別篩選（點擊亮起）及個人視角切換。
+- **AI 收據掃描** — 拍攝或上傳收據，Gemini 自動解析金額、幣別、類別與摘要，直接填入費用表單。
 - **LINE Bot 快速記帳** — 以旅程 Token 連結 LINE 群組或私訊，無需帳號綁定。支援金額、幣別、付款人與分攤設定，即時同步至網頁。
 - **AI 機票自動匯入** — 透過 Google Gemini 解析登機證圖片或 PDF，一鍵填入航班資訊。
-- **旅遊照片牆** — 整合 Google Photos 相簿，瀑布流佈局與 Skeleton 載入效果。
+- **旅遊照片牆** — 整合 Google Photos 相簿，等比例磚牆佈局、懶加載、Lightbox 瀏覽與影片內嵌播放。
+- **照片框架匯出** — 為任一張照片加上相機資訊欄後匯出：顯示焦距、光圈、快門、ISO、拍攝時間，以及相機品牌 Logo（Sony、Canon、Fujifilm、Leica、Nikon、Apple、Samsung、Vivo）。可選擇畫面比例（Original / 1:1 / 3:4 / 4:3 / 9:16 / 16:9）、邊框與背景顏色。桌機顯示 Modal，手機顯示底部面板。
 - **分享與共同編輯** — 可生成唯讀分享連結（URL 保留當前分頁狀態）。具編輯權限的成員開啟分享連結時自動跳轉至完整編輯介面。旅程擁有者可移除成員，成員可自行離開旅程。
 - **伴手禮與購物清單** — 卡片式網格，支援自訂標籤篩選、圖片預覽與快速打勾。
 - **PWA 與快取** — LocalStorage 暫存機制搭配骨架圖，確保網路不佳時操作依然流暢。
@@ -150,7 +156,9 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 | 資料庫 | Supabase (PostgreSQL) |
 | 身份驗證 | Supabase Auth（Google OAuth）|
 | 人工智慧 | Google Gemini 2.5 Flash |
+| 影像處理 | Sharp + exifr |
 | 地理編碼 | Nominatim / OpenStreetMap |
+| 天氣預報 | Open-Meteo |
 | LINE Bot | LINE Messaging API |
 
 ### 本機開發
