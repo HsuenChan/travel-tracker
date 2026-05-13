@@ -119,16 +119,6 @@ async function loadLogo(brand: string, targetH: number): Promise<{ buf: Buffer; 
 }
 
 
-let _fontRegB64: string | null = null;
-let _fontBoldB64: string | null = null;
-async function getFontB64(): Promise<[string, string]> {
-  if (!_fontRegB64 || !_fontBoldB64) {
-    const dir = path.join(process.cwd(), "public", "fonts");
-    _fontRegB64  = (await fs.readFile(path.join(dir, "Comfortaa-Regular.ttf"))).toString("base64");
-    _fontBoldB64 = (await fs.readFile(path.join(dir, "Comfortaa-Bold.ttf"))).toString("base64");
-  }
-  return [_fontRegB64, _fontBoldB64];
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -254,12 +244,7 @@ export async function GET(request: NextRequest) {
   const logoTargetH = Math.round(infoBarH * 0.55 * logoScale);
   const logo = hasInfo ? await loadLogo(brand, logoTargetH) : null;
 
-  const [fontRegB64, fontBoldB64] = await getFontB64();
-  const fontFace = `<defs><style>
-    @font-face{font-family:'Comfortaa';font-weight:400;src:url('data:font/truetype;base64,${fontRegB64}');}
-    @font-face{font-family:'Comfortaa';font-weight:700;src:url('data:font/truetype;base64,${fontBoldB64}');}
-  </style></defs>`;
-  const ff = "Comfortaa, sans-serif";
+  const ff = "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif";
 
   // ── Right section layout: [logo] | [divider] | [lens/exif text] ──────────
   const infoTop      = H + border;
@@ -320,7 +305,7 @@ export async function GET(request: NextRequest) {
   // Info bar background (for no-border mode: only bottom strip)
   const infoRect = `<rect x="0" y="${infoTop}" width="${canvasW}" height="${infoBarH + border}" fill="rgb(${bgRgb.r},${bgRgb.g},${bgRgb.b})"/>`;
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasW}" height="${canvasH}">${fontFace}${infoRect}${parts.join("")}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasW}" height="${canvasH}">${infoRect}${parts.join("")}</svg>`;
 
   // ── Compose ────────────────────────────────────────────────────────────────
   const extended = await sharp(buffer)
