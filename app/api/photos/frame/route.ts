@@ -244,8 +244,6 @@ export async function GET(request: NextRequest) {
   const logoTargetH = Math.round(infoBarH * 0.55 * logoScale);
   const logo = hasInfo ? await loadLogo(brand, logoTargetH) : null;
 
-  const ff = "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif";
-
   // ── Right section layout: [logo] | [divider] | [lens/exif text] ──────────
   const infoTop      = H + border;
   const textAreaEstW = Math.round(W * 0.34);
@@ -257,7 +255,6 @@ export async function GET(request: NextRequest) {
   const dividerColor = bgParam === "dark" ? "#3f3f46" : "#d4d4d8";
 
   // ── Vertical positions ─────────────────────────────────────────────────────
-  // Left block: calculate total height to center it in the info bar
   const lineGap1 = Math.round(brandFs * 0.3);
   const lineGap2 = Math.round(dateFs  * 0.5);
   let leftBlockH = 0;
@@ -269,43 +266,28 @@ export async function GET(request: NextRequest) {
   const modelY  = brandY + lineGap1 + modelFs;
   const dateY   = modelY + lineGap2 + dateFs;
 
-  // Right block: vertically centered
   const midY   = infoTop + infoBarH / 2;
   const lens1Y = midY - lens1Fs * 0.15;
   const exifY  = lens1Y + exifFs + Math.round(exifFs * 0.35);
 
-  // ── SVG text overlay ───────────────────────────────────────────────────────
-  const parts: string[] = [];
-
+  // ── SVG: background rect + divider line + fallback circle (no text in SVG) ─
+  const svgParts: string[] = [];
   if (hasInfo) {
-    if (makeDisplay)  parts.push(`<text x="${hPad}" y="${brandY}" font-family="${ff}" font-size="${brandFs}" fill="${colors.brand}" font-weight="400">${escapeXml(makeDisplay)}</text>`);
-    if (modelDisplay) parts.push(`<text x="${hPad}" y="${modelY}" font-family="${ff}" font-size="${modelFs}" fill="${colors.model}" font-weight="700">${escapeXml(modelDisplay)}</text>`);
-    if (dateStr)      parts.push(`<text x="${hPad}" y="${dateY}"  font-family="${ff}" font-size="${dateFs}"  fill="${colors.date}"  font-weight="400">${escapeXml(dateStr)}</text>`);
-    if (exifStr)     parts.push(`<text x="${rightTextX}" y="${lens1Y}" font-family="${ff}" font-size="${lens1Fs}" fill="${colors.lens}" font-weight="700">${escapeXml(exifStr)}</text>`);
-    if (lensDisplay) parts.push(`<text x="${rightTextX}" y="${exifY}"  font-family="${ff}" font-size="${exifFs}"  fill="${colors.exif}" font-weight="400">${escapeXml(lensDisplay)}</text>`);
-
-    // Divider in SVG; logo composited separately by Sharp
     if (logo) {
       const divY1 = infoTop + Math.round(infoBarH * 0.20);
       const divY2 = infoTop + Math.round(infoBarH * 0.80);
-      parts.push(`<line x1="${dividerX}" y1="${divY1}" x2="${dividerX}" y2="${divY2}" stroke="${dividerColor}" stroke-width="1.5" stroke-linecap="round"/>`);
+      svgParts.push(`<line x1="${dividerX}" y1="${divY1}" x2="${dividerX}" y2="${divY2}" stroke="${dividerColor}" stroke-width="1.5" stroke-linecap="round"/>`);
     }
-
     if (!logo && makeDisplay) {
       const r  = Math.round(infoBarH * 0.28);
       const cx = dividerX - divGap - r;
       const cy = infoTop + infoBarH / 2;
       const fc = bgParam === "dark" ? "rgba(255,255,255,0.12)" : (BRAND_FALLBACK_COLORS[brand] ?? BRAND_FALLBACK_COLORS.default);
-      const ifs = Math.round(r * 1.1);
-      parts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fc}"/>`);
-      parts.push(`<text x="${cx}" y="${cy + Math.round(ifs * 0.35)}" text-anchor="middle" font-family="${ff}" font-size="${ifs}" fill="${bgParam === "dark" ? "#e4e4e7" : "white"}" font-weight="700">${escapeXml(makeDisplay.charAt(0).toUpperCase())}</text>`);
+      svgParts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fc}"/>`);
     }
   }
-
-  // Info bar background (for no-border mode: only bottom strip)
   const infoRect = `<rect x="0" y="${infoTop}" width="${canvasW}" height="${infoBarH + border}" fill="rgb(${bgRgb.r},${bgRgb.g},${bgRgb.b})"/>`;
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasW}" height="${canvasH}">${infoRect}${parts.join("")}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasW}" height="${canvasH}">${infoRect}${svgParts.join("")}</svg>`;
 
   // ── Compose ────────────────────────────────────────────────────────────────
   const extended = await sharp(buffer)
@@ -320,6 +302,43 @@ export async function GET(request: NextRequest) {
 
   const composites: sharp.OverlayOptions[] = [{ input: Buffer.from(svg), top: 0, left: 0 }];
   if (logo) composites.push({ input: logo.buf, top: logoY, left: logoX });
+
+  // ── Text via Sharp (bypasses librsvg — works on Vercel without system fonts) ─
+  if (hasInfo) {
+    const fontfile = path.join(process.cwd(), "public", "fonts", "Geist-Regular.ttf");
+    const txt = (
+      text: string, size: number, color: string, bold: boolean,
+      left: number, baseY: number, maxW: number,
+    ): sharp.OverlayOptions => ({
+      input: {
+        text: {
+          text: `<span foreground="${color}" font_weight="${bold ? "bold" : "normal"}" font_size="${size}pt">${escapeXml(text)}</span>`,
+          font: "Geist",
+          fontfile,
+          width: maxW,
+          rgba: true,
+          dpi: 72,
+        },
+      },
+      top:  Math.max(infoTop, Math.round(baseY - size * 0.82)),
+      left: Math.max(0, left),
+    });
+
+    if (makeDisplay)  composites.push(txt(makeDisplay,  brandFs, colors.brand, false, hPad,       brandY, Math.round(W * 0.35)));
+    if (modelDisplay) composites.push(txt(modelDisplay, modelFs, colors.model, true,  hPad,       modelY, Math.round(W * 0.35)));
+    if (dateStr)      composites.push(txt(dateStr,      dateFs,  colors.date,  false, hPad,       dateY,  Math.round(W * 0.35)));
+    if (exifStr)      composites.push(txt(exifStr,      lens1Fs, colors.lens,  true,  rightTextX, lens1Y, Math.round(W * 0.32)));
+    if (lensDisplay)  composites.push(txt(lensDisplay,  exifFs,  colors.exif,  false, rightTextX, exifY,  Math.round(W * 0.32)));
+
+    if (!logo && makeDisplay) {
+      const r   = Math.round(infoBarH * 0.28);
+      const cx  = dividerX - divGap - r;
+      const cy  = infoTop + infoBarH / 2;
+      const ifs = Math.round(r * 1.1);
+      const lc  = bgParam === "dark" ? "#e4e4e7" : "white";
+      composites.push(txt(makeDisplay.charAt(0).toUpperCase(), ifs, lc, true, cx - Math.round(ifs * 0.30), cy + Math.round(ifs * 0.42), Math.round(ifs * 1.5)));
+    }
+  }
 
   let output = await sharp(extended)
     .composite(composites)
