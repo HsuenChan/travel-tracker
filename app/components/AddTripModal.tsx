@@ -129,7 +129,7 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
         countries,
         destinations,
         country_codes,
-        notes: values.notes ?? "",
+        notes: ((values.notes as string) ?? "").replace(/<[^>]*>/g, "").trim() ? (values.notes as string) : "",
         photoAlbumId: values.photoAlbumId ?? "",
         people: values.people ?? [],
         currency: Array.isArray(values.currency) ? values.currency.join(",") : (values.currency || "TWD"),

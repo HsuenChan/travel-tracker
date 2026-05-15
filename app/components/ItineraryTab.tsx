@@ -1,7 +1,8 @@
 "use client";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button, Modal, Form, DatePicker, Select, Dropdown, Typography, Input, Skeleton, Timeline, Tooltip, App } from "antd";
 import { EditOutlined, DeleteOutlined, MoreOutlined, LoadingOutlined } from "@ant-design/icons";
@@ -121,9 +122,19 @@ const CATEGORY_ACCENT: Record<string, { from: string; to: string }> = {
 
 export default function ItineraryTab({ tripId, isActive, destination, readOnly, initialItems }: Props) {
   const [items, setItems] = useState<ItineraryItem[]>(initialItems || []);
-  const [showModal, setShowModal] = useState(false);
-  const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [form] = Form.useForm();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // Modal state derived from URL (only when not read-only)
+  const urlModal = searchParams.get("modal");
+  const urlItemId = searchParams.get("itemId");
+  const showModal = !readOnly && (urlModal === "addItinerary" || urlModal === "editItinerary");
+  const editingItem = useMemo<ItineraryItem | null>(() => {
+    if (urlModal !== "editItinerary" || !urlItemId) return null;
+    return items.find(i => i.id === urlItemId) ?? null;
+  }, [urlModal, urlItemId, items]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherDay>>({});
@@ -251,36 +262,49 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
     fetchItems();
   }
 
+  // Populate form when URL-driven modal opens
+  useEffect(() => {
+    if (readOnly) return;
+    if (urlModal === "editItinerary" && editingItem) {
+      const startTime = editingItem.time ?? "00:00";
+      const endDate = editingItem.end_date ?? editingItem.date;
+      const endTime = editingItem.end_time ?? editingItem.time ?? "00:00";
+      const startDt = editingItem.date ? dayjs(`${editingItem.date} ${startTime}`) : null;
+      const endDt = endDate ? dayjs(`${endDate} ${endTime}`) : null;
+      form.setFieldsValue({
+        dateRange: startDt ? [startDt, endDt ?? startDt] : null,
+        title: editingItem.title,
+        category: editingItem.category,
+        location: editingItem.location,
+        notes: editingItem.notes,
+      });
+    } else if (urlModal === "addItinerary") {
+      form.resetFields();
+    }
+  }, [urlModal, editingItem?.id]);
+
   function openEdit(item: ItineraryItem) {
-    setEditingItem(item);
-
-    const startDate = item.date ? item.date : null;
-    const startTime = item.time ?? "00:00";
-    const endDate = item.end_date ?? item.date;
-    const endTime = item.end_time ?? item.time ?? "00:00";
-
-    const startDt = startDate ? dayjs(`${startDate} ${startTime}`) : null;
-    const endDt = endDate ? dayjs(`${endDate} ${endTime}`) : null;
-
-    form.setFieldsValue({
-      dateRange: startDt && endDt ? [startDt, endDt] : null,
-      title: item.title,
-      category: item.category,
-      location: item.location,
-      notes: item.notes,
-    });
-    setShowModal(true);
+    if (readOnly) return;
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.set("modal", "editItinerary");
+    p.set("itemId", item.id);
+    router.push(`${pathname}?${p.toString()}`);
   }
 
   function openAdd() {
-    setEditingItem(null);
-    form.resetFields();
-    setShowModal(true);
+    if (readOnly) return;
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.set("modal", "addItinerary");
+    p.delete("itemId");
+    router.push(`${pathname}?${p.toString()}`);
   }
 
   function closeModal() {
-    setShowModal(false);
-    setEditingItem(null);
+    if (readOnly) return;
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.delete("modal");
+    p.delete("itemId");
+    router.replace(`${pathname}?${p.toString()}`);
     form.resetFields();
   }
 
@@ -543,7 +567,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
 
       {/* Health report card */}
       {healthOpen && (
-        <div className="mb-4 rounded-[16px] overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="mb-4 rounded-[18px] overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
             <div className="flex items-center gap-2">
               <span className="text-sm">⚕</span>

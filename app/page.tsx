@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
@@ -15,7 +15,6 @@ import {
   Skeleton,
   Dropdown,
 } from "antd";
-import AddTripModal from "./components/AddTripModal";
 import { getCountryFlags } from "@/lib/countries";
 import { UserOutlined } from "@ant-design/icons";
 import {
@@ -89,13 +88,14 @@ function useCountUp(target: number, active: boolean): number {
 }
 
 function TripCard({
-  trip, selected, isNew, index, isMobile, onClick, onDoubleClick, onTouchStart, onTouchEnd, onTouchMove,
+  trip, selected, isNew, index, isMobile, onClick, onDoubleClick, onTouchStart, onTouchEnd, onTouchMove, onRef,
 }: {
   trip: Trip; selected: boolean; isNew: boolean; index: number; isMobile: boolean;
   onClick: () => void; onDoubleClick?: () => void;
   onTouchStart: () => void; onTouchEnd: () => void; onTouchMove: () => void;
+  onRef?: (el: HTMLDivElement | null) => void;
 }) {
-  const cardRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [glowPos, setGlowPos] = useState({ x: 50, y: 50 });
   const accent = getDestinationAccent(trip.countries ?? "");
@@ -136,7 +136,7 @@ function TripCard({
       onTouchMove={onTouchMove}
     >
       <div
-        ref={cardRef}
+        ref={(el) => { cardRef.current = el; onRef?.(el); }}
         onMouseMove={isMobile ? undefined : handleMouseMove}
         onMouseLeave={isMobile ? undefined : handleMouseLeave}
         className={`relative rounded-[24px] py-4 pr-4 overflow-hidden border backdrop-blur-sm ${selected
@@ -210,7 +210,6 @@ export default function Home() {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -220,6 +219,7 @@ export default function Home() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [newTripId, setNewTripId] = useState<string | null>(null);
   const prevTripIdsRef = useRef(new Set<string>());
+  const cardElsRef = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -270,6 +270,17 @@ export default function Home() {
     }
   }
 
+  function navigateToTrip(tripId: string) {
+    const el = cardElsRef.current.get(tripId);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      sessionStorage.setItem(`trip_card_rect_${tripId}`, JSON.stringify({
+        left: rect.left, top: rect.top, width: rect.width, height: rect.height,
+      }));
+    }
+    router.push(`/trips/${tripId}`);
+  }
+
   // Detect newly added trip for spring animation
   useEffect(() => {
     const prevIds = prevTripIdsRef.current;
@@ -296,6 +307,16 @@ export default function Home() {
   const tripsCount = useCountUp(trips.length, statsActive);
   const countriesCount = useCountUp(uniqueCountries, statsActive);
   const segmentsCount = useCountUp(segments.length, statsActive);
+
+  // Login page mouse parallax (hooks must be top-level, applied only in !authenticated JSX)
+  const loginMouseX = useMotionValue(0);
+  const loginMouseY = useMotionValue(0);
+  const globeX = useSpring(useTransform(loginMouseX, [-0.5, 0.5], [14, -14]), { stiffness: 55, damping: 20 });
+  const globeY = useSpring(useTransform(loginMouseY, [-0.5, 0.5], [10, -10]), { stiffness: 55, damping: 20 });
+  const cardX = useSpring(useTransform(loginMouseX, [-0.5, 0.5], [-20, 20]), { stiffness: 80, damping: 18 });
+  const cardY = useSpring(useTransform(loginMouseY, [-0.5, 0.5], [-14, 14]), { stiffness: 80, damping: 18 });
+  const cardRotX = useSpring(useTransform(loginMouseY, [-0.5, 0.5], [5, -5]), { stiffness: 80, damping: 18 });
+  const cardRotY = useSpring(useTransform(loginMouseX, [-0.5, 0.5], [-5, 5]), { stiffness: 80, damping: 18 });
 
   if (authenticated === null) {
     return (
@@ -364,12 +385,20 @@ export default function Home() {
 
   if (!authenticated) {
     return (
-      <div className="relative min-h-[100dvh] bg-[#09090b] overflow-hidden flex flex-col">
+      <div
+        className="relative min-h-[100dvh] bg-[#09090b] overflow-hidden flex flex-col"
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          loginMouseX.set((e.clientX - rect.left) / rect.width - 0.5);
+          loginMouseY.set((e.clientY - rect.top) / rect.height - 0.5);
+        }}
+        onMouseLeave={() => { loginMouseX.set(0); loginMouseY.set(0); }}
+      >
         {/* Globe section */}
         <div className="flex-1 relative flex items-center justify-center">
-          <div className="opacity-80 pointer-events-none scale-110 md:scale-125">
+          <motion.div className="opacity-80 pointer-events-none scale-110 md:scale-125" style={{ x: globeX, y: globeY }}>
             <LoginGlobe />
-          </div>
+          </motion.div>
         </div>
 
         {/* Login section at bottom */}
@@ -378,6 +407,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.8 }}
+            style={{ x: cardX, y: cardY, rotateX: cardRotX, rotateY: cardRotY, transformPerspective: 1200 }}
             className="bg-[#09090b]/10 backdrop-blur-md border border-white/10 rounded-[32px] py-8 px-10 flex flex-col items-center gap-4 max-w-[380px] w-full shadow-[0_24px_64px_rgba(0,0,0,0.5),inset_0_0_0_1px_rgba(255,255,255,0.05)]"
           >
             <div className="w-12 h-12 flex items-center justify-center mb-1">
@@ -436,7 +466,7 @@ export default function Home() {
         <GlobeIcon size={28} stroke="#3f3f46" strokeWidth={1.5} />
       </div>
       <Typography.Text className="text-zinc-500 text-sm">還沒有旅程記錄</Typography.Text>
-      <Button type="primary" onClick={() => { setShowModal(true); setDrawerOpen(false); }}>
+      <Button type="primary" onClick={() => { setDrawerOpen(false); router.push("/trips/new"); }}>
         新增第一筆旅程
       </Button>
     </div>
@@ -504,11 +534,9 @@ export default function Home() {
                 setSelectedTripId((prev) => prev === trip.id ? null : trip.id);
                 if (isMobile) setDrawerOpen(false);
               }}
-              onDoubleClick={!isMobile ? () => router.push(`/trips/${trip.id}`) : undefined}
+              onDoubleClick={!isMobile ? () => navigateToTrip(trip.id) : undefined}
               onTouchStart={() => {
-                longPressTimer.current = setTimeout(() => {
-                  router.push(`/trips/${trip.id}`);
-                }, 500);
+                longPressTimer.current = setTimeout(() => navigateToTrip(trip.id), 500);
               }}
               onTouchEnd={() => {
                 if (longPressTimer.current) {
@@ -522,6 +550,7 @@ export default function Home() {
                   longPressTimer.current = null;
                 }
               }}
+              onRef={(el) => cardElsRef.current.set(trip.id, el)}
             />
           ))}
         </AnimatePresence>
@@ -560,7 +589,7 @@ export default function Home() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowAllTracks((v) => !v)}
-              className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold transition-all duration-200 ${isMobile ? "w-8 h-8 justify-center" : "px-3 h-8"
+              className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold transition-all duration-200 cursor-pointer ${isMobile ? "w-8 h-8 justify-center" : "px-3 h-8"
                 } ${showAllTracks
                   ? "bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#14b8a6] text-white shadow-[0_4px_20px_rgba(99,102,241,0.4)]"
                   : "bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
@@ -570,8 +599,8 @@ export default function Home() {
               {!isMobile && (showAllTracks ? "隱藏航跡" : "全部航跡")}
             </button>
             <button
-              onClick={() => setShowModal(true)}
-              className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#14b8a6] text-white shadow-[0_4px_20px_rgba(99,102,241,0.4)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(99,102,241,0.55)] hover:-translate-y-px ${isMobile ? "w-8 h-8 justify-center" : "px-3 h-8"
+              onClick={() => router.push("/trips/new")}
+              className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#14b8a6] text-white shadow-[0_4px_20px_rgba(99,102,241,0.4)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(99,102,241,0.55)] hover:-translate-y-px cursor-pointer ${isMobile ? "w-8 h-8 justify-center" : "px-3 h-8"
                 }`}
             >
               <PlusIcon size={13} />
@@ -584,7 +613,7 @@ export default function Home() {
               popupRender={() => (
                 <div className="bg-[#18181b] border border-white/[0.08] rounded-xl overflow-hidden shadow-2xl min-w-[160px]">
                   <a href="/api/auth/logout" className="block">
-                    <button className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-400 hover:bg-white/[0.06] transition-colors text-left">
+                    <button className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-400 hover:bg-white/[0.06] transition-colors text-left cursor-pointer">
                       <LogoutIcon size={13} />
                       登出
                     </button>
@@ -592,7 +621,7 @@ export default function Home() {
                 </div>
               )}
             >
-              <button className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200">
+              <button className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200 cursor-pointer">
                 <UserOutlined style={{ fontSize: 14 }} />
               </button>
             </Dropdown>
@@ -605,7 +634,7 @@ export default function Home() {
           {isMobile && (
             <button
               onClick={() => setDrawerOpen(true)}
-              className="backdrop-blur-md inline-flex items-center gap-2 !rounded-full px-5 h-12 text-[#f4f4f5] text-[14px] font-semibold shadow-2xl pointer-events-auto fixed right-5 z-50"
+              className="backdrop-blur-md inline-flex items-center gap-2 !rounded-full px-5 h-12 text-[#f4f4f5] text-[14px] font-semibold shadow-2xl pointer-events-auto fixed right-5 z-50 cursor-pointer"
               style={{ bottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}
             >
               <MenuListIcon size={15} />
@@ -648,12 +677,6 @@ export default function Home() {
         </Drawer>
       )}
 
-      {showModal && (
-        <AddTripModal
-          onClose={() => setShowModal(false)}
-          onSaved={() => { setShowModal(false); fetchTrips(); }}
-        />
-      )}
     </div>
 
   );

@@ -22,3 +22,8 @@
 ## Development Guidelines
 - 保持 Next.js / React / Tailwind 的代碼風格一致性。
 - 優先處理 Mobile 端的操作流暢度。
+- **交付前必須自我驗證**：每次修改後，必須在腦中 trace 完整執行路徑，確認不會因為自己的改動引入明顯的 regression（例如把可運作的 effect deps 換掉、讓元件永遠卡在初始狀態等），不允許將顯而易見的 broken 狀態交給使用者。
+
+## Git & Commit 規則
+- Commit 一律以使用者本人名義提交，**不可加上 `Co-Authored-By: Claude` 之類的 AI 署名**。
+- **Commit 前必須更新 README.md**：確認這次修改了哪些功能，並同步更新 README.md 中英文兩個區塊對應的功能說明。

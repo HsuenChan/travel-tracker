@@ -2,6 +2,7 @@
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   Button, Modal, Form, Input, DatePicker, Select, InputNumber,
   Dropdown, Typography, Tabs, Skeleton, Switch, App, Popover,
@@ -129,9 +130,19 @@ const FALLBACK_CURRENCIES: CurrencyOption[] = [
 
 export default function ExpensesTab({ tripId, people, currency, currencies, readOnly, initialExpenses }: Props) {
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses || []);
-  const [showModal, setShowModal] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [form] = Form.useForm();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // Modal state derived from URL (only when not read-only)
+  const urlModal = searchParams.get("modal");
+  const urlExpenseId = searchParams.get("expenseId");
+  const showModal = !readOnly && (urlModal === "addExpense" || urlModal === "editExpense");
+  const editingExpense = useMemo<Expense | null>(() => {
+    if (urlModal !== "editExpense" || !urlExpenseId) return null;
+    return expenses.find(e => e.id === urlExpenseId) ?? null;
+  }, [urlModal, urlExpenseId, expenses]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
@@ -273,34 +284,51 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     fetchExpenses();
   }
 
+  // Populate form when URL-driven modal opens
+  useEffect(() => {
+    if (readOnly) return;
+    if (urlModal === "editExpense" && editingExpense) {
+      form.setFieldsValue({
+        isRange: !!editingExpense.end_date,
+        date: editingExpense.date && !editingExpense.end_date ? dayjs(editingExpense.date) : null,
+        startDate: editingExpense.date ? dayjs(editingExpense.date) : null,
+        endDate: editingExpense.end_date ? dayjs(editingExpense.end_date) : null,
+        category: editingExpense.category,
+        description: editingExpense.description,
+        amount: editingExpense.amount,
+        currency: editingExpense.currency,
+        paid_by: editingExpense.paid_by,
+        split_with: editingExpense.split_with,
+        notes: editingExpense.notes,
+      });
+    } else if (urlModal === "addExpense") {
+      form.resetFields();
+      form.setFieldsValue({ currency, split_with: people, date: dayjs(), startDate: dayjs() });
+    }
+  }, [urlModal, editingExpense?.id]);
+
   function openEdit(exp: Expense) {
-    setEditingExpense(exp);
-    form.setFieldsValue({
-      isRange: !!exp.end_date,
-      date: exp.date && !exp.end_date ? dayjs(exp.date) : null,
-      startDate: exp.date ? dayjs(exp.date) : null,
-      endDate: exp.end_date ? dayjs(exp.end_date) : null,
-      category: exp.category,
-      description: exp.description,
-      amount: exp.amount,
-      currency: exp.currency,
-      paid_by: exp.paid_by,
-      split_with: exp.split_with,
-      notes: exp.notes,
-    });
-    setShowModal(true);
+    if (readOnly) return;
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.set("modal", "editExpense");
+    p.set("expenseId", exp.id);
+    router.push(`${pathname}?${p.toString()}`);
   }
 
   function openAdd() {
-    setEditingExpense(null);
-    form.resetFields();
-    form.setFieldsValue({ currency, split_with: people, date: dayjs(), startDate: dayjs() });
-    setShowModal(true);
+    if (readOnly) return;
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.set("modal", "addExpense");
+    p.delete("expenseId");
+    router.push(`${pathname}?${p.toString()}`);
   }
 
   function closeModal() {
-    setShowModal(false);
-    setEditingExpense(null);
+    if (readOnly) return;
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.delete("modal");
+    p.delete("expenseId");
+    router.replace(`${pathname}?${p.toString()}`);
     form.resetFields();
   }
 
@@ -959,7 +987,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                         isPaid ? next.delete(txKey) : next.add(txKey);
                         return next;
                       })}
-                      className={`ml-3 w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 ${isPaid ? "bg-green-500/20 border-green-500/50 text-green-400" : "border-zinc-700 text-zinc-700 hover:border-zinc-500 hover:text-zinc-400"}`}
+                      className={`ml-3 w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 cursor-pointer ${isPaid ? "bg-green-500/20 border-green-500/50 text-green-400" : "border-zinc-700 text-zinc-700 hover:border-zinc-500 hover:text-zinc-400"}`}
                     >
                       {isPaid && <CheckOutlined style={{ fontSize: 11 }} />}
                     </button>

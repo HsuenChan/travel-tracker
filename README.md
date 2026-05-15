@@ -3,6 +3,7 @@
 [English](#english) | [中文](#中文)
 
 **Live:** https://travel-tracker-nine-delta.vercel.app/
+**Design Guideline:** https://hsuenchan.github.io/travel-tracker/design_guideline.html
 
 ---
 
