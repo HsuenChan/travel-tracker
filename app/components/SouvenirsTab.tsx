@@ -242,7 +242,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex flex-col rounded-[20px] border border-white/5 bg-white/5 overflow-hidden">
+            <div key={i} className="flex flex-col rounded-2xl border border-white/5 bg-white/5 overflow-hidden">
               <div className="w-full h-24 bg-white/[0.03]" />
               <div className="p-3 flex items-start gap-3">
                 <div className="pt-0.5"><Skeleton.Avatar active shape="square" size={16} /></div>
@@ -271,7 +271,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
           {items.filter(item => !tagFilter || (item.tags && item.tags.includes(tagFilter))).map(item => (
             <div
               key={item.id}
-              className={`flex flex-col rounded-[20px] border transition-all overflow-hidden relative ${item.is_checked ? 'bg-white/5 border-white/5 opacity-60' : 'bg-white/10 border-white/10 shadow-lg'}`}
+              className={`flex flex-col rounded-2xl border transition-all overflow-hidden relative ${item.is_checked ? 'bg-white/5 border-white/5 opacity-60' : 'bg-white/10 border-white/10 shadow-lg'}`}
             >
               {/* Image Section */}
               {item.image_url ? (

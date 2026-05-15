@@ -272,7 +272,7 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
         <Form.Item
           name="enabledTabs"
           label="顯示的分頁"
-          extra="選擇這趟旅程要顯示哪些功能分頁"
+          extra="選擇這趟旅程要顯示哪些功能分頁（會依照順序顯示）"
         >
           <Select
             mode="multiple"

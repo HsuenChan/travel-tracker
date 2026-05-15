@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -108,22 +108,26 @@ export default function TripPage() {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [loading, setLoading] = useState(true);
   const [segmentsLoading, setSegmentsLoading] = useState(true);
-  const [showEdit, setShowEdit] = useState(false);
-  const [showAddSegment, setShowAddSegment] = useState(false);
   const [editingSegment, setEditingSegment] = useState<Segment | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [sharing, setSharing] = useState(false);
+  const [presenting, setPresenting] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
-  const [showLineBotModal, setShowLineBotModal] = useState(false);
   const { modal, message: messageApi } = App.useApp();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "transport");
+
+  // Modal open state derived from URL — avoids duplicate history entries
+  const urlModal = searchParams.get("modal");
+  const showEdit = urlModal === "editTrip";
+  const showAddSegment = urlModal === "addSegment";
+  const showLineBotModal = urlModal === "lineBot";
   const [tabDirection, setTabDirection] = useState(1);
   const ALL_TABS = ["transport", "itinerary", "expenses", "photos", "notes", "souvenirs"];
 
@@ -135,7 +139,48 @@ export default function TripPage() {
     }
   }, [trip]);
 
-  // Sync state with URL changes (handle back/forward browser navigation)
+  // Shared element transition: hero expands from card's screen position
+  const heroRef = useRef<HTMLDivElement>(null);
+  const cardRectCache = useRef<{ left: number; top: number; width: number; height: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+
+    // First run: read from sessionStorage and cache in ref so Strict Mode's second run can reuse it
+    if (!cardRectCache.current) {
+      const raw = sessionStorage.getItem(`trip_card_rect_${id}`);
+      if (!raw) return;
+      cardRectCache.current = JSON.parse(raw);
+      sessionStorage.removeItem(`trip_card_rect_${id}`);
+    }
+
+    const cardRect = cardRectCache.current!;
+    const heroRect = el.getBoundingClientRect();
+    const deltaX = cardRect.left - heroRect.left;
+    const deltaY = cardRect.top - heroRect.top;
+    const scale = cardRect.width / heroRect.width;
+
+    el.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scale})`;
+    el.style.transformOrigin = "0 0";
+    el.style.transition = "none";
+    el.getBoundingClientRect(); // force reflow so transition: none takes effect before rAF
+
+    const rafId = requestAnimationFrame(() => {
+      el.style.transition = "transform 0.52s cubic-bezier(0.2, 0, 0, 1)";
+      el.style.transform = "translate(0px, 0px) scale(1)";
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      el.style.transform = "";
+      el.style.transition = "";
+      el.style.transformOrigin = "";
+      // cardRectCache is intentionally kept so the second Strict Mode run can replay the animation
+    };
+  }, []);
+
+  // Sync tab state with URL on back/forward navigation
   useEffect(() => {
     const tabFromUrl = searchParams.get("tab") || "transport";
     if (tabFromUrl !== activeTab && tabOrderRef.current.includes(tabFromUrl)) {
@@ -145,18 +190,47 @@ export default function TripPage() {
     }
   }, [searchParams]);
 
+  // Sync editingSegment when URL carries modal=editSegment
+  useEffect(() => {
+    if (urlModal === "editSegment") {
+      const segId = searchParams.get("segmentId");
+      const seg = segments.find(s => s.id === segId);
+      if (seg) setEditingSegment(seg);
+    } else {
+      setEditingSegment(null);
+    }
+  }, [urlModal, searchParams, segments]);
+
+  // Push a modal param into history so browser back closes it
+  function pushModal(name: string, extra?: Record<string, string>) {
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.set("modal", name);
+    if (extra) Object.entries(extra).forEach(([k, v]) => p.set(k, v));
+    router.push(`/trips/${id}?${p.toString()}`);
+  }
+
+  // Remove modal param — replaces current entry so back skips the modal
+  function clearModal() {
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.delete("modal");
+    p.delete("segmentId");
+    router.replace(`/trips/${id}?${p.toString()}`);
+  }
+
   const handleTabChange = (val: string) => {
     if (val === activeTab) return;
     const order = tabOrderRef.current;
     setTabDirection(order.indexOf(val) > order.indexOf(activeTab) ? 1 : -1);
     setActiveTab(val);
 
-    // Update URL param
+    // push (not replace) so browser back returns to the previous tab
     const current = new URLSearchParams(Array.from(searchParams.entries()));
     current.set("tab", val);
+    current.delete("modal");
+    current.delete("segmentId");
     const search = current.toString();
     const query = search ? `?${search}` : "";
-    router.replace(`/trips/${id}${query}`, { scroll: false });
+    router.push(`/trips/${id}${query}`, { scroll: false });
   };
 
   useEffect(() => {
@@ -251,6 +325,20 @@ export default function TripPage() {
     }
   }
 
+  async function handlePresent() {
+    setPresenting(true);
+    try {
+      const res = await fetchWithAuth(`/api/trips/${id}/share`);
+      if (res.ok) {
+        const { shareUrl } = await res.json();
+        const presentUrl = shareUrl.replace("/share/", "/present/");
+        window.open(presentUrl, "_blank");
+      }
+    } finally {
+      setPresenting(false);
+    }
+  }
+
   async function handleLeave() {
     setLeaving(true);
     await fetchWithAuth(`/api/trips/${id}/leave`, { method: "DELETE" });
@@ -289,31 +377,6 @@ export default function TripPage() {
     return palette[Math.abs(hash) % palette.length];
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#09090b]">
-        <header className="backdrop-blur-md flex items-center gap-3 px-3 md:px-5 h-14 sticky top-0 z-[100] border-b border-white/[0.06]">
-          <Skeleton.Button active size="small" className="!w-8 !h-8 !rounded-full" />
-          <Skeleton.Input active size="small" className="!w-32 !h-5 !rounded-full" />
-        </header>
-        <div className="max-w-[720px] mx-auto py-8 px-6 w-full">
-          <div className="bg-[#18181b] border border-[#27272a] rounded-2xl px-7 pt-7 pb-6 mb-7">
-            <Skeleton active title={{ width: "55%", style: { marginBottom: 20, height: 28 } }} paragraph={{ rows: 1, width: "75%" }} />
-          </div>
-          <div className="mb-4 flex justify-between items-center">
-            <Skeleton.Input active size="small" className="!w-[72px] rounded-md" />
-            <Skeleton.Button active size="small" className="!w-20 rounded-md" />
-          </div>
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-4 py-[14px] mb-3">
-              <Skeleton active avatar={{ size: 24, shape: "circle" }} title={{ width: "50%", style: { marginBottom: 8 } }} paragraph={{ rows: 1, width: "35%" }} />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   const duration =
     trip?.start_date && trip?.end_date
       ? Math.round(
@@ -322,7 +385,7 @@ export default function TripPage() {
       )
       : null;
 
-  if (!trip) {
+  if (!trip && !loading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center gap-4">
         <Typography.Text className="text-zinc-500">找不到這筆旅程</Typography.Text>
@@ -331,13 +394,13 @@ export default function TripPage() {
     );
   }
 
-  const countries = trip.countries
+  const countries = trip?.countries
     ? trip.countries.split(/[,，、]/).map((c) => c.trim()).filter(Boolean)
     : [];
 
-  const accent = getDestinationAccent(trip.countries ?? "");
-  const people = trip.people ?? [];
-  const currencies = trip.currency ? trip.currency.split(",") : ["TWD"];
+  const accent = getDestinationAccent(trip?.countries ?? "");
+  const people = trip?.people ?? [];
+  const currencies = trip?.currency ? trip.currency.split(",") : ["TWD"];
   const primaryCurrency = currencies[0];
 
   const timelineItems = segments.map((seg) => ({
@@ -360,7 +423,7 @@ export default function TripPage() {
             trigger={["click"]}
             menu={{
               items: [
-                { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => setEditingSegment(seg) },
+                { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => pushModal("editSegment", { segmentId: seg.id }) },
                 { type: "divider" },
                 {
                   key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
@@ -450,7 +513,7 @@ export default function TripPage() {
       <div className="my-3 flex items-center justify-between">
         <Typography.Text strong className="text-zinc-100 text-[15px]">交通段落</Typography.Text>
         <button
-          onClick={() => setShowAddSegment(true)}
+          onClick={() => pushModal("addSegment")}
           className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
         >
           <PlusIcon size={12} />
@@ -482,7 +545,7 @@ export default function TripPage() {
             <Typography.Text className="text-zinc-600 text-xs">記錄每一段旅程，不錯過任何細節。</Typography.Text>
           </div>
           <button
-            onClick={() => setShowAddSegment(true)}
+            onClick={() => pushModal("addSegment")}
             className="mt-1 inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
           >
             <PlusIcon size={12} />
@@ -501,18 +564,18 @@ export default function TripPage() {
         {/* Back */}
         <button
           onClick={() => router.push("/")}
-          className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200 shrink-0"
+          className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200 shrink-0 cursor-pointer"
         >
           <ChevronLeftIcon size={14} />
         </button>
 
         {/* Trip name */}
         <span className="flex-1 text-zinc-400 text-[13px] overflow-hidden text-ellipsis whitespace-nowrap">
-          {trip.name}
+          {trip?.name ?? ""}
         </span>
 
         {/* Action buttons */}
-        {isMobile ? (
+        {trip && (isMobile ? (
           <button
             onClick={() => setShowMoreSheet(true)}
             className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
@@ -531,6 +594,25 @@ export default function TripPage() {
               分享
             </button>
 
+            <button
+              onClick={handlePresent}
+              disabled={presenting}
+              title="旅程簡報"
+              className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
+            >
+              {presenting ? (
+                <LoadingOutlined size={13} />
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="1" width="11" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.4"/>
+                  <path d="M4.5 9.5L4.5 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  <path d="M8.5 9.5L8.5 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  <path d="M3 12H10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+              )}
+              簡報
+            </button>
+
             {isOwner && (
               <button
                 onClick={handleInvite}
@@ -544,7 +626,7 @@ export default function TripPage() {
             )}
 
             <button
-              onClick={() => setShowLineBotModal(true)}
+              onClick={() => pushModal("lineBot")}
               title="LINE Bot 記帳"
               className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
             >
@@ -553,7 +635,7 @@ export default function TripPage() {
             </button>
 
             <button
-              onClick={() => setShowEdit(true)}
+              onClick={() => pushModal("editTrip")}
               className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
             >
               <EditIcon size={13} />
@@ -578,7 +660,7 @@ export default function TripPage() {
               </Popconfirm>
             )}
           </div>
-        )}
+        ))}
       </header>
 
       <div
@@ -586,9 +668,11 @@ export default function TripPage() {
         style={{ padding: isMobile ? "20px 12px 100px" : "32px 24px 80px" }}
       >
         <div
+          ref={heroRef}
           className="rounded-4xl md:mb-8 mb-4 overflow-hidden relative shadow-2xl border border-white/6"
           style={{
             padding: isMobile ? "24px 20px" : "32px 32px",
+            minHeight: isMobile ? 100 : 130,
             background: `linear-gradient(145deg, ${accent.from}17 0%, rgba(139,92,246,0.05) 60%, rgba(9,9,11,0.98) 100%)`,
           }}
         >
@@ -597,7 +681,13 @@ export default function TripPage() {
             style={{ background: `radial-gradient(ellipse at 85% 0%, ${accent.from}22 0%, transparent 55%)` }}
           />
 
-          <div className="relative">
+          {trip && (
+          <motion.div
+            className="relative"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+          >
             <Typography.Title
               level={isMobile ? 3 : 2}
               className="!text-zinc-100 !m-0 !mb-5 !leading-tight !font-black tracking-tight"
@@ -701,10 +791,17 @@ export default function TripPage() {
                 />
               </div>
             )}
-          </div>
+          </motion.div>
+          )}
         </div>
 
-        <div className="mb-7">
+        {trip && (
+        <motion.div
+          className="mb-7"
+          initial={{ clipPath: "inset(0 0 100% 0)", opacity: 0 }}
+          animate={{ clipPath: "inset(0 0 0% 0)", opacity: 1 }}
+          transition={{ duration: 0.48, ease: [0.2, 0, 0, 1], delay: 0.15 }}
+        >
           {!isMobile && (
             <div className="flex items-center justify-center mb-8 sticky top-[80px] z-50">
               <div className="flex bg-[#18181b]/80 border border-white/8 backdrop-blur-md rounded-full p-1.5 shadow-xl">
@@ -777,7 +874,7 @@ export default function TripPage() {
                         <div className="text-zinc-500 text-xs px-10">編輯旅程並貼上 Google 相簿分享連結，<br />即可在此直接瀏覽精彩回憶。</div>
                       </div>
                       <button
-                        onClick={() => setShowEdit(true)}
+                        onClick={() => pushModal("editTrip")}
                         className="mt-2 inline-flex items-center gap-2 px-4 h-9 rounded-full bg-white/[0.06] border border-white/10 text-zinc-300 text-sm hover:bg-white/10 transition-all cursor-pointer"
                       >
                         <EditIcon size={14} />
@@ -789,10 +886,11 @@ export default function TripPage() {
               </motion.div>
             </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
+        )}
       </div>
 
-      {isMobile && (
+      {isMobile && trip && (
         <nav
           className="fixed bottom-0 left-0 right-0 z-[400]"
           style={{
@@ -853,7 +951,7 @@ export default function TripPage() {
 
       {/* Mobile More Actions Bottom Sheet */}
       <div
-        className="fixed inset-0 z-[210] transition-opacity duration-300"
+        className="fixed inset-0 z-[210] transition-opacity duration-300 cursor-pointer"
         style={{
           background: "rgba(0,0,0,0.6)",
           backdropFilter: "blur(4px)",
@@ -878,7 +976,7 @@ export default function TripPage() {
         </div>
 
         <div className="px-4 pt-1 pb-2">
-          <div className="text-zinc-600 text-[11px] font-medium px-1 mb-3 mt-1 truncate">{trip.name}</div>
+          <div className="text-zinc-600 text-[11px] font-medium px-1 mb-3 mt-1 truncate">{trip?.name}</div>
 
           <div className="space-y-0.5">
             {/* Share */}
@@ -893,6 +991,30 @@ export default function TripPage() {
               <div>
                 <div className="text-zinc-100 text-[14px] font-medium">分享旅程</div>
                 <div className="text-zinc-500 text-[11px] mt-0.5">複製公開連結</div>
+              </div>
+            </button>
+
+            {/* Present */}
+            <button
+              onClick={() => { handlePresent(); setShowMoreSheet(false); }}
+              disabled={presenting}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
+            >
+              <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(251,191,36,0.12)" }}>
+                {presenting ? (
+                  <LoadingOutlined style={{ color: "#fbbf24", fontSize: 16 }} />
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="1.5" y="1.5" width="13" height="9" rx="1.5" stroke="#fbbf24" strokeWidth="1.5"/>
+                    <path d="M5.5 10.5V13.5" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M10.5 10.5V13.5" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M3.5 13.5H12.5" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                )}
+              </div>
+              <div>
+                <div className="text-zinc-100 text-[14px] font-medium">旅程簡報</div>
+                <div className="text-zinc-500 text-[11px] mt-0.5">開啟全螢幕簡報模式</div>
               </div>
             </button>
 
@@ -915,7 +1037,7 @@ export default function TripPage() {
 
             {/* LINE Bot */}
             <button
-              onClick={() => { setShowMoreSheet(false); setShowLineBotModal(true); }}
+              onClick={() => { setShowMoreSheet(false); pushModal("lineBot"); }}
               className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer text-left"
             >
               <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(6,199,85,0.12)" }}>
@@ -929,7 +1051,7 @@ export default function TripPage() {
 
             {/* Edit */}
             <button
-              onClick={() => { setShowMoreSheet(false); setShowEdit(true); }}
+              onClick={() => { setShowMoreSheet(false); pushModal("editTrip"); }}
               className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer text-left"
             >
               <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,0.07)" }}>
@@ -996,28 +1118,28 @@ export default function TripPage() {
         </div>
       </div>
 
-      {showEdit && (
-        <EditTripModal trip={trip} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); fetchTrip(); }} />
+      {showEdit && trip && (
+        <EditTripModal trip={trip} onClose={clearModal} onSaved={() => { clearModal(); fetchTrip(); }} />
       )}
       <LineBotTripModal
         open={showLineBotModal}
         tripId={id}
-        tripName={trip.name}
-        onClose={() => setShowLineBotModal(false)}
+        tripName={trip?.name ?? ""}
+        onClose={clearModal}
       />
       {showAddSegment && (
         <AddSegmentModal
           tripId={id}
           nextOrder={segments.length + 1}
-          onClose={() => setShowAddSegment(false)}
-          onSaved={() => { setShowAddSegment(false); fetchSegments(); }}
+          onClose={clearModal}
+          onSaved={() => { clearModal(); fetchSegments(); }}
         />
       )}
       {editingSegment && (
         <EditSegmentModal
           segment={editingSegment}
-          onClose={() => setEditingSegment(null)}
-          onSaved={() => { setEditingSegment(null); fetchSegments(); }}
+          onClose={clearModal}
+          onSaved={() => { clearModal(); fetchSegments(); }}
         />
       )}
     </div>

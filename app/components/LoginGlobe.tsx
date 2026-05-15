@@ -8,9 +8,10 @@ import { Feature, FeatureCollection, Geometry } from "geojson";
 
 interface LoginGlobeProps {
   className?: string;
+  size?: number;
 }
 
-export default function LoginGlobe({ className }: LoginGlobeProps) {
+export default function LoginGlobe({ className, size: sizeProp }: LoginGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const landPathRef = useRef<SVGPathElement>(null);
   const gratPathRef = useRef<SVGPathElement>(null);
@@ -60,7 +61,7 @@ export default function LoginGlobe({ className }: LoginGlobeProps) {
     return () => cancelAnimationFrame(rafId);
   }, [topoData]);
 
-  const SIZE = 340;
+  const SIZE = sizeProp ?? 340;
 
   return (
     <div ref={containerRef} className={`relative flex items-center justify-center pointer-events-none ${className}`} style={{ width: SIZE, height: SIZE }}>
