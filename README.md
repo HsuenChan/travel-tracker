@@ -13,7 +13,6 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 
 ### Key Features
 
-- **Shared Element Page Transition** — Clicking a trip card animates directly into the trip detail hero, expanding from the card's exact screen position. Uses `useLayoutEffect` + CSS transitions for reliable cross-browser behaviour.
 - **Interactive 3D Globe** — WebGL rendering with animated flight arcs, region-level markers, and smooth transitions. Destinations stored as precise lat/lng coordinates via Nominatim / OpenStreetMap. Country flags auto-resolved from Nominatim ISO codes.
 - **Route Tab** — Combine transport segments (flights, trains, buses) and an interactive Leaflet map in one view.
 - **Rich Text Notes + AI** — Full Quill editor with six section chips that trigger AI-generated content (travel tips, packing list, transit guides, etc.) via Google Gemini. Shared across all trip members.
@@ -131,7 +130,6 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 
 ### 核心功能
 
-- **頁面共享元素轉場動畫** — 點擊旅程卡片後，卡片會從原本的螢幕位置展開成內頁 Hero 區塊，使用 `useLayoutEffect` + CSS transition 實現跨瀏覽器穩定的共享元素動畫效果。
 - **互動式 3D 地球儀** — WebGL 渲染飛行弧線動畫，目的地精確到地區層級座標（Nominatim / OpenStreetMap）。國旗 emoji 從 Nominatim ISO code 自動解析，無需維護硬編碼對照表。
 - **路線分頁** — 整合交通段落（航班、火車、巴士）與 Leaflet 互動地圖。
 - **筆記分頁（富文字 + AI）** — 完整 Quill 富文字編輯器，六個區塊 Chip 可觸發 AI 生成旅遊內容（旅遊注意事項、該帶什麼、地鐵攻略等），由 Google Gemini 驅動，所有成員共享。
