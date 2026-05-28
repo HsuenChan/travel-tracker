@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import {
   Button, Typography,
-  Skeleton, Popconfirm, Space, Tag, Timeline, Segmented, Modal, Dropdown, Tooltip, App,
+  Skeleton, Popconfirm, Space, Tag, Timeline, Segmented, Modal, Dropdown, Tooltip, App, Select,
 } from "antd";
 import {
   DeleteOutlined, LoadingOutlined, EditOutlined, MoreOutlined,
@@ -84,6 +84,15 @@ interface Member {
   is_owner: boolean;
 }
 
+// Binding between a split-bill member name (trips.people) and a Google account.
+interface MemberLink {
+  person_name: string;
+  user_id: string | null;
+  name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+}
+
 function getDestinationAccent(countries: string): { from: string; to: string } {
   const c = (countries ?? "").toLowerCase();
   if (/日本|japan/.test(c)) return { from: '#f472b6', to: '#e11d48' };
@@ -113,6 +122,9 @@ export default function TripPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [memberLinks, setMemberLinks] = useState<MemberLink[]>([]);
+  const [bindingPerson, setBindingPerson] = useState<string | null>(null);
+  const [showBindingPanel, setShowBindingPanel] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -278,6 +290,7 @@ export default function TripPage() {
       fetchTrip(),
       fetchSegments(),
       fetchMembers(),
+      fetchMemberLinks(),
       fetchWithAuth("/api/auth/status").then((r) => r.json()).then((d) => setUserId(d.userId)),
     ]).finally(() => setLoading(false));
   }, [id]);
@@ -287,6 +300,32 @@ export default function TripPage() {
     if (res.ok) {
       const data = await res.json();
       setMembers(data.members);
+    }
+  }
+
+  async function fetchMemberLinks() {
+    const res = await fetchWithAuth(`/api/trips/${id}/member-links`);
+    if (res.ok) {
+      const data = await res.json();
+      setMemberLinks(data.links);
+    }
+  }
+
+  async function handleBindMember(personName: string, targetUserId: string | null) {
+    setBindingPerson(personName);
+    try {
+      if (targetUserId === null) {
+        await fetchWithAuth(`/api/trips/${id}/member-links?person_name=${encodeURIComponent(personName)}`, { method: "DELETE" });
+      } else {
+        await fetchWithAuth(`/api/trips/${id}/member-links`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ person_name: personName, user_id: targetUserId }),
+        });
+      }
+      await fetchMemberLinks();
+    } finally {
+      setBindingPerson(null);
     }
   }
 
@@ -780,6 +819,73 @@ export default function TripPage() {
                   })}
                 </div>
                 <span className="text-zinc-600 text-[12px]">共同編輯</span>
+                {(isOwner || isMember) && people.length > 0 && (
+                  <button
+                    onClick={() => setShowBindingPanel((v) => !v)}
+                    className={`ml-auto flex items-center gap-1.5 text-[12px] transition-colors cursor-pointer ${showBindingPanel ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300"}`}
+                  >
+                    <UsersIcon size={11} /> 分帳綁定
+                  </button>
+                )}
+              </div>
+            )}
+
+            {showBindingPanel && (isOwner || isMember) && people.length > 0 && (
+              <div className="mt-3">
+                <div className="flex flex-col gap-2">
+                  {people.map((p) => {
+                    const link = memberLinks.find((l) => l.person_name === p);
+                    const boundUserId = link?.user_id ?? null;
+                    return (
+                      <div
+                        key={p}
+                        className="flex items-center justify-between gap-3 bg-white/[0.03] border border-white/8 rounded-xl px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-zinc-200 text-[13px] font-medium truncate">{p}</span>
+                          {boundUserId ? (
+                            <span className="flex items-center gap-1.5 text-zinc-500 text-[12px] min-w-0">
+                              <span className="text-zinc-600">↔</span>
+                              {link?.avatar_url ? (
+                                <img src={link.avatar_url} alt={link.name ?? ""} className="w-4 h-4 rounded-full object-cover" />
+                              ) : (
+                                <span
+                                  className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                                  style={{ background: memberAvatarColor(boundUserId) }}
+                                >
+                                  {(link?.name ?? "?").charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                              <span className="truncate">{link?.name}</span>
+                            </span>
+                          ) : (
+                            <span className="text-zinc-600 text-[12px]">未綁定</span>
+                          )}
+                        </div>
+                        {isOwner && (
+                          boundUserId ? (
+                            <button
+                              onClick={() => handleBindMember(p, null)}
+                              disabled={bindingPerson === p}
+                              className="text-zinc-600 hover:text-red-400 text-[12px] transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                            >
+                              {bindingPerson === p ? <LoadingOutlined style={{ fontSize: 12 }} /> : "解除"}
+                            </button>
+                          ) : (
+                            <Select
+                              size="small"
+                              style={{ minWidth: 130 }}
+                              placeholder="綁定帳號"
+                              loading={bindingPerson === p}
+                              onChange={(val) => handleBindMember(p, val ?? null)}
+                              options={members.map((m) => ({ value: m.user_id, label: m.name }))}
+                            />
+                          )
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
