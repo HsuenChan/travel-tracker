@@ -24,6 +24,7 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 - **Photo Wall** — Google Photos album integration with justified gallery layout, lazy loading, lightbox viewer, and inline video playback.
 - **Photo Frame Export** — Export any photo with a styled camera info bar: EXIF data (focal length, aperture, shutter speed, ISO, date/time), camera brand logo (Sony, Canon, Fujifilm, Leica, Nikon, Apple, Samsung, Vivo), and choice of aspect ratio (Original / 1:1 / 3:4 / 4:3 / 9:16 / 16:9), frame, and background color. Modal on desktop, bottom sheet on mobile.
 - **Sharing & Collaboration** — Generate shareable read-only links (with active tab preserved in URL). Trip members with edit access are automatically redirected to the full editor when opening a share link. Owners can remove members; members can leave trips.
+- **Claim Your Identity After Joining** — When joining a trip, pick which existing split-bill member name represents you. Owners can manage member-name ↔ account bindings from the trip page. (Groundwork for upcoming expense-to-account integration.)
 - **Souvenirs & Shopping List** — Card grid with custom tags, image support, and quick check-off.
 - **PWA & Offline Caching** — Local storage caching across all tabs with skeleton screens for fast perceived load.
 - **Responsive UI** — Sidebar layout on desktop, bottom-drawer on mobile. Built with Tailwind CSS 4 and Ant Design 6.
@@ -95,6 +96,7 @@ Run the SQL files in `supabase/` in order via the [Supabase SQL Editor](https://
 |---|---|
 | `01_schema.sql` | Core tables (trips, expenses, itinerary, etc.) |
 | `02_line_bot.sql` | LINE Bot integration tables |
+| `03_member_links.sql` | Maps trip member names to authenticated accounts |
 
 ### LINE Bot Setup
 
@@ -141,6 +143,7 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 - **旅遊照片牆** — 整合 Google Photos 相簿，等比例磚牆佈局、懶加載、Lightbox 瀏覽與影片內嵌播放。
 - **照片框架匯出** — 為任一張照片加上相機資訊欄後匯出：顯示焦距、光圈、快門、ISO、拍攝時間，以及相機品牌 Logo（Sony、Canon、Fujifilm、Leica、Nikon、Apple、Samsung、Vivo）。可選擇畫面比例（Original / 1:1 / 3:4 / 4:3 / 9:16 / 16:9）、邊框與背景顏色。桌機顯示 Modal，手機顯示底部面板。
 - **分享與共同編輯** — 可生成唯讀分享連結（URL 保留當前分頁狀態）。具編輯權限的成員開啟分享連結時自動跳轉至完整編輯介面。旅程擁有者可移除成員，成員可自行離開旅程。
+- **加入旅程後認領身份** — 加入旅程時可認領你對應的既有分帳成員名稱，旅程擁有者可在旅程頁查看與管理「成員名稱 ↔ 帳號」綁定。（為日後支出自動歸戶功能鋪路）
 - **伴手禮與購物清單** — 卡片式網格，支援自訂標籤篩選、圖片預覽與快速打勾。
 - **PWA 與快取** — LocalStorage 暫存機制搭配骨架圖，確保網路不佳時操作依然流暢。
 - **響應式介面** — 桌機側欄、手機抽屜，Tailwind CSS 4 + Ant Design 6。
@@ -205,6 +208,7 @@ npm run dev
 |---|---|
 | `01_schema.sql` | 核心資料表（旅程、費用、行程等） |
 | `02_line_bot.sql` | LINE Bot 整合資料表 |
+| `03_member_links.sql` | 將旅程成員名稱對應到已登入帳號 |
 
 ### LINE Bot 設定
 
