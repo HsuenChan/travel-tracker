@@ -16,7 +16,7 @@ import {
   Dropdown,
 } from "antd";
 import { getCountryFlags } from "@/lib/countries";
-import { UserOutlined } from "@ant-design/icons";
+import { UserOutlined, AimOutlined } from "@ant-design/icons";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
   MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon,
@@ -88,11 +88,10 @@ function useCountUp(target: number, active: boolean): number {
 }
 
 function TripCard({
-  trip, selected, isNew, index, isMobile, onClick, onDoubleClick, onTouchStart, onTouchEnd, onTouchMove, onRef,
+  trip, selected, isNew, index, isMobile, onClick, onFocusGlobe, onRef,
 }: {
   trip: Trip; selected: boolean; isNew: boolean; index: number; isMobile: boolean;
-  onClick: () => void; onDoubleClick?: () => void;
-  onTouchStart: () => void; onTouchEnd: () => void; onTouchMove: () => void;
+  onClick: () => void; onFocusGlobe: () => void;
   onRef?: (el: HTMLDivElement | null) => void;
 }) {
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -130,10 +129,6 @@ function TripCard({
       }
       className="cursor-pointer py-1.5 px-3"
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onTouchMove={onTouchMove}
     >
       <div
         ref={(el) => { cardRef.current = el; onRef?.(el); }}
@@ -183,6 +178,17 @@ function TripCard({
               {trip.name}
             </Typography.Text>
           </div>
+          <button
+            aria-label="在地球上聚焦這趟旅程"
+            title="在地球上聚焦"
+            onClick={(e) => { e.stopPropagation(); onFocusGlobe(); }}
+            className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-1.5 border transition-colors cursor-pointer ${selected
+              ? "text-violet-300 border-violet-500/40 bg-violet-500/15"
+              : "text-zinc-500 border-white/[0.08] bg-white/[0.04] hover:text-zinc-200 hover:bg-white/[0.1]"
+              }`}
+          >
+            <AimOutlined style={{ fontSize: 13 }} />
+          </button>
         </div>
         <div className="space-y-1">
           {(trip.start_date || trip.end_date) && (
@@ -216,7 +222,6 @@ export default function Home() {
   const [showAllTracks, setShowAllTracks] = useState(false);
   const [sortKey, setSortKey] = useState<"added" | "date">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [newTripId, setNewTripId] = useState<string | null>(null);
   const prevTripIdsRef = useRef(new Set<string>());
   const cardElsRef = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -486,9 +491,6 @@ export default function Home() {
             </div>
           ))}
         </div>
-        <Typography.Text className="text-zinc-700 text-[11px] block mb-2">
-          {isMobile ? "長按進入詳情" : "雙擊進入詳情"}
-        </Typography.Text>
         <div className="flex gap-[6px]">
           {(["added", "date"] as const).map((key) => {
             const active = sortKey === key;
@@ -530,25 +532,10 @@ export default function Home() {
               isNew={trip.id === newTripId}
               index={index}
               isMobile={isMobile}
-              onClick={() => {
+              onClick={() => navigateToTrip(trip.id)}
+              onFocusGlobe={() => {
                 setSelectedTripId((prev) => prev === trip.id ? null : trip.id);
                 if (isMobile) setDrawerOpen(false);
-              }}
-              onDoubleClick={!isMobile ? () => navigateToTrip(trip.id) : undefined}
-              onTouchStart={() => {
-                longPressTimer.current = setTimeout(() => navigateToTrip(trip.id), 500);
-              }}
-              onTouchEnd={() => {
-                if (longPressTimer.current) {
-                  clearTimeout(longPressTimer.current);
-                  longPressTimer.current = null;
-                }
-              }}
-              onTouchMove={() => {
-                if (longPressTimer.current) {
-                  clearTimeout(longPressTimer.current);
-                  longPressTimer.current = null;
-                }
               }}
               onRef={(el) => cardElsRef.current.set(trip.id, el)}
             />

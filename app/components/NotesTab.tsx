@@ -62,10 +62,14 @@ interface Props {
 
 export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
   const [noteContent, setNoteContent] = useState<string>(initialContent || "");
+  const [lastSaved, setLastSaved] = useState<string>(initialContent || "");
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [messageApi, contextHolder] = message.useMessage();
+
+  const draftKey = `travel_notes_draft_${tripId}`;
+  const dirty = !readOnly && noteContent !== lastSaved;
 
   useEffect(() => {
     async function fetchNotes() {
@@ -73,27 +77,50 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         setNoteContent(cached);
+        setLastSaved(cached);
         setLoading(false);
       }
-      
+
+      let serverContent = "";
       const res = await fetchWithAuth(`/api/trips/${tripId}/notes`);
       if (res.ok) {
         const data = await res.json();
         const saved = data.notes as { content?: string } | null;
         if (saved?.content) {
-          setNoteContent(saved.content);
+          serverContent = saved.content;
           localStorage.setItem(cacheKey, saved.content);
         }
+      }
+
+      const draft = readOnly ? null : localStorage.getItem(draftKey);
+      if (draft && draft !== serverContent) {
+        setNoteContent(draft);
+        setLastSaved(serverContent);
+        messageApi.info("已還原上次未儲存的草稿");
+      } else if (serverContent) {
+        setNoteContent(serverContent);
+        setLastSaved(serverContent);
       }
       setLoading(false);
     }
     if (initialContent) {
       setNoteContent(initialContent);
+      setLastSaved(initialContent);
       setLoading(false);
     } else {
       fetchNotes();
     }
   }, [tripId, initialContent]);
+
+  // Persist unsaved edits so switching tabs (which unmounts this component) never loses them
+  useEffect(() => {
+    if (loading || readOnly) return;
+    if (noteContent === lastSaved) {
+      localStorage.removeItem(draftKey);
+    } else {
+      localStorage.setItem(draftKey, noteContent);
+    }
+  }, [noteContent, lastSaved, loading, readOnly, draftKey]);
 
   /** Insert section heading only (no AI content) */
   function handleInsertHeading(key: string) {
@@ -127,18 +154,24 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
 
   async function handleSave() {
     setSaving(true);
-    const res = await fetchWithAuth(`/api/trips/${tripId}/notes`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes: { content: noteContent } }),
-    });
-    if (res.ok) {
-      messageApi.success("已儲存");
-      localStorage.setItem(`travel_notes_${tripId}`, noteContent);
-    } else {
-      messageApi.error("儲存失敗，請重試");
+    try {
+      const res = await fetchWithAuth(`/api/trips/${tripId}/notes`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: { content: noteContent } }),
+      });
+      if (res.ok) {
+        messageApi.success("已儲存");
+        localStorage.setItem(`travel_notes_${tripId}`, noteContent);
+        setLastSaved(noteContent);
+      } else {
+        messageApi.error("儲存失敗，請重試");
+      }
+    } catch {
+      messageApi.error("儲存失敗，請檢查網路連線");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   if (loading) {
@@ -215,6 +248,7 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
           >
             {saving && <LoadingOutlined style={{ fontSize: 13 }} />}
             儲存筆記
+            {dirty && !saving && <span className="w-1.5 h-1.5 rounded-full bg-violet-400" aria-label="有未儲存變更" />}
           </button>
         )}
       </div>

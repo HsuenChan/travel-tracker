@@ -5,9 +5,9 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   Button, Modal, Form, Input, DatePicker, Select, InputNumber,
-  Dropdown, Typography, Tabs, Skeleton, Switch, App, Popover,
+  Typography, Tabs, Skeleton, Switch, App, Popover,
 } from "antd";
-import { EditOutlined, DeleteOutlined, MoreOutlined, CheckOutlined, CameraOutlined } from "@ant-design/icons";
+import { EditOutlined, DeleteOutlined, CheckOutlined, CameraOutlined } from "@ant-design/icons";
 import { PlusIcon, CreditCardIcon, CategoryBadge } from "@/app/components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import dayjs from "dayjs";
@@ -86,19 +86,24 @@ function toBaseCurrency(
   return (amount / fromRate) * toRate;
 }
 
-function calculateSettlement(expenses: Expense[], people: string[]) {
+function calculateSettlement(
+  expenses: Expense[],
+  people: string[],
+  toBase: (amount: number, currency: string) => number
+) {
   const balances: Record<string, number> = {};
   people.forEach((p) => { balances[p] = 0; });
 
   expenses.forEach((exp) => {
     if (!exp.paid_by || !exp.split_with || exp.split_with.length === 0) return;
-    const perPerson = Number(exp.amount) / exp.split_with.length;
+    const baseAmount = toBase(Number(exp.amount), exp.currency);
+    const perPerson = baseAmount / exp.split_with.length;
     exp.split_with.forEach((p) => {
       if (balances[p] === undefined) balances[p] = 0;
       balances[p] -= perPerson;
     });
     if (balances[exp.paid_by] === undefined) balances[exp.paid_by] = 0;
-    balances[exp.paid_by] += Number(exp.amount);
+    balances[exp.paid_by] += baseAmount;
   });
 
   const cred = Object.entries(balances)
@@ -156,6 +161,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   const [dateFilter, setDateFilter] = useState<string[]>([]);
   const [parsingReceipt, setParsingReceipt] = useState(false);
   const receiptInputRef = useRef<HTMLInputElement>(null);
+  const continueAfterSave = useRef(false);
 
   const { modal, message } = App.useApp();
   const currencyOptions = currencies.map((c) => ({ value: c, label: c }));
@@ -175,6 +181,16 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
       .then((data: { rates: Record<string, number> }) => setRates(data.rates))
       .catch(() => { });
   }, []);
+
+  useEffect(() => {
+    if (readOnly) return;
+    fetch(`/api/expenses/settlement?tripId=${tripId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { keys: string[] } | null) => {
+        if (data?.keys) setPaidTransactions(new Set(data.keys));
+      })
+      .catch(() => { });
+  }, [tripId, readOnly]);
 
   async function fetchExpenses() {
     const cacheKey = `travel_expenses_${tripId}`;
@@ -232,6 +248,8 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   }
 
   async function handleSave(values: Record<string, unknown>) {
+    const keepOpen = continueAfterSave.current;
+    continueAfterSave.current = false;
     setSaving(true);
     let startDate = null;
     let endDate = null;
@@ -256,32 +274,85 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
       notes: values.notes ?? null,
     };
 
-    if (editingExpense) {
-      await fetchWithAuth("/api/expenses", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editingExpense.id, ...payload }),
-      });
-    } else {
-      await fetchWithAuth("/api/expenses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    try {
+      const res = editingExpense
+        ? await fetchWithAuth("/api/expenses", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: editingExpense.id, ...payload }),
+          })
+        : await fetchWithAuth("/api/expenses", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+      if (!res.ok) {
+        message.error("儲存失敗，請再試一次");
+        return;
+      }
+      message.success(editingExpense ? "已更新費用" : "已新增費用");
+      if (values.paid_by) {
+        localStorage.setItem(`travel_expense_last_payer_${tripId}`, values.paid_by as string);
+      }
+      if (!editingExpense && keepOpen) {
+        form.resetFields();
+        form.setFieldsValue({
+          currency: values.currency ?? currency,
+          split_with: values.split_with ?? people,
+          date: values.date ?? dayjs(),
+          startDate: values.startDate ?? dayjs(),
+          ...(values.paid_by ? { paid_by: values.paid_by } : {}),
+        });
+      } else {
+        closeModal();
+      }
+      fetchExpenses();
+    } catch {
+      message.error("儲存失敗，請檢查網路連線");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    closeModal();
-    fetchExpenses();
   }
 
   async function handleDelete(id: string) {
-    await fetchWithAuth("/api/expenses", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+    try {
+      const res = await fetchWithAuth("/api/expenses", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        message.error("刪除失敗，請再試一次");
+        return;
+      }
+      message.success("已刪除費用");
+      fetchExpenses();
+    } catch {
+      message.error("刪除失敗，請檢查網路連線");
+    }
+  }
+
+  function togglePaid(txKey: string, isPaid: boolean) {
+    setPaidTransactions((prev) => {
+      const next = new Set(prev);
+      if (isPaid) next.delete(txKey); else next.add(txKey);
+      return next;
     });
-    fetchExpenses();
+    if (readOnly) return;
+    fetchWithAuth("/api/expenses/settlement", {
+      method: isPaid ? "DELETE" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tripId, pairKey: txKey }),
+    })
+      .then((res) => { if (!res.ok) throw new Error(); })
+      .catch(() => {
+        setPaidTransactions((prev) => {
+          const next = new Set(prev);
+          if (isPaid) next.add(txKey); else next.delete(txKey);
+          return next;
+        });
+        message.error("繳清狀態儲存失敗，請再試一次");
+      });
   }
 
   // Populate form when URL-driven modal opens
@@ -303,7 +374,14 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
       });
     } else if (urlModal === "addExpense") {
       form.resetFields();
-      form.setFieldsValue({ currency, split_with: people, date: dayjs(), startDate: dayjs() });
+      const lastPayer = localStorage.getItem(`travel_expense_last_payer_${tripId}`);
+      form.setFieldsValue({
+        currency,
+        split_with: people,
+        date: dayjs(),
+        startDate: dayjs(),
+        ...(lastPayer && people.includes(lastPayer) ? { paid_by: lastPayer } : {}),
+      });
     }
   }, [urlModal, editingExpense?.id]);
 
@@ -312,7 +390,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     const p = new URLSearchParams(Array.from(searchParams.entries()));
     p.set("modal", "editExpense");
     p.set("expenseId", exp.id);
-    router.push(`${pathname}?${p.toString()}`);
+    router.push(`${pathname}?${p.toString()}`, { scroll: false });
   }
 
   function openAdd() {
@@ -320,7 +398,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     const p = new URLSearchParams(Array.from(searchParams.entries()));
     p.set("modal", "addExpense");
     p.delete("expenseId");
-    router.push(`${pathname}?${p.toString()}`);
+    router.push(`${pathname}?${p.toString()}`, { scroll: false });
   }
 
   function closeModal() {
@@ -328,7 +406,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     const p = new URLSearchParams(Array.from(searchParams.entries()));
     p.delete("modal");
     p.delete("expenseId");
-    router.replace(`${pathname}?${p.toString()}`);
+    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
     form.resetFields();
   }
 
@@ -490,9 +568,10 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   }, [statsFilteredExpenses, rates, currency, people]);
 
   const { balances, transactions } = useMemo(
-    () => calculateSettlement(expenses, people),
-    [expenses, people]
+    () => calculateSettlement(expenses, people, (amt, cur) => toBaseCurrency(amt, cur, currency, rates)),
+    [expenses, people, currency, rates]
   );
+  const settlementNeedsRates = !rates && expenses.some((e) => e.currency !== currency);
 
   const listContent = (
     <>
@@ -693,27 +772,26 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                     )}
                   </div>
                   {!readOnly && (
-                    <Dropdown
-                      trigger={["click"]}
-                      menu={{
-                        items: [
-                          { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(exp) },
-                          { type: "divider" },
-                          {
-                            key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                            onClick: () => modal.confirm({
-                              title: "確定刪除這筆費用？",
-                              okText: "刪除", okType: "danger", cancelText: "取消",
-                              onOk: () => handleDelete(exp.id),
-                            }),
-                          },
-                        ],
-                      }}
-                    >
-                      <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
-                        <MoreOutlined />
+                    <div className="flex items-center gap-1 shrink-0 ml-1">
+                      <button
+                        aria-label="編輯費用"
+                        onClick={() => openEdit(exp)}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
+                      >
+                        <EditOutlined style={{ fontSize: 13 }} />
                       </button>
-                    </Dropdown>
+                      <button
+                        aria-label="刪除費用"
+                        onClick={() => modal.confirm({
+                          title: `確定刪除「${exp.description}」？`,
+                          okText: "刪除", okType: "danger", cancelText: "取消",
+                          onOk: () => handleDelete(exp.id),
+                        })}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-red-500/15 hover:text-red-400 transition-colors cursor-pointer"
+                      >
+                        <DeleteOutlined style={{ fontSize: 13 }} />
+                      </button>
+                    </div>
                   )}
                 </div>
               </motion.div>
@@ -724,9 +802,20 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     </>
   );
 
+  const addButton = !readOnly && (
+    <button
+      onClick={openAdd}
+      className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
+    >
+      <PlusIcon size={12} />
+      新增費用
+    </button>
+  );
+
   const statsContent = (
     <>
-      <div className="flex justify-end my-4">
+      <div className="flex justify-between items-center my-4 gap-2">
+        {addButton || <span />}
         <Select
           className="w-36"
           placeholder="視角：所有人"
@@ -935,12 +1024,19 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
   const settlementContent = (
     <>
-      <Typography.Text strong className="text-zinc-100 text-[15px] block my-4">
-        結算
-      </Typography.Text>
+      <div className="flex justify-between items-center my-4 gap-2">
+        <Typography.Text strong className="text-zinc-100 text-[15px]">
+          結算
+        </Typography.Text>
+        {addButton}
+      </div>
       {people.length === 0 ? (
         <div className="text-zinc-600 text-center py-8">
           請先在旅程編輯中加入分帳成員
+        </div>
+      ) : settlementNeedsRates ? (
+        <div className="text-zinc-600 text-center py-8">
+          匯率載入中，稍候即可顯示換算後的結算金額…
         </div>
       ) : (
         <>
@@ -982,11 +1078,8 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                       <span className="text-violet-400 font-semibold">{currency} {t.amount.toFixed(2)}</span>
                     </span>
                     <button
-                      onClick={() => setPaidTransactions(prev => {
-                        const next = new Set(prev);
-                        isPaid ? next.delete(txKey) : next.add(txKey);
-                        return next;
-                      })}
+                      aria-label={isPaid ? "取消繳清標記" : "標記為已繳清"}
+                      onClick={() => togglePaid(txKey, isPaid)}
                       className={`ml-3 w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 cursor-pointer ${isPaid ? "bg-green-500/20 border-green-500/50 text-green-400" : "border-zinc-700 text-zinc-700 hover:border-zinc-500 hover:text-zinc-400"}`}
                     >
                       {isPaid && <CheckOutlined style={{ fontSize: 11 }} />}
@@ -1129,9 +1222,20 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
             <Input.TextArea rows={2} />
           </Form.Item>
           <Form.Item className="!mb-0 !mt-2">
-            <Button type="primary" htmlType="submit" block loading={saving}>
-              {editingExpense ? "儲存變更" : "新增費用"}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="primary" htmlType="submit" block loading={saving}>
+                {editingExpense ? "儲存變更" : "新增費用"}
+              </Button>
+              {!editingExpense && (
+                <Button
+                  block
+                  loading={saving}
+                  onClick={() => { continueAfterSave.current = true; form.submit(); }}
+                >
+                  儲存並繼續
+                </Button>
+              )}
+            </div>
           </Form.Item>
         </Form>
       </Modal>
