@@ -27,11 +27,11 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { tripId, date, title, category, time, end_date, end_time, location, notes } = body;
+  const { tripId, date, title, category, time, end_date, end_time, location, notes, image_urls } = body;
 
   const { error } = await supabase
     .from("itinerary_items")
-    .insert({ trip_id: tripId, user_id: user.id, date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes });
+    .insert({ trip_id: tripId, user_id: user.id, date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [] });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
@@ -43,11 +43,11 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, date, title, category, time, end_date, end_time, location, notes } = body;
+  const { id, date, title, category, time, end_date, end_time, location, notes, image_urls } = body;
 
   const { error } = await supabase
     .from("itinerary_items")
-    .update({ date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes })
+    .update({ date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [] })
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

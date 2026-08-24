@@ -4,8 +4,8 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Button, Modal, Form, DatePicker, Select, Dropdown, Typography, Input, Skeleton, Timeline, Tooltip, App } from "antd";
-import { EditOutlined, DeleteOutlined, MoreOutlined, LoadingOutlined } from "@ant-design/icons";
+import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider } from "antd";
+import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CategoryBadge } from "@/app/components/Icons";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
@@ -13,6 +13,17 @@ import QuillEditor from "@/app/components/QuillEditor";
 
 const todayStr = dayjs().format("YYYY-MM-DD");
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+
+/** Cover focal position is stored as a `#pos=NN` (0-100, vertical %) suffix on the image URL */
+function parseCoverPos(url: string): { clean: string; pos: number } {
+  const m = url.match(/#pos=(\d+)$/);
+  return m ? { clean: url.replace(/#pos=\d+$/, ""), pos: Number(m[1]) } : { clean: url, pos: 50 };
+}
+
+function withCoverPos(url: string, pos: number): string {
+  const clean = url.replace(/#pos=\d+$/, "");
+  return pos === 50 ? clean : `${clean}#pos=${pos}`;
+}
 
 /** Ensure all <a> tags in Quill HTML open in a new tab */
 function processLinks(html: string): string {
@@ -38,6 +49,7 @@ interface ItineraryItem {
   end_time: string | null;
   location: string | null;
   notes: string | null;
+  image_urls: string[] | null;
 }
 
 interface WeatherDay {
@@ -130,6 +142,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   // Modal state derived from URL (only when not read-only)
   const urlModal = searchParams.get("modal");
   const urlItemId = searchParams.get("itemId");
+  const urlDate = searchParams.get("date");
   const showModal = !readOnly && (urlModal === "addItinerary" || urlModal === "editItinerary");
   const editingItem = useMemo<ItineraryItem | null>(() => {
     if (urlModal !== "editItinerary" || !urlItemId) return null;
@@ -137,6 +150,8 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   }, [urlModal, urlItemId, items]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherDay>>({});
   const { modal, message } = App.useApp();
 
@@ -216,87 +231,113 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   }, [isActive, loading]);
 
   async function handleSave(values: Record<string, unknown>) {
+    if (uploadingCount > 0) {
+      message.warning("圖片上傳中，請稍候再儲存");
+      return;
+    }
     setSaving(true);
 
-    const dateRange = values.dateRange as [Dayjs, Dayjs] | null;
-    const startDt = dateRange?.[0] ?? null;
-    const endDt = dateRange?.[1] ?? null;
+    const dateVal = values.date as Dayjs | null;
+    const endDateVal = values.endDate as Dayjs | null | undefined;
+    const timeStartVal = values.timeStart as Dayjs | null | undefined;
+    const timeEndVal = values.timeEnd as Dayjs | null | undefined;
 
     const payload = {
       tripId,
-      date: startDt ? startDt.format("YYYY-MM-DD") : "",
-      time: startDt ? startDt.format("HH:mm") : null,
-      end_date: endDt ? endDt.format("YYYY-MM-DD") : null,
-      end_time: endDt ? endDt.format("HH:mm") : null,
+      date: dateVal ? dateVal.format("YYYY-MM-DD") : "",
+      time: timeStartVal ? timeStartVal.format("HH:mm") : null,
+      end_date: endDateVal ? endDateVal.format("YYYY-MM-DD") : null,
+      end_time: timeEndVal ? timeEndVal.format("HH:mm") : null,
       title: values.title,
       category: values.category ?? null,
       location: values.location ?? null,
       notes: (values.notes && values.notes !== "<p><br></p>") ? values.notes as string : null,
+      image_urls: imageUrls,
     };
 
-    if (editingItem) {
-      await fetchWithAuth("/api/itinerary", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editingItem.id, ...payload }),
-      });
-    } else {
-      await fetchWithAuth("/api/itinerary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    try {
+      const res = editingItem
+        ? await fetchWithAuth("/api/itinerary", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: editingItem.id, ...payload }),
+          })
+        : await fetchWithAuth("/api/itinerary", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+      if (!res.ok) {
+        message.error("儲存失敗，請再試一次");
+        return;
+      }
+      message.success(editingItem ? "已更新行程" : "已新增行程");
+      closeModal();
+      fetchItems();
+    } catch {
+      message.error("儲存失敗，請檢查網路連線");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    closeModal();
-    fetchItems();
   }
 
   async function handleDelete(id: string) {
-    await fetchWithAuth("/api/itinerary", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    fetchItems();
+    try {
+      const res = await fetchWithAuth("/api/itinerary", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        message.error("刪除失敗，請再試一次");
+        return;
+      }
+      message.success("已刪除行程");
+      fetchItems();
+    } catch {
+      message.error("刪除失敗，請檢查網路連線");
+    }
   }
 
   // Populate form when URL-driven modal opens
   useEffect(() => {
     if (readOnly) return;
     if (urlModal === "editItinerary" && editingItem) {
-      const startTime = editingItem.time ?? "00:00";
-      const endDate = editingItem.end_date ?? editingItem.date;
-      const endTime = editingItem.end_time ?? editingItem.time ?? "00:00";
-      const startDt = editingItem.date ? dayjs(`${editingItem.date} ${startTime}`) : null;
-      const endDt = endDate ? dayjs(`${endDate} ${endTime}`) : null;
       form.setFieldsValue({
-        dateRange: startDt ? [startDt, endDt ?? startDt] : null,
+        date: editingItem.date ? dayjs(editingItem.date) : null,
+        endDate: editingItem.end_date && editingItem.end_date !== editingItem.date ? dayjs(editingItem.end_date) : null,
+        timeStart: editingItem.time ? dayjs(editingItem.time, "HH:mm") : null,
+        timeEnd: editingItem.end_time ? dayjs(editingItem.end_time, "HH:mm") : null,
         title: editingItem.title,
         category: editingItem.category,
         location: editingItem.location,
         notes: editingItem.notes,
       });
+      setImageUrls(editingItem.image_urls ?? []);
     } else if (urlModal === "addItinerary") {
       form.resetFields();
+      if (urlDate) {
+        form.setFieldsValue({ date: dayjs(urlDate) });
+      }
+      setImageUrls([]);
     }
-  }, [urlModal, editingItem?.id]);
+  }, [urlModal, editingItem?.id, urlDate]);
 
   function openEdit(item: ItineraryItem) {
     if (readOnly) return;
     const p = new URLSearchParams(Array.from(searchParams.entries()));
     p.set("modal", "editItinerary");
     p.set("itemId", item.id);
-    router.push(`${pathname}?${p.toString()}`);
+    router.push(`${pathname}?${p.toString()}`, { scroll: false });
   }
 
-  function openAdd() {
+  function openAdd(date?: string) {
     if (readOnly) return;
     const p = new URLSearchParams(Array.from(searchParams.entries()));
     p.set("modal", "addItinerary");
     p.delete("itemId");
-    router.push(`${pathname}?${p.toString()}`);
+    if (date) p.set("date", date); else p.delete("date");
+    router.push(`${pathname}?${p.toString()}`, { scroll: false });
   }
 
   function closeModal() {
@@ -304,8 +345,30 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
     const p = new URLSearchParams(Array.from(searchParams.entries()));
     p.delete("modal");
     p.delete("itemId");
-    router.replace(`${pathname}?${p.toString()}`);
+    p.delete("date");
+    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
     form.resetFields();
+    setImageUrls([]);
+  }
+
+  async function handleImageUpload(file: File) {
+    setUploadingCount((c) => c + 1);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("tripId", tripId);
+      const res = await fetchWithAuth("/api/itinerary/upload", { method: "POST", body: fd });
+      if (res.ok) {
+        const data = await res.json();
+        setImageUrls((prev) => [...prev, data.url]);
+      } else {
+        message.error("圖片上傳失敗，請再試一次");
+      }
+    } catch {
+      message.error("圖片上傳失敗，請再試一次");
+    } finally {
+      setUploadingCount((c) => c - 1);
+    }
   }
 
   async function handleHealthCheck() {
@@ -439,6 +502,15 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                 {wmoEmoji(weatherMap[date].code)} {weatherMap[date].maxTemp}° / {weatherMap[date].minTemp}°
               </span>
             )}
+            {!readOnly && (
+              <button
+                aria-label={`在 ${date} 新增行程`}
+                onClick={() => openAdd(date)}
+                className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-500 border border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.12] hover:text-zinc-200 transition-colors cursor-pointer"
+              >
+                <PlusIcon size={10} />
+              </button>
+            )}
           </div>
           {grouped[date].map((item, itemIndex) => (
             <motion.div
@@ -448,79 +520,114 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.28, ease: "easeOut", delay: itemIndex * 0.05 }}
               className="relative bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden mb-2"
-              style={{ padding: '12px 14px 12px 18px' }}
             >
               {item.category && (
                 <div
-                  className="absolute left-0 top-0 bottom-0 w-1"
+                  className="absolute left-0 top-0 bottom-0 w-1 z-10"
                   style={{ background: `linear-gradient(to bottom, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).to})` }}
                 />
               )}
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    {(item.time || item.end_time) && (
-                      <span className="text-zinc-500 text-xs shrink-0 tabular-nums">
-                        {item.time ?? ""}
-                        {(item.end_time || (item.end_date && item.end_date !== item.date)) && (
-                          <span className="text-zinc-600">
-                            {" → "}
-                            {item.end_date && item.end_date !== item.date ? `${item.end_date} ` : ""}
-                            {item.end_time ?? ""}
-                          </span>
-                        )}
+              <div className="block md:flex">
+              {item.image_urls && item.image_urls.length > 0 && (() => {
+                const cover = parseCoverPos(item.image_urls[0]);
+                return (
+                  <div className="relative w-full h-36 md:w-64 md:h-auto md:min-h-[128px] md:shrink-0">
+                    <Image.PreviewGroup items={item.image_urls.map((u) => parseCoverPos(u).clean)}>
+                      <Image
+                        src={cover.clean}
+                        alt={item.title}
+                        rootClassName="!absolute !inset-0 !block"
+                        className="!w-full !h-full object-cover"
+                        style={{
+                          objectPosition: `center ${cover.pos}%`,
+                          filter: "saturate(0.82) brightness(0.92) contrast(1.05)",
+                        }}
+                        preview={{ mask: null }}
+                      />
+                    </Image.PreviewGroup>
+                    <div className="absolute inset-0 bg-[#17141f]/25 pointer-events-none" />
+                    <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-transparent to-[#121214] pointer-events-none md:hidden" />
+                    <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-r from-transparent to-[#121214] pointer-events-none hidden md:block" />
+                    {item.image_urls.length > 1 && (
+                      <span className="absolute bottom-2 right-2 text-[11px] leading-4 px-1.5 py-0.5 rounded-md bg-black/60 text-zinc-200 pointer-events-none">
+                        +{item.image_urls.length - 1}
                       </span>
                     )}
-                    <Typography.Text strong className="text-zinc-100 text-sm">{item.title}</Typography.Text>
-                    {item.category && <CategoryBadge category={item.category} />}
                   </div>
-                  {item.location && (
-                    <div className="text-zinc-500 text-xs mb-0.5 flex items-center gap-1">
-                      <LocationIcon size={10} />
-                      <a
-                        href={
-                          item.location.startsWith("http")
-                            ? item.location
-                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="location-link"
-                      >
-                        {item.location.startsWith("http") ? "查看地圖" : item.location}
-                      </a>
-                    </div>
+                );
+              })()}
+              <div className="flex-1 min-w-0" style={{ padding: "12px 14px 12px 18px" }}>
+              <div className="flex justify-between items-start">
+                <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap mb-1">
+                  {(item.time || item.end_time) && (
+                    <span className="text-zinc-500 text-xs shrink-0 tabular-nums">
+                      {item.time ?? ""}
+                      {(item.end_time || (item.end_date && item.end_date !== item.date)) && (
+                        <span className="text-zinc-600">
+                          {" → "}
+                          {item.end_date && item.end_date !== item.date ? `${item.end_date} ` : ""}
+                          {item.end_time ?? ""}
+                        </span>
+                      )}
+                    </span>
                   )}
-                  {item.notes && (
-                    <div
-                      className="notes-content text-zinc-500 text-xs mt-1"
-                      dangerouslySetInnerHTML={{ __html: processLinks(item.notes) }}
-                    />
-                  )}
+                  <Typography.Text strong className="text-zinc-100 text-sm">{item.title}</Typography.Text>
+                  {item.category && <CategoryBadge category={item.category} />}
                 </div>
                 {!readOnly && (
-                  <Dropdown
-                    trigger={["click"]}
-                    menu={{
-                      items: [
-                        { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => openEdit(item) },
-                        { type: "divider" },
-                        {
-                          key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                          onClick: () => modal.confirm({
-                            title: "確定刪除這個行程？",
-                            okText: "刪除", okType: "danger", cancelText: "取消",
-                            onOk: () => handleDelete(item.id),
-                          }),
-                        },
-                      ],
-                    }}
-                  >
-                    <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0 ml-1">
-                      <MoreOutlined />
+                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                    <button
+                      aria-label="編輯行程"
+                      onClick={() => openEdit(item)}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
+                    >
+                      <EditOutlined style={{ fontSize: 13 }} />
                     </button>
-                  </Dropdown>
+                    <button
+                      aria-label="刪除行程"
+                      onClick={() => modal.confirm({
+                        title: `確定刪除「${item.title}」？`,
+                        okText: "刪除", okType: "danger", cancelText: "取消",
+                        onOk: () => handleDelete(item.id),
+                      })}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-red-500/15 hover:text-red-400 transition-colors cursor-pointer"
+                    >
+                      <DeleteOutlined style={{ fontSize: 13 }} />
+                    </button>
+                  </div>
                 )}
+              </div>
+              {item.location && (
+                <div className="text-zinc-500 text-xs mb-0.5 flex items-center gap-1">
+                  <a
+                    href={
+                      item.location.startsWith("http")
+                        ? item.location
+                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="在 Google Maps 開啟地點"
+                    className="w-6 h-6 -my-1 -ml-1.5 rounded-full flex items-center justify-center shrink-0 text-zinc-500 hover:text-violet-400 hover:bg-white/[0.08] transition-colors"
+                  >
+                    <LocationIcon size={12} />
+                  </a>
+                  {item.location.startsWith("http") ? (
+                    <a href={item.location} target="_blank" rel="noopener noreferrer" className="location-link">
+                      查看地圖
+                    </a>
+                  ) : (
+                    <span className="truncate">{item.location}</span>
+                  )}
+                </div>
+              )}
+              {item.notes && (
+                <div
+                  className="notes-content text-zinc-500 text-xs mt-1"
+                  dangerouslySetInnerHTML={{ __html: processLinks(item.notes) }}
+                />
+              )}
+              </div>
               </div>
             </motion.div>
           ))}
@@ -554,7 +661,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                 {healthLoading ? <LoadingOutlined style={{ fontSize: 10 }} /> : <span>⚕</span>} 健康
               </button>
               <button
-                onClick={openAdd}
+                onClick={() => openAdd()}
                 className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
               >
                 <PlusIcon size={11} />
@@ -624,7 +731,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
           {!readOnly && (
             <div className="flex gap-2 w-full max-w-[300px]">
               <button
-                onClick={openAdd}
+                onClick={() => openAdd()}
                 className="flex-1 h-10 rounded-2xl bg-white/[0.06] border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition-all cursor-pointer"
               >
                 手動新增
@@ -651,19 +758,22 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
         centered={true}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4" disabled={saving}>
-          <Form.Item
-            name="dateRange"
-            label="開始 → 結束時間"
-            rules={[{ required: true, message: "請選擇時間範圍" }]}
-          >
-            <DatePicker.RangePicker
-              className="w-full"
-              showTime={{ format: "HH:mm" }}
-              format="YYYY-MM-DD HH:mm"
-              placeholder={["開始日期 & 時間", "結束日期 & 時間"]}
-              minuteStep={5}
-            />
-          </Form.Item>
+          <div className="flex gap-2">
+            <Form.Item name="date" label="日期" rules={[{ required: true, message: "請選擇日期" }]} className="flex-1">
+              <DatePicker className="w-full" placeholder="選擇日期" />
+            </Form.Item>
+            <Form.Item name="endDate" label="結束日期（跨日選填）" className="flex-1">
+              <DatePicker className="w-full" placeholder="跨日才需要" />
+            </Form.Item>
+          </div>
+          <div className="flex gap-2">
+            <Form.Item name="timeStart" label="開始時間（選填）" className="flex-1">
+              <TimePicker className="w-full" format="HH:mm" minuteStep={5} placeholder="選填" needConfirm={false} />
+            </Form.Item>
+            <Form.Item name="timeEnd" label="結束時間（選填）" className="flex-1">
+              <TimePicker className="w-full" format="HH:mm" minuteStep={5} placeholder="選填" needConfirm={false} />
+            </Form.Item>
+          </div>
           <Form.Item name="title" label="行程名稱" rules={[{ required: true, message: "請輸入行程名稱" }]}>
             <Input placeholder="例如：淺草寺參觀" />
           </Form.Item>
@@ -675,6 +785,73 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
           </Form.Item>
           <Form.Item name="notes" label="備註">
             <QuillEditor placeholder="行程備註..." />
+          </Form.Item>
+          <Form.Item label="圖片（點縮圖設為封面）">
+            <div className="flex flex-wrap gap-2">
+              {imageUrls.map((url, idx) => (
+                <div key={url} className="relative w-20 h-20">
+                  <button
+                    type="button"
+                    title={idx === 0 ? "目前封面" : "設為封面"}
+                    aria-label={idx === 0 ? "目前封面" : "設為封面"}
+                    onClick={() => { if (idx !== 0) setImageUrls((prev) => [url, ...prev.filter((u) => u !== url)]); }}
+                    className={`w-full h-full rounded-xl overflow-hidden border cursor-pointer ${idx === 0 ? "border-violet-500/60" : "border-white/[0.08] hover:border-white/30"} transition-colors`}
+                  >
+                    <img src={parseCoverPos(url).clean} alt="行程圖片" className="w-full h-full object-cover" />
+                  </button>
+                  {idx === 0 && (
+                    <span className="absolute bottom-1 left-1 text-[10px] leading-4 px-1 rounded bg-violet-500/80 text-white pointer-events-none">
+                      封面
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    aria-label="移除圖片"
+                    onClick={() => setImageUrls((prev) => prev.filter((u) => u !== url))}
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-zinc-800 border border-white/[0.15] text-zinc-300 flex items-center justify-center hover:bg-zinc-700 transition-colors cursor-pointer"
+                  >
+                    <CloseOutlined style={{ fontSize: 10 }} />
+                  </button>
+                </div>
+              ))}
+              <Upload
+                accept="image/*"
+                multiple
+                showUploadList={false}
+                beforeUpload={(file) => { handleImageUpload(file); return false; }}
+              >
+                <button
+                  type="button"
+                  className="w-20 h-20 rounded-xl border border-dashed border-white/[0.15] text-zinc-500 flex flex-col items-center justify-center gap-1 hover:border-white/30 hover:text-zinc-300 transition-colors cursor-pointer"
+                >
+                  {uploadingCount > 0 ? <LoadingOutlined /> : <PictureOutlined />}
+                  <span className="text-[11px]">{uploadingCount > 0 ? "上傳中" : "上傳"}</span>
+                </button>
+              </Upload>
+            </div>
+            {imageUrls.length > 0 && (() => {
+              const cover = parseCoverPos(imageUrls[0]);
+              return (
+                <div className="mt-3">
+                  <div className="w-full h-24 rounded-xl overflow-hidden border border-white/[0.08]">
+                    <img
+                      src={cover.clean}
+                      alt="封面預覽"
+                      className="w-full h-full object-cover"
+                      style={{ objectPosition: `center ${cover.pos}%` }}
+                    />
+                  </div>
+                  <Slider
+                    min={0}
+                    max={100}
+                    value={cover.pos}
+                    onChange={(v: number) => setImageUrls((prev) => [withCoverPos(prev[0], v), ...prev.slice(1)])}
+                    tooltip={{ open: false }}
+                  />
+                  <div className="text-[11px] text-zinc-500 -mt-1">封面顯示位置：往左露出圖片上緣、往右露出下緣</div>
+                </div>
+              );
+            })()}
           </Form.Item>
           <Form.Item className="!mb-0 !mt-2">
             <Button type="primary" htmlType="submit" block loading={saving}>

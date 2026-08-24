@@ -70,16 +70,58 @@ export default function PhotoWall({ albumUrl }: Props) {
     }
   };
 
-  const openLightbox = useCallback((i: number) => { setLightboxIndex(i); setVideoError(false); }, []);
-  const closeLightbox = useCallback(() => setLightboxIndex(null), []);
+  const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastTapRef = useRef(0);
+
+  const openLightbox = useCallback((i: number) => { setLightboxIndex(i); setVideoError(false); setZoom(null); }, []);
+  const closeLightbox = useCallback(() => { setLightboxIndex(null); setZoom(null); }, []);
   const prevPhoto = useCallback(() => {
     setVideoError(false);
+    setZoom(null);
     setLightboxIndex((i) => (i !== null ? (i - 1 + photos.length) % photos.length : null));
   }, [photos.length]);
   const nextPhoto = useCallback(() => {
     setVideoError(false);
+    setZoom(null);
     setLightboxIndex((i) => (i !== null ? (i + 1) % photos.length : null));
   }, [photos.length]);
+
+  // Touch: horizontal swipe switches photos (disabled while zoomed)
+  function handleLightboxTouchStart(e: React.TouchEvent) {
+    if (e.touches.length !== 1) return;
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  function handleLightboxTouchEnd(e: React.TouchEvent) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || zoom || e.changedTouches.length === 0) return;
+    const dx = e.changedTouches[0].clientX - start.x;
+    const dy = e.changedTouches[0].clientY - start.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) nextPhoto(); else prevPhoto();
+    }
+  }
+
+  // Double-tap / double-click toggles 2.2x zoom centered on the tapped point
+  function handleImageClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      lastTapRef.current = 0;
+      if (zoom) {
+        setZoom(null);
+      } else {
+        const rect = (e.target as HTMLElement).getBoundingClientRect();
+        setZoom({
+          x: ((e.clientX - rect.left) / rect.width) * 100,
+          y: ((e.clientY - rect.top) / rect.height) * 100,
+        });
+      }
+    } else {
+      lastTapRef.current = now;
+    }
+  }
 
   // Keyboard navigation
   useEffect(() => {
@@ -208,7 +250,9 @@ export default function PhotoWall({ albumUrl }: Props) {
       {currentPhoto && (
         <div
           onClick={closeLightbox}
-          className="fixed inset-0 z-[2000] bg-black/[0.96] flex items-center justify-center"
+          onTouchStart={handleLightboxTouchStart}
+          onTouchEnd={handleLightboxTouchEnd}
+          className="fixed inset-0 z-[2000] bg-black/[0.96] flex items-center justify-center overflow-hidden"
         >
           {/* Full-resolution image / video */}
           {currentPhoto.isVideo ? (
@@ -248,8 +292,13 @@ export default function PhotoWall({ albumUrl }: Props) {
             <img
               src={`${currentPhoto.baseUrl}=w1600`}
               alt={currentPhoto.filename}
-              onClick={(e) => e.stopPropagation()}
-              className="max-w-[92vw] max-h-[90vh] object-contain rounded-md select-none"
+              onClick={handleImageClick}
+              className="max-w-[92vw] max-h-[90vh] object-contain rounded-md select-none transition-transform duration-200"
+              style={{
+                transform: zoom ? "scale(2.2)" : "none",
+                transformOrigin: zoom ? `${zoom.x}% ${zoom.y}%` : "center",
+                cursor: zoom ? "zoom-out" : "zoom-in",
+              }}
             />
           )}
 

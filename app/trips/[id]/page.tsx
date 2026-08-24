@@ -235,14 +235,14 @@ export default function TripPage() {
     setTabDirection(order.indexOf(val) > order.indexOf(activeTab) ? 1 : -1);
     setActiveTab(val);
 
-    // push (not replace) so browser back returns to the previous tab
+    // replace (not push) so browser back leaves the page instead of stepping through visited tabs
     const current = new URLSearchParams(Array.from(searchParams.entries()));
     current.set("tab", val);
     current.delete("modal");
     current.delete("segmentId");
     const search = current.toString();
     const query = search ? `?${search}` : "";
-    router.push(`/trips/${id}${query}`, { scroll: false });
+    router.replace(`/trips/${id}${query}`, { scroll: false });
   };
 
   useEffect(() => {
