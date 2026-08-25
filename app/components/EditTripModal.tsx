@@ -3,7 +3,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 import { useState, useEffect, useRef } from "react";
 import { Modal, Form, Input, DatePicker, Button, Row, Col, Select } from "antd";
-import { PlaneIcon, PhotoIcon, CalendarIcon, CreditCardIcon, NotepadIcon, LocationIcon, GiftIcon } from "@/app/components/Icons";
+import { PlaneIcon, PhotoIcon, CalendarIcon, CoinIcon, NotepadIcon, LocationIcon, GiftIcon } from "@/app/components/Icons";
 
 import dayjs from "dayjs";
 
@@ -12,7 +12,7 @@ import QuillEditor from "@/app/components/QuillEditor";
 const ALL_TABS = [
   { key: "transport", label: "路線", icon: <PlaneIcon size={14} /> },
   { key: "itinerary", label: "行程", icon: <CalendarIcon size={14} /> },
-  { key: "expenses", label: "費用", icon: <CreditCardIcon size={14} /> },
+  { key: "expenses", label: "費用", icon: <CoinIcon size={14} /> },
   { key: "photos", label: "照片", icon: <PhotoIcon size={14} /> },
   { key: "notes", label: "筆記", icon: <NotepadIcon size={14} /> },
   { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={14} /> },

@@ -16,7 +16,7 @@ import {
   Dropdown,
 } from "antd";
 import { getCountryFlags } from "@/lib/countries";
-import { UserOutlined, AimOutlined } from "@ant-design/icons";
+import { UserOutlined, AimOutlined, LoadingOutlined } from "@ant-design/icons";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
   MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon,
@@ -174,7 +174,7 @@ function TripCard({
                 )}
               </div>
             )}
-            <Typography.Text strong className={`block text-[14px] leading-tight ${selected ? "text-white" : "text-zinc-200"}`}>
+            <Typography.Text strong className={`font-display block text-[14px] leading-tight ${selected ? "text-white" : "text-zinc-200"}`}>
               {trip.name}
             </Typography.Text>
           </div>
@@ -212,6 +212,16 @@ function TripCard({
 export default function Home() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [authError, setAuthError] = useState(false);
+  const [isPWA, setIsPWA] = useState(false);
+
+  // 開場過場動畫只保留給 PWA（加入主畫面後的 standalone 模式）
+  useEffect(() => {
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      ("standalone" in navigator && (navigator as { standalone?: boolean }).standalone === true);
+    setIsPWA(standalone);
+  }, []);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
@@ -233,14 +243,21 @@ export default function Home() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  useEffect(() => {
+  function checkAuth() {
+    setAuthError(false);
     fetchWithAuth("/api/auth/status")
       .then((r) => r.json())
       .then((data) => {
         setAuthenticated(data.authenticated);
         if (data.authenticated) fetchAll();
         else setLoading(false);
-      });
+      })
+      .catch(() => setAuthError(true));
+  }
+
+  useEffect(() => {
+    checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchAll() {
@@ -264,15 +281,6 @@ export default function Home() {
       localStorage.setItem("travel_segments", JSON.stringify(segments));
     }
     setLoading(false);
-  }
-
-  async function fetchTrips() {
-    const res = await fetchWithAuth("/api/sheets");
-    if (res.ok) {
-      const trips = (await res.json()).trips;
-      setTrips(trips);
-      localStorage.setItem("travel_trips", JSON.stringify(trips));
-    }
   }
 
   function navigateToTrip(tripId: string) {
@@ -322,6 +330,29 @@ export default function Home() {
   const cardY = useSpring(useTransform(loginMouseY, [-0.5, 0.5], [-14, 14]), { stiffness: 80, damping: 18 });
   const cardRotX = useSpring(useTransform(loginMouseY, [-0.5, 0.5], [5, -5]), { stiffness: 80, damping: 18 });
   const cardRotY = useSpring(useTransform(loginMouseX, [-0.5, 0.5], [-5, 5]), { stiffness: 80, damping: 18 });
+
+  if (authenticated === null && authError) {
+    return (
+      <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center gap-4 px-6">
+        <div className="text-zinc-300 text-[15px] font-medium">連線失敗</div>
+        <div className="text-zinc-500 text-[13px] text-center">無法確認登入狀態，請檢查網路後重試。</div>
+        <button
+          onClick={checkAuth}
+          className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-9 px-5 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
+        >
+          重新連線
+        </button>
+      </div>
+    );
+  }
+
+  if (authenticated === null && !isPWA) {
+    return (
+      <div className="min-h-[100dvh] bg-[#09090b] flex items-center justify-center">
+        <LoadingOutlined className="!text-zinc-600" style={{ fontSize: 22 }} />
+      </div>
+    );
+  }
 
   if (authenticated === null) {
     return (

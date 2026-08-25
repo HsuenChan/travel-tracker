@@ -378,3 +378,79 @@ export function CarIcon({ size = 14, className, stroke = "currentColor", strokeW
     </svg>
   );
 }
+
+export function SparkleIcon({ size = 11, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z" />
+    </svg>
+  );
+}
+
+export function HealthIcon({ size = 12, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3 12h4l2-6 4 12 2-6h6" />
+    </svg>
+  );
+}
+
+/** WMO weather code → line icon（與 zinc/violet 深色調一致的單線條天氣圖示） */
+export function WeatherIcon({ code, size = 12, className }: { code: number; size?: number; className?: string }) {
+  const common = {
+    width: size, height: size, viewBox: "0 0 24 24", fill: "none",
+    stroke: "currentColor", strokeWidth: 2,
+    strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className,
+  };
+  const cloud = "M6.7 18h10.3a4 4 0 0 0 .8-7.9A6 6 0 0 0 6.2 8.5 4.3 4.3 0 0 0 6.7 18z";
+  if (code === 0) {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4" />
+      </svg>
+    );
+  }
+  if (code <= 2) {
+    return (
+      <svg {...common}>
+        <path d="M15.5 8.5a4 4 0 1 0-7.4-2" />
+        <path d="M6.7 20h9.3a4 4 0 0 0 .8-7.9A6 6 0 0 0 6.2 10.5 4.3 4.3 0 0 0 6.7 20z" />
+      </svg>
+    );
+  }
+  if (code <= 48) {
+    return <svg {...common}><path d={cloud} /></svg>;
+  }
+  if (code <= 67 || (code >= 80 && code <= 82)) {
+    return (
+      <svg {...common}>
+        <path d="M6.7 15h10.3a4 4 0 0 0 .8-7.9A6 6 0 0 0 6.2 5.5 4.3 4.3 0 0 0 6.7 15z" />
+        <path d="M8 18.5l-.8 2M12 18.5l-.8 2M16 18.5l-.8 2" />
+      </svg>
+    );
+  }
+  if (code <= 86) {
+    return (
+      <svg {...common}>
+        <path d="M6.7 15h10.3a4 4 0 0 0 .8-7.9A6 6 0 0 0 6.2 5.5 4.3 4.3 0 0 0 6.7 15z" />
+        <path d="M8 18.5h.01M12 20.5h.01M16 18.5h.01" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M6.7 13h10.3a4 4 0 0 0 .8-7.9A6 6 0 0 0 6.2 3.5 4.3 4.3 0 0 0 6.7 13z" />
+      <path d="M13 13l-2.5 4h3L11 21" />
+    </svg>
+  );
+}
+
+export function CoinIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 6.5v11M14.8 9.2c-.5-.9-1.6-1.4-2.8-1.4-1.7 0-3 .9-3 2.1s1.3 2.1 3 2.1 3 .9 3 2.1-1.3 2.1-3 2.1c-1.2 0-2.3-.5-2.8-1.4" />
+    </svg>
+  );
+}

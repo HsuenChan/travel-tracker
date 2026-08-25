@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Layout, Typography, Tag, Timeline, Spin, ConfigProvider, theme } from "antd";
-import VehicleIconChip from "@/app/components/VehicleIconChip";
-import { PlaneIcon, PhotoIcon, CalendarIcon, CreditCardIcon, NotepadIcon, LocationIcon, GiftIcon } from "@/app/components/Icons";
-import { getCountryFlags } from "@/lib/countries";
+import SegmentCard from "@/app/components/SegmentCard";
+import TripHero from "@/app/components/TripHero";
+import MobileNav from "@/app/components/MobileNav";
+import { PlaneIcon, PhotoIcon, CalendarIcon, CoinIcon, NotepadIcon, GiftIcon } from "@/app/components/Icons";
 import PhotoWall from "@/app/components/PhotoWall";
 import ItineraryTab from "@/app/components/ItineraryTab";
 import ExpensesTab from "@/app/components/ExpensesTab";
@@ -133,50 +134,10 @@ export default function SharePage() {
     );
   }
 
-  const duration =
-    trip.start_date && trip.end_date
-      ? Math.round(
-        (new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()) /
-        (1000 * 60 * 60 * 24),
-      )
-      : null;
-
-  const countries = trip.countries
-    ? trip.countries.split(/[,，、]/).map((c) => c.trim()).filter(Boolean)
-    : [];
-
-  const flags = getCountryFlags(trip.countries ?? "");
-
   const timelineItems = segments.map((seg) => ({
     key: seg.id,
     color: "blue",
-    content: (
-      <div className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-4 py-[14px] mb-1">
-        <div className="flex items-center gap-2.5 mb-2">
-          <VehicleIconChip type={seg.type} />
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex flex-col items-start">
-              <Typography.Text strong className="text-zinc-100 text-[15px] leading-[1.3]">{seg.from_city}</Typography.Text>
-              {seg.from_iata && <span className="text-zinc-600 text-[11px] tracking-[0.05em]">{seg.from_iata}</span>}
-            </div>
-            <span className="text-zinc-700 text-base">→</span>
-            <div className="flex flex-col items-start">
-              <Typography.Text strong className="text-zinc-100 text-[15px] leading-[1.3]">{seg.to_city}</Typography.Text>
-              {seg.to_iata && <span className="text-zinc-600 text-[11px] tracking-[0.05em]">{seg.to_iata}</span>}
-            </div>
-          </div>
-        </div>
-        <div className="pl-8 flex gap-1.5 flex-wrap">
-          {seg.date && (
-            <Tag color="geekblue" className="rounded-md">
-              {seg.date}{seg.time && <span className="opacity-75"> {seg.time}</span>}
-            </Tag>
-          )}
-          {seg.flight_no && <Tag color="purple" className="rounded-md">{seg.flight_no}</Tag>}
-          {seg.aircraft && <Tag color="cyan" className="rounded-md">{seg.aircraft}</Tag>}
-        </div>
-      </div>
-    ),
+    content: <SegmentCard seg={seg} />,
   }));
 
   const currencies = trip.currency ? trip.currency.split(",") : ["TWD"];
@@ -185,7 +146,7 @@ export default function SharePage() {
   const tabs = [
     { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
     { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
-    { key: "expenses", label: "費用", icon: <CreditCardIcon size={18} /> },
+    { key: "expenses", label: "費用", icon: <CoinIcon size={18} /> },
     { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
     { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
     { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
@@ -219,63 +180,17 @@ export default function SharePage() {
         </Layout.Header>
 
         <Layout.Content className="max-w-[800px] mx-auto py-6 px-4 pb-24 w-full">
-          {/* Trip Summary Card */}
-          <div className="relative overflow-hidden bg-white/[0.02] border border-white/[0.08] rounded-3xl p-6 mb-6">
-            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-              <PlaneIcon size={120} />
-            </div>
-
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                {flags && <span className="text-2xl drop-shadow-md">{flags}</span>}
-                {countries.map(c => (
-                  <span
-                    key={c}
-                    className="rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5"
-                    style={{
-                      background: `#6366f112`,
-                      border: `1px solid #6366f128`,
-                      color: '#6366f1',
-                      boxShadow: `0 0 15px #6366f115`,
-                    }}
-                  >
-                    <LocationIcon size={11} />
-                    {c}
-                  </span>
-                ))}
-              </div>
-
-              <Typography.Title level={2} className="text-white! m-0! mb-4! text-2xl! font-bold! tracking-tight">
-                {trip.name}
-              </Typography.Title>
-
-              <div className="flex flex-wrap gap-3 items-center">
-                <div className="flex items-center gap-2 bg-white/[0.05] border border-white/[0.08] rounded-full px-3 py-1.5">
-                  <CalendarIcon size={14} className="text-blue-400" />
-                  <Typography.Text className="text-[13px] font-medium text-zinc-300">
-                    {trip.start_date} → {trip.end_date}
-                  </Typography.Text>
-                  {duration !== null && (
-                    <Typography.Text className="ml-1 text-zinc-500 text-xs border-l border-white/10 pl-2">
-                      {duration} 天
-                    </Typography.Text>
-                  )}
-                </div>
-              </div>
-
-              {trip.notes && (
-                <div className="mt-5 pt-5 border-t border-white/[0.06]">
-                  <div
-                    className="notes-content"
-                    dangerouslySetInnerHTML={{ __html: trip.notes }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+          <TripHero
+            name={trip.name}
+            startDate={trip.start_date}
+            endDate={trip.end_date}
+            countries={trip.countries}
+            notes={trip.notes}
+            showPeople={false}
+          />
 
           {/* Desktop Tabs (Segmented-like) */}
-          <div className="hidden md:flex items-center justify-center mb-8 sticky top-[80px] z-50">
+          <div className="hidden md:flex items-center justify-center mb-8 py-2 sticky top-14 z-[90] bg-[#09090b]/60 backdrop-blur-md">
             <div className="flex bg-[#18181b]/80 border border-white/8 backdrop-blur-md rounded-full p-1.5 shadow-xl">
               {tabs.map((tab) => (
                 <button
@@ -316,7 +231,7 @@ export default function SharePage() {
                 <div className="space-y-4">
                   <Typography.Text strong className="text-zinc-100 text-[15px] block mb-2 px-1">路線安排</Typography.Text>
                   {segments.length > 0 ? (
-                    <Timeline items={timelineItems} />
+                    <Timeline className="segment-timeline" items={timelineItems} />
                   ) : (
                     <div className="py-12 bg-white/[0.02] border border-white/5 rounded-3xl text-center text-zinc-600 text-sm">
                       尚無交通安排
@@ -339,6 +254,7 @@ export default function SharePage() {
                   currencies={currencies}
                   readOnly={true}
                   initialExpenses={expenses}
+                  tripEndDate={trip.end_date}
                 />
               )}
               {activeTab === "notes" && (
@@ -379,44 +295,13 @@ export default function SharePage() {
           </AnimatePresence>
         </Layout.Content>
 
-        <nav
-          className="md:hidden fixed bottom-0 left-0 right-0 z-400"
-          style={{
-            background: 'rgba(9,9,11,0.97)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            borderTop: '1px solid rgba(255,255,255,0.07)',
-            paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
-            willChange: 'transform',
-            transform: 'translateZ(0)',
-          }}
-        >
-          <div className="flex justify-around items-center pt-2 px-1 max-w-sm mx-auto">
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => handleTabChange(tab.key)}
-                  className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-pointer"
-                >
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
-                    style={isActive ? { background: 'rgba(139,92,246,0.15)', color: '#a78bfa' } : { color: '#52525b' }}
-                  >
-                    {tab.icon}
-                  </div>
-                  <span
-                    className="text-[10px] font-medium transition-all duration-200"
-                    style={{ color: isActive ? '#a78bfa' : '#52525b' }}
-                  >
-                    {tab.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </nav>
+        <MobileNav
+          className="md:hidden"
+          activeKey={activeTab}
+          onChange={handleTabChange}
+          tabs={tabs}
+        />
+
       </Layout>
     </ConfigProvider>
   );

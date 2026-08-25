@@ -6,12 +6,10 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import {
-  Button, Typography,
-  Skeleton, Popconfirm, Space, Tag, Timeline, Segmented, Modal, Dropdown, Tooltip, App, Select,
+  Button, Typography, Input,
+  Skeleton, Popconfirm, Timeline, Tooltip, App, Select,
 } from "antd";
-import {
-  DeleteOutlined, LoadingOutlined, EditOutlined, MoreOutlined,
-} from "@ant-design/icons";
+import { LoadingOutlined } from "@ant-design/icons";
 import EditTripModal from "@/app/components/EditTripModal";
 import AddSegmentModal from "@/app/components/AddSegmentModal";
 import EditSegmentModal from "@/app/components/EditSegmentModal";
@@ -21,29 +19,15 @@ import ExpensesTab from "@/app/components/ExpensesTab";
 import NotesTab from "@/app/components/NotesTab";
 import SouvenirsTab from "@/app/components/SouvenirsTab";
 import LineBotTripModal from "@/app/components/LineBotTripModal";
+import SegmentCard from "@/app/components/SegmentCard";
+import TripHero from "@/app/components/TripHero";
+import MobileNav from "@/app/components/MobileNav";
 const TripMap = dynamic(() => import("@/app/components/TripMap"), { ssr: false });
-import VehicleIconChip from "@/app/components/VehicleIconChip";
 import {
-  PlaneIcon, PlusIcon, CalendarIcon, LocationIcon, UsersIcon, GiftIcon,
-  CreditCardIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
+  PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon,
+  CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
 } from "@/app/components/Icons";
 import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-import timezone from "dayjs/plugin/timezone";
-import { AIRPORT_TIMEZONES } from "@/lib/airports";
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-function toTaiwanTime(date: string, time: string, fromIata: string): string | null {
-  const tz = AIRPORT_TIMEZONES[fromIata];
-  if (!tz || tz === "Asia/Taipei") return null;
-  try {
-    return dayjs.tz(`${date} ${time}`, tz).tz("Asia/Taipei").format("HH:mm");
-  } catch {
-    return null;
-  }
-}
 
 interface Trip {
   id: string;
@@ -93,23 +77,6 @@ interface MemberLink {
   avatar_url: string | null;
 }
 
-function getDestinationAccent(countries: string): { from: string; to: string } {
-  const c = (countries ?? "").toLowerCase();
-  if (/日本|japan/.test(c)) return { from: '#f472b6', to: '#e11d48' };
-  if (/韓國|korea/.test(c)) return { from: '#c084fc', to: '#7c3aed' };
-  if (/泰國|thai/.test(c)) return { from: '#facc15', to: '#ca8a04' };
-  if (/印尼|峇里|bali|indonesia/.test(c)) return { from: '#34d399', to: '#0d9488' };
-  if (/越南|vietnam/.test(c)) return { from: '#4ade80', to: '#15803d' };
-  if (/台灣|taiwan/.test(c)) return { from: '#f97316', to: '#dc2626' };
-  if (/法國|france|paris/.test(c)) return { from: '#818cf8', to: '#4f46e5' };
-  if (/義大利|italy/.test(c)) return { from: '#60a5fa', to: '#4338ca' };
-  if (/西班牙|spain/.test(c)) return { from: '#fb923c', to: '#dc2626' };
-  if (/英國|uk|england/.test(c)) return { from: '#60a5fa', to: '#1d4ed8' };
-  if (/美國|usa|america/.test(c)) return { from: '#60a5fa', to: '#dc2626' };
-  if (/澳洲|australia/.test(c)) return { from: '#fb923c', to: '#ca8a04' };
-  return { from: '#6366f1', to: '#14b8a6' };
-}
-
 export default function TripPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -117,6 +84,8 @@ export default function TripPage() {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [loading, setLoading] = useState(true);
   const [segmentsLoading, setSegmentsLoading] = useState(true);
+  const [tripLoadError, setTripLoadError] = useState(false);
+  const [segmentsLoadError, setSegmentsLoadError] = useState(false);
   const [editingSegment, setEditingSegment] = useState<Segment | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -126,14 +95,27 @@ export default function TripPage() {
   const [bindingPerson, setBindingPerson] = useState<string | null>(null);
   const [showBindingPanel, setShowBindingPanel] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [presenting, setPresenting] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+  const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
+
+  // Esc 關閉 bottom sheet
+  useEffect(() => {
+    if (!showMoreSheet) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShowMoreSheet(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showMoreSheet]);
+
+  const markAvatarFailed = (key: string) =>
+    setFailedAvatars((prev) => new Set(prev).add(key));
   const { modal, message: messageApi } = App.useApp();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "transport");
+  const hadTabParamRef = useRef(!!searchParams.get("tab"));
+  const autoTabAppliedRef = useRef(false);
 
   // Modal open state derived from URL — avoids duplicate history entries
   const urlModal = searchParams.get("modal");
@@ -151,8 +133,23 @@ export default function TripPage() {
     }
   }, [trip]);
 
+  // 旅途中模式：旅程期間開啟且 URL 未指定分頁時，直接落在今日行程
+  useEffect(() => {
+    if (!trip || hadTabParamRef.current || autoTabAppliedRef.current) return;
+    if (activeTab !== "transport") return;
+    if (trip.enabled_tabs && !trip.enabled_tabs.includes("itinerary")) return;
+    const today = dayjs().format("YYYY-MM-DD");
+    if (trip.start_date && trip.end_date && today >= trip.start_date && today <= trip.end_date) {
+      autoTabAppliedRef.current = true;
+      setTabDirection(1);
+      setActiveTab("itinerary");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip]);
+
   // Shared element transition: hero expands from card's screen position
   const heroRef = useRef<HTMLDivElement>(null);
+  const tabContentRef = useRef<HTMLDivElement>(null);
   const cardRectCache = useRef<{ left: number; top: number; width: number; height: number } | null>(null);
 
   useLayoutEffect(() => {
@@ -229,11 +226,26 @@ export default function TripPage() {
     router.replace(`/trips/${id}?${p.toString()}`);
   }
 
+  /** hero 卡還在視窗內就不捲動；捲過 hero 之後，切 tab 對齊到內容區塊頂端（扣掉 sticky header/tab bar） */
+  function scrollToTabContent() {
+    const hero = heroRef.current;
+    if (hero) {
+      const r = hero.getBoundingClientRect();
+      if (r.bottom > 64 && r.top < window.innerHeight) return;
+    }
+    const target = tabContentRef.current;
+    if (!target) return;
+    const offset = isMobile ? 72 : 136;
+    const y = window.scrollY + target.getBoundingClientRect().top - offset;
+    window.scrollTo({ top: Math.max(0, y), behavior: "instant" });
+  }
+
   const handleTabChange = (val: string) => {
     if (val === activeTab) return;
     const order = tabOrderRef.current;
     setTabDirection(order.indexOf(val) > order.indexOf(activeTab) ? 1 : -1);
     setActiveTab(val);
+    scrollToTabContent();
 
     // replace (not push) so browser back leaves the page instead of stepping through visited tabs
     const current = new URLSearchParams(Array.from(searchParams.entries()));
@@ -256,12 +268,19 @@ export default function TripPage() {
     const cacheKey = `travel_trip_${id}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) setTrip(JSON.parse(cached));
-    const res = await fetchWithAuth("/api/sheets");
-    if (res.ok) {
-      const data = await res.json();
-      const found = data.trips.find((t: Trip) => t.id === id) ?? null;
-      setTrip(found);
-      if (found) localStorage.setItem(cacheKey, JSON.stringify(found));
+    try {
+      const res = await fetchWithAuth("/api/sheets");
+      if (res.ok) {
+        const data = await res.json();
+        const found = data.trips.find((t: Trip) => t.id === id) ?? null;
+        setTrip(found);
+        if (found) localStorage.setItem(cacheKey, JSON.stringify(found));
+        setTripLoadError(false);
+      } else if (!cached) {
+        setTripLoadError(true);
+      }
+    } catch {
+      if (!cached) setTripLoadError(true);
     }
   }
 
@@ -274,41 +293,59 @@ export default function TripPage() {
     } else {
       setSegmentsLoading(true);
     }
-    const res = await fetchWithAuth(`/api/segments?tripId=${id}`);
-    if (res.ok) {
-      const data = await res.json();
-      setSegments(data.segments);
-      localStorage.setItem(cacheKey, JSON.stringify(data.segments));
+    try {
+      const res = await fetchWithAuth(`/api/segments?tripId=${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSegments(data.segments);
+        localStorage.setItem(cacheKey, JSON.stringify(data.segments));
+        setSegmentsLoadError(false);
+      } else if (!cached) {
+        setSegmentsLoadError(true);
+      }
+    } catch {
+      if (!cached) setSegmentsLoadError(true);
     }
     setSegmentsLoading(false);
   }
 
-  useEffect(() => {
-    const tripCached = localStorage.getItem(`travel_trip_${id}`);
-    if (tripCached) setLoading(false);
+  function loadAll() {
+    setTripLoadError(false);
+    setLoading(true);
     Promise.all([
       fetchTrip(),
       fetchSegments(),
       fetchMembers(),
       fetchMemberLinks(),
-      fetchWithAuth("/api/auth/status").then((r) => r.json()).then((d) => setUserId(d.userId)),
+      fetchWithAuth("/api/auth/status").then((r) => r.json()).then((d) => setUserId(d.userId)).catch(() => { }),
     ]).finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    const tripCached = localStorage.getItem(`travel_trip_${id}`);
+    if (tripCached) setLoading(false);
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function fetchMembers() {
-    const res = await fetchWithAuth(`/api/trips/${id}/members`);
-    if (res.ok) {
-      const data = await res.json();
-      setMembers(data.members);
-    }
+    try {
+      const res = await fetchWithAuth(`/api/trips/${id}/members`);
+      if (res.ok) {
+        const data = await res.json();
+        setMembers(data.members);
+      }
+    } catch { }
   }
 
   async function fetchMemberLinks() {
-    const res = await fetchWithAuth(`/api/trips/${id}/member-links`);
-    if (res.ok) {
-      const data = await res.json();
-      setMemberLinks(data.links);
-    }
+    try {
+      const res = await fetchWithAuth(`/api/trips/${id}/member-links`);
+      if (res.ok) {
+        const data = await res.json();
+        setMemberLinks(data.links);
+      }
+    } catch { }
   }
 
   async function handleBindMember(personName: string, targetUserId: string | null) {
@@ -348,33 +385,48 @@ export default function TripPage() {
     fetchSegments();
   }
 
+  /** 手機優先用系統分享面板；不支援或使用者取消時退回剪貼簿，失敗給出可手動複製的路徑 */
+  async function deliverLink(url: string, title: string, successText: string) {
+    if (isMobile && typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title, url });
+        return true;
+      } catch (err) {
+        if ((err as DOMException)?.name === "AbortError") return false;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      messageApi.success(successText);
+      return true;
+    } catch {
+      modal.info({
+        title: "無法自動複製",
+        content: (
+          <Input.TextArea readOnly value={url} autoSize onFocus={(e) => e.target.select()} />
+        ),
+        okText: "關閉",
+      });
+      return false;
+    }
+  }
+
   async function handleShare() {
     setSharing(true);
     try {
       const res = await fetchWithAuth(`/api/trips/${id}/share`);
-      if (res.ok) {
-        const { shareUrl } = await res.json();
-        const urlWithTab = `${shareUrl}?tab=${activeTab}`;
-        await navigator.clipboard.writeText(urlWithTab);
-        messageApi.success(`分享連結已複製: ${urlWithTab}`);
-        setShowMoreSheet(false);
+      if (!res.ok) {
+        messageApi.error("產生分享連結失敗，請再試一次");
+        return;
       }
+      const { shareUrl } = await res.json();
+      const urlWithTab = `${shareUrl}${shareUrl.includes("?") ? "&" : "?"}tab=${activeTab}`;
+      await deliverLink(urlWithTab, trip?.name ?? "Travel Tracker", "已複製分享連結");
+      setShowMoreSheet(false);
+    } catch {
+      messageApi.error("產生分享連結失敗，請檢查網路連線");
     } finally {
       setSharing(false);
-    }
-  }
-
-  async function handlePresent() {
-    setPresenting(true);
-    try {
-      const res = await fetchWithAuth(`/api/trips/${id}/share`);
-      if (res.ok) {
-        const { shareUrl } = await res.json();
-        const presentUrl = shareUrl.replace("/share/", "/present/");
-        window.open(presentUrl, "_blank");
-      }
-    } finally {
-      setPresenting(false);
     }
   }
 
@@ -395,12 +447,15 @@ export default function TripPage() {
     setInviting(true);
     try {
       const res = await fetchWithAuth(`/api/trips/${id}/invite`);
-      if (res.ok) {
-        const { inviteUrl } = await res.json();
-        await navigator.clipboard.writeText(inviteUrl);
-        messageApi.success(`邀請連結已複製: ${inviteUrl}`);
-        setShowMoreSheet(false);
+      if (!res.ok) {
+        messageApi.error("產生邀請連結失敗，請再試一次");
+        return;
       }
+      const { inviteUrl } = await res.json();
+      await deliverLink(inviteUrl, `邀請你加入「${trip?.name ?? "旅程"}」`, "已複製邀請連結");
+      setShowMoreSheet(false);
+    } catch {
+      messageApi.error("產生邀請連結失敗，請檢查網路連線");
     } finally {
       setInviting(false);
     }
@@ -416,28 +471,28 @@ export default function TripPage() {
     return palette[Math.abs(hash) % palette.length];
   }
 
-  const duration =
-    trip?.start_date && trip?.end_date
-      ? Math.round(
-        (new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()) /
-        (1000 * 60 * 60 * 24),
-      )
-      : null;
+  if (!trip && !loading && tripLoadError) {
+    return (
+      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center gap-4 px-6">
+        <Typography.Text className="text-zinc-300 text-[15px] font-medium">旅程載入失敗</Typography.Text>
+        <Typography.Text className="text-zinc-400 text-[13px]">資料還在，只是現在連不上。請檢查網路後重試。</Typography.Text>
+        <div className="flex gap-2">
+          <Button type="primary" onClick={loadAll}>重新載入</Button>
+          <Button onClick={() => router.push("/")}>返回首頁</Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!trip && !loading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center gap-4">
-        <Typography.Text className="text-zinc-500">找不到這筆旅程</Typography.Text>
+        <Typography.Text className="text-zinc-400">找不到這筆旅程</Typography.Text>
         <Button onClick={() => router.push("/")}>返回首頁</Button>
       </div>
     );
   }
 
-  const countries = trip?.countries
-    ? trip.countries.split(/[,，、]/).map((c) => c.trim()).filter(Boolean)
-    : [];
-
-  const accent = getDestinationAccent(trip?.countries ?? "");
   const people = trip?.people ?? [];
   const currencies = trip?.currency ? trip.currency.split(",") : ["TWD"];
   const primaryCurrency = currencies[0];
@@ -446,104 +501,15 @@ export default function TripPage() {
     key: seg.id,
     color: "blue",
     content: (
-      <div className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-4 py-[14px] mb-1">
-        {/* Row 1: icon + meta pills + menu */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <VehicleIconChip type={seg.type} />
-            {seg.flight_no && (
-              <span className="text-[12px] text-zinc-500 bg-white/[0.04] border border-white/[0.07] rounded-md px-2 py-0.5">{seg.flight_no}</span>
-            )}
-            {seg.aircraft && (
-              <span className="text-[12px] text-zinc-500 bg-white/[0.04] border border-white/[0.07] rounded-md px-2 py-0.5">{seg.aircraft}</span>
-            )}
-          </div>
-          <Dropdown
-            trigger={["click"]}
-            menu={{
-              items: [
-                { key: "edit", icon: <EditOutlined />, label: "編輯", onClick: () => pushModal("editSegment", { segmentId: seg.id }) },
-                { type: "divider" },
-                {
-                  key: "delete", icon: <DeleteOutlined />, label: "刪除", danger: true,
-                  onClick: () => modal.confirm({
-                    title: "確定刪除這段交通？",
-                    okText: "刪除", okType: "danger", cancelText: "取消",
-                    onOk: () => handleDeleteSegment(seg.id),
-                  }),
-                },
-              ],
-            }}
-          >
-            <button className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer shrink-0">
-              <MoreOutlined />
-            </button>
-          </Dropdown>
-        </div>
-
-        {/* Row 2: 出發 / 抵達 labels */}
-        <div className="flex justify-between mb-1">
-          <div className="text-[10px] text-blue-400 font-medium">出發</div>
-          <div className="text-[10px] text-violet-400 font-medium">抵達</div>
-        </div>
-
-        {/* Row 3: cities + dashed connecting line (IATA inline) */}
-        <div className="flex items-center mb-2">
-          <div className="flex-shrink-0">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[17px] font-bold text-zinc-100 leading-tight">{seg.from_city}</span>
-              {seg.from_iata && <span className="text-[11px] text-zinc-600 tracking-wider">{seg.from_iata}</span>}
-            </div>
-          </div>
-          <div className="flex-1 flex items-center px-2">
-            <div className="flex-1 border-t border-dashed border-white/10" />
-            <span className="px-1.5 text-zinc-700 text-[12px]">{seg.type === "飛機" ? "✈" : "→"}</span>
-            <div className="flex-1 border-t border-dashed border-white/10" />
-          </div>
-          <div className="flex-shrink-0 text-right">
-            <div className="flex items-baseline gap-1.5 justify-end">
-              {seg.to_iata && <span className="text-[11px] text-zinc-600 tracking-wider">{seg.to_iata}</span>}
-              <span className="text-[17px] font-bold text-zinc-100 leading-tight">{seg.to_city}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 4: times (taiwan time inline) */}
-        <div className="flex justify-between items-start">
-          <div>
-            {seg.time ? (
-              <div className="flex items-baseline gap-1.5 flex-wrap">
-                {seg.date && <span className="text-[12px] text-zinc-500">{dayjs(seg.date).format("M/D")}</span>}
-                <span className="text-[20px] font-bold text-zinc-200 leading-tight">{seg.time}</span>
-                {seg.from_iata && (() => {
-                  const twTime = toTaiwanTime(seg.date, seg.time, seg.from_iata);
-                  return twTime ? <span className="text-[11px] text-zinc-600">台灣 {twTime}</span> : null;
-                })()}
-              </div>
-            ) : (
-              <div className="text-[20px] font-light text-zinc-700 leading-tight">—</div>
-            )}
-          </div>
-          <div className="text-right">
-            {seg.arrival_time ? (
-              <div className="flex items-baseline gap-1.5 justify-end flex-wrap">
-                {seg.to_iata && (() => {
-                  const twTime = toTaiwanTime(seg.arrival_date || seg.date, seg.arrival_time, seg.to_iata);
-                  return twTime ? <span className="text-[11px] text-zinc-600">台灣 {twTime}</span> : null;
-                })()}
-                <span className="text-[20px] font-bold text-zinc-200 leading-tight">{seg.arrival_time}</span>
-                {(seg.arrival_date || seg.date) && (
-                  <span className="text-[12px] text-zinc-500">
-                    {seg.arrival_date ? dayjs(seg.arrival_date).format("M/D") : dayjs(seg.date).format("M/D")}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="text-[20px] font-light text-zinc-700 leading-tight">—</div>
-            )}
-          </div>
-        </div>
-      </div>
+      <SegmentCard
+        seg={seg}
+        onEdit={() => pushModal("editSegment", { segmentId: seg.id })}
+        onDelete={() => modal.confirm({
+          title: "確定刪除這段交通？",
+          okText: "刪除", okType: "danger", cancelText: "取消",
+          onOk: () => handleDeleteSegment(seg.id),
+        })}
+      />
     ),
   }));
 
@@ -567,6 +533,17 @@ export default function TripPage() {
               <Skeleton active avatar={{ shape: "circle" }} title={{ width: "60%" }} paragraph={{ rows: 1, width: "30%" }} />
             </div>
           ))}
+        </div>
+      ) : segmentsLoadError && segments.length === 0 ? (
+        <div className="text-center py-14 rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+          <div className="text-zinc-300 text-sm font-medium mb-1">交通記錄載入失敗</div>
+          <div className="text-zinc-400 text-xs mb-4">請檢查網路連線後重試</div>
+          <button
+            onClick={() => fetchSegments()}
+            className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-4 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
+          >
+            重新載入
+          </button>
         </div>
       ) : segments.length === 0 ? (
         <div
@@ -592,18 +569,19 @@ export default function TripPage() {
           </button>
         </div>
       ) : (
-        <Timeline items={timelineItems} />
+        <Timeline className="segment-timeline" items={timelineItems} />
       )}
     </>
   );
 
   return (
     <div className="min-h-screen bg-[#09090b]">
-      <header className="backdrop-blur-md flex backdrop-blur-md items-center gap-2 px-3 md:px-5 h-16 sticky top-0 z-[100] border-b border-white/[0.06]">
+      <header className="backdrop-blur-md bg-[#09090b]/70 flex items-center gap-2 px-3 md:px-5 h-16 sticky top-0 z-[100] border-b border-white/[0.06]">
         {/* Back */}
         <button
           onClick={() => router.push("/")}
-          className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200 shrink-0 cursor-pointer"
+          aria-label="返回首頁"
+          className="relative w-9 h-9 rounded-full bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 flex items-center justify-center transition-all duration-200 shrink-0 cursor-pointer after:absolute after:-inset-1 after:content-['']"
         >
           <ChevronLeftIcon size={14} />
         </button>
@@ -615,12 +593,23 @@ export default function TripPage() {
 
         {/* Action buttons */}
         {trip && (isMobile ? (
-          <button
-            onClick={() => setShowMoreSheet(true)}
-            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
-          >
-            <MoreVerticalIcon size={16} strokeWidth={2.5} />
-          </button>
+          <div className="flex gap-1.5 shrink-0">
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              aria-label="複製分享連結"
+              className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
+            >
+              {sharing ? <LoadingOutlined size={15} /> : <ShareIcon size={15} />}
+            </button>
+            <button
+              onClick={() => setShowMoreSheet(true)}
+              aria-label="更多動作"
+              className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
+            >
+              <MoreVerticalIcon size={16} strokeWidth={2.5} />
+            </button>
+          </div>
         ) : (
           <div className="flex gap-1.5 shrink-0">
             <button
@@ -631,25 +620,6 @@ export default function TripPage() {
             >
               {sharing ? <LoadingOutlined size={13} /> : <ShareIcon size={13} />}
               分享
-            </button>
-
-            <button
-              onClick={handlePresent}
-              disabled={presenting}
-              title="旅程簡報"
-              className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
-            >
-              {presenting ? (
-                <LoadingOutlined size={13} />
-              ) : (
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="1" y="1" width="11" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.4"/>
-                  <path d="M4.5 9.5L4.5 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                  <path d="M8.5 9.5L8.5 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                  <path d="M3 12H10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                </svg>
-              )}
-              簡報
             </button>
 
             {isOwner && (
@@ -704,87 +674,30 @@ export default function TripPage() {
 
       <div
         className="md:max-w-[80%] mx-auto w-full"
-        style={{ padding: isMobile ? "20px 12px 100px" : "32px 24px 80px" }}
+        style={{ padding: isMobile ? "20px 12px 100px" : "32px 24px 80px", maxWidth: 1024, margin: "0 auto" }}
       >
-        <div
+        <TripHero
           ref={heroRef}
-          className="rounded-4xl md:mb-8 mb-4 overflow-hidden relative shadow-2xl border border-white/6"
-          style={{
-            padding: isMobile ? "24px 20px" : "32px 32px",
-            minHeight: isMobile ? 100 : 130,
-            background: `linear-gradient(145deg, ${accent.from}17 0%, rgba(139,92,246,0.05) 60%, rgba(9,9,11,0.98) 100%)`,
-          }}
+          name={trip?.name}
+          startDate={trip?.start_date}
+          endDate={trip?.end_date}
+          countries={trip?.countries}
+          people={people}
+          notes={trip?.notes}
         >
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: `radial-gradient(ellipse at 85% 0%, ${accent.from}22 0%, transparent 55%)` }}
-          />
-
-          {trip && (
-          <motion.div
-            className="relative"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-          >
-            <Typography.Title
-              level={isMobile ? 3 : 2}
-              className="!text-zinc-100 !m-0 !mb-5 !leading-tight !font-black tracking-tight"
-            >
-              {trip.name}
-            </Typography.Title>
-
-            <div className="flex flex-wrap gap-2.5 items-center">
-              {trip.start_date && trip.end_date && (
-                <span
-                  className="rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5"
-                  style={{
-                    background: `${accent.from}17`,
-                    border: `1px solid ${accent.from}33`,
-                    color: accent.from,
-                    boxShadow: `0 0 15px ${accent.from}1a`,
-                  }}
-                >
-                  <CalendarIcon size={11} />
-                  {trip.start_date} → {trip.end_date}
-                </span>
-              )}
-              {duration !== null && (
-                <span className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-300 rounded-full px-3.5 py-1 text-[13px] font-medium">
-                  {duration} 天
-                </span>
-              )}
-              {countries.map((c) => (
-                <span
-                  key={c}
-                  className="rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5"
-                  style={{
-                    background: `${accent.from}12`,
-                    border: `1px solid ${accent.from}28`,
-                    color: accent.from,
-                    boxShadow: `0 0 15px ${accent.from}15`,
-                  }}
-                >
-                  <LocationIcon size={11} />
-                  {c}
-                </span>
-              ))}
-              {people.length > 0 && (
-                <span className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-400 rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5">
-                  <UsersIcon size={11} />
-                  {people.join("、")}
-                </span>
-              )}
-            </div>
-
             {members.length > 0 && (
               <div className="flex items-center gap-2.5 mt-4">
                 <div className="flex items-center">
                   {members.map((m, i) => {
                     const canRemove = isOwner && !m.is_owner;
                     const isRemoving = removingMemberId === m.user_id;
-                    const avatar = m.avatar_url ? (
-                      <img src={m.avatar_url} alt={m.name} className="w-7 h-7 rounded-full border-2 border-zinc-900 object-cover" />
+                    const avatar = m.avatar_url && !failedAvatars.has(m.user_id) ? (
+                      <img
+                        src={m.avatar_url}
+                        alt={m.name}
+                        onError={() => markAvatarFailed(m.user_id)}
+                        className="w-7 h-7 rounded-full border-2 border-zinc-900 object-cover"
+                      />
                     ) : (
                       <div
                         className="w-7 h-7 rounded-full border-2 border-zinc-900 flex items-center justify-center text-white text-[11px] font-bold"
@@ -818,7 +731,7 @@ export default function TripPage() {
                     );
                   })}
                 </div>
-                <span className="text-zinc-600 text-[12px]">共同編輯</span>
+                <span className="text-zinc-400 text-[12px]">共同編輯</span>
                 {(isOwner || isMember) && people.length > 0 && (
                   <button
                     onClick={() => setShowBindingPanel((v) => !v)}
@@ -846,8 +759,13 @@ export default function TripPage() {
                           {boundUserId ? (
                             <span className="flex items-center gap-1.5 text-zinc-500 text-[12px] min-w-0">
                               <span className="text-zinc-600">↔</span>
-                              {link?.avatar_url ? (
-                                <img src={link.avatar_url} alt={link.name ?? ""} className="w-4 h-4 rounded-full object-cover" />
+                              {link?.avatar_url && !failedAvatars.has(`link-${boundUserId}`) ? (
+                                <img
+                                  src={link.avatar_url}
+                                  alt={link.name ?? ""}
+                                  onError={() => markAvatarFailed(`link-${boundUserId}`)}
+                                  className="w-4 h-4 rounded-full object-cover"
+                                />
                               ) : (
                                 <span
                                   className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
@@ -889,32 +807,22 @@ export default function TripPage() {
               </div>
             )}
 
-            {trip.notes && (
-              <div className="bg-white/5 rounded-2xl p-5 mt-6 text-zinc-300 text-[14px] leading-relaxed border border-white/5 shadow-inner overflow-hidden">
-                <div
-                  className="notes-content"
-                  dangerouslySetInnerHTML={{ __html: trip.notes }}
-                />
-              </div>
-            )}
-          </motion.div>
-          )}
-        </div>
+        </TripHero>
 
         {trip && (
         <motion.div
           className="mb-7"
           initial={{ clipPath: "inset(0 0 100% 0)", opacity: 0 }}
-          animate={{ clipPath: "inset(0 0 0% 0)", opacity: 1 }}
+          animate={{ clipPath: "inset(0 0 0% 0)", opacity: 1, transitionEnd: { clipPath: "none" } }}
           transition={{ duration: 0.48, ease: [0.2, 0, 0, 1], delay: 0.15 }}
         >
           {!isMobile && (
-            <div className="flex items-center justify-center mb-8 sticky top-[80px] z-50">
+            <div className="flex items-center justify-center mb-8 py-2 sticky top-16 z-[90] bg-[#09090b]/60 backdrop-blur-md">
               <div className="flex bg-[#18181b]/80 border border-white/8 backdrop-blur-md rounded-full p-1.5 shadow-xl">
                 {[
                   { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
                   { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
-                  { key: "expenses", label: "費用", icon: <CreditCardIcon size={18} /> },
+                  { key: "expenses", label: "費用", icon: <CoinIcon size={18} /> },
                   { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
                   { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
                   { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
@@ -940,7 +848,7 @@ export default function TripPage() {
               </div>
             </div>
           )}
-          <div style={{ overflow: 'clip' }}>
+          <div ref={tabContentRef} style={{ overflow: 'clip' }}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
@@ -963,7 +871,7 @@ export default function TripPage() {
                 {activeTab === "itinerary" && <ItineraryTab tripId={id} isActive destination={trip.countries} />}
                 {activeTab === "notes" && <NotesTab tripId={id} />}
                 {activeTab === "souvenirs" && <SouvenirsTab tripId={id} />}
-                {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} />}
+                {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} tripEndDate={trip.end_date} />}
                 {activeTab === "photos" && (
                   trip.photo_album_id ? (
                     <PhotoWall albumUrl={trip.photo_album_id} />
@@ -997,67 +905,55 @@ export default function TripPage() {
       </div>
 
       {isMobile && trip && (
-        <nav
-          className="fixed bottom-0 left-0 right-0 z-[400]"
-          style={{
-            background: 'rgba(9,9,11,0.97)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            borderTop: '1px solid rgba(255,255,255,0.07)',
-            paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
-            willChange: 'transform',
-            transform: 'translateZ(0)',
-          }}
-        >
-          <div className="flex justify-around items-center pt-2 px-1">
-            {[
-              { value: "transport", icon: <PlaneIcon size={20} />, label: "路線" },
-              { value: "itinerary", icon: <CalendarIcon size={20} />, label: "行程" },
-              { value: "expenses", icon: <CreditCardIcon size={20} />, label: "費用" },
-              { value: "photos", icon: <PhotoIcon size={20} />, label: "照片" },
-              { value: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
-              { value: "souvenirs", icon: <GiftIcon size={20} />, label: "伴手禮" },
-            ]
-              .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.value))
-              .sort((a, b) => {
-                if (!trip.enabled_tabs) return 0;
-                return trip.enabled_tabs.indexOf(a.value) - trip.enabled_tabs.indexOf(b.value);
-              })
-              .map(({ value, icon, label }) => {
-                const isActive = activeTab === value;
-                return (
-                  <button
-                    key={value}
-                    onClick={() => {
-                      handleTabChange(value);
-                      if (value !== 'itinerary') {
-                        window.scrollTo({ top: 0, behavior: 'instant' });
-                      }
-                    }}
-                    className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200 cursor-pointer"
-                  >
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
-                      style={isActive ? { background: 'rgba(139,92,246,0.15)', color: '#a78bfa' } : { color: '#52525b' }}
-                    >
-                      {icon}
-                    </div>
-                    <span
-                      className="text-[10px] font-medium transition-all duration-200"
-                      style={{ color: isActive ? '#a78bfa' : '#52525b' }}
-                    >
-                      {label}
-                    </span>
-                  </button>
-                );
-              })}
-          </div>
-        </nav>
+        <MobileNav
+          activeKey={activeTab}
+          onChange={handleTabChange}
+          tabs={[
+            { key: "transport", icon: <PlaneIcon size={20} />, label: "路線" },
+            { key: "itinerary", icon: <CalendarIcon size={20} />, label: "行程" },
+            { key: "expenses", icon: <CoinIcon size={20} />, label: "費用" },
+            { key: "photos", icon: <PhotoIcon size={20} />, label: "照片" },
+            { key: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
+            { key: "souvenirs", icon: <GiftIcon size={20} />, label: "伴手禮" },
+          ]
+            .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
+            .sort((a, b) => {
+              if (!trip.enabled_tabs) return 0;
+              return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
+            })}
+        />
       )}
+
+      {/* 快速記帳 FAB：旅程進行期間、手機拇指區的一鍵記帳 */}
+      {isMobile && trip && (!trip.enabled_tabs || trip.enabled_tabs.includes("expenses")) && (() => {
+        const today = dayjs().format("YYYY-MM-DD");
+        const inTrip = trip.start_date && trip.end_date && today >= trip.start_date && today <= trip.end_date;
+        if (!inTrip) return null;
+        return (
+          <button
+            onClick={() => {
+              const p = new URLSearchParams(Array.from(searchParams.entries()));
+              p.set("tab", "expenses");
+              p.set("modal", "addExpense");
+              p.delete("expenseId");
+              setActiveTab("expenses");
+              router.push(`/trips/${id}?${p.toString()}`, { scroll: false });
+            }}
+            aria-label="快速記帳"
+            className="fixed right-4 z-[300] w-12 h-12 rounded-full flex items-center justify-center text-zinc-300 bg-white/[0.08] border border-white/10 backdrop-blur-md cursor-pointer active:scale-95 transition-transform"
+            style={{
+              bottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            }}
+          >
+            <CoinIcon size={18} />
+          </button>
+        );
+      })()}
 
       {/* Mobile More Actions Bottom Sheet */}
       <div
-        className="fixed inset-0 z-[210] transition-opacity duration-300 cursor-pointer"
+        className="fixed inset-0 z-[400] transition-opacity duration-300 cursor-pointer"
         style={{
           background: "rgba(0,0,0,0.6)",
           backdropFilter: "blur(4px)",
@@ -1067,6 +963,9 @@ export default function TripPage() {
         onClick={() => setShowMoreSheet(false)}
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="旅程動作"
         className="fixed bottom-0 left-0 right-0 z-401 rounded-t-[24px] transition-transform duration-300 ease-out"
         style={{
           background: "#1c1c1f",
@@ -1097,30 +996,6 @@ export default function TripPage() {
               <div>
                 <div className="text-zinc-100 text-[14px] font-medium">分享旅程</div>
                 <div className="text-zinc-500 text-[11px] mt-0.5">複製公開連結</div>
-              </div>
-            </button>
-
-            {/* Present */}
-            <button
-              onClick={() => { handlePresent(); setShowMoreSheet(false); }}
-              disabled={presenting}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
-            >
-              <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(251,191,36,0.12)" }}>
-                {presenting ? (
-                  <LoadingOutlined style={{ color: "#fbbf24", fontSize: 16 }} />
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="1.5" y="1.5" width="13" height="9" rx="1.5" stroke="#fbbf24" strokeWidth="1.5"/>
-                    <path d="M5.5 10.5V13.5" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
-                    <path d="M10.5 10.5V13.5" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
-                    <path d="M3.5 13.5H12.5" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                )}
-              </div>
-              <div>
-                <div className="text-zinc-100 text-[14px] font-medium">旅程簡報</div>
-                <div className="text-zinc-500 text-[11px] mt-0.5">開啟全螢幕簡報模式</div>
               </div>
             </button>
 
