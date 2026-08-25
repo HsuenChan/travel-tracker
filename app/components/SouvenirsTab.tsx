@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Typography, Checkbox, Input, Button, Popconfirm, Spin, App, Modal, Select, Skeleton } from "antd";
-import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { Typography, Checkbox, Input, Button, App, Modal, Select, Skeleton, Upload } from "antd";
+import PillButton from "./PillButton";
+import { DeleteOutlined, EditOutlined, PictureOutlined, CloseOutlined, LoadingOutlined } from "@ant-design/icons";
 import { PlusIcon, GiftIcon } from "@/app/components/Icons";
 
 interface Souvenir {
@@ -22,61 +24,122 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
   const [newNotes, setNewNotes] = useState("");
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newTags, setNewTags] = useState<string[]>([]);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingItem, setEditingItem] = useState<Souvenir | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const urlModal = searchParams.get("modal");
+  const urlSouvenirId = searchParams.get("souvenirId");
+  const [forceClosed, setForceClosed] = useState(false);
+  const pushedModalRef = useRef(false);
+  const showModal = !readOnly && !forceClosed && (urlModal === "addSouvenir" || urlModal === "editSouvenir");
+  const editingItem = useMemo<Souvenir | null>(() => {
+    if (urlModal !== "editSouvenir" || !urlSouvenirId) return null;
+    return items.find(i => i.id === urlSouvenirId) ?? null;
+  }, [urlModal, urlSouvenirId, items]);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const { message, modal } = App.useApp();
 
-  async function load() {
+  async function handleImageUpload(file: File) {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("tripId", tripId);
+      const res = await fetch("/api/itinerary/upload", { method: "POST", body: fd });
+      if (res.ok) {
+        const data = await res.json();
+        setNewImageUrl(data.url);
+      } else {
+        message.error("圖片上傳失敗，請再試一次");
+      }
+    } catch {
+      message.error("圖片上傳失敗，請再試一次");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function load(force = true) {
     const cacheKey = `travel_souvenirs_${tripId}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       setItems(JSON.parse(cached));
       setLoading(false);
-    } else {
-      setLoading(true);
     }
+    // 60 秒內的快取視為新鮮：切分頁重新掛載時不重打 API
+    if (!force && cached && Date.now() - Number(localStorage.getItem(`${cacheKey}:ts`) || 0) < 60_000) {
+      setLoading(false);
+      return;
+    }
+    if (!cached) setLoading(true);
 
     const res = await fetch(`/api/souvenirs?tripId=${tripId}`);
     if (res.ok) {
       const data = await res.json();
       setItems(data.items);
       localStorage.setItem(cacheKey, JSON.stringify(data.items));
+      localStorage.setItem(`${cacheKey}:ts`, String(Date.now()));
     }
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, [tripId]);
+  useEffect(() => { load(false); }, [tripId]);
+
+  // Modal 狀態進 URL：手機返回鍵可關閉，行為與行程/費用一致
+  useEffect(() => {
+    if (readOnly) return;
+    if (urlModal === "addSouvenir" || urlModal === "editSouvenir") setForceClosed(false);
+    if (urlModal === "editSouvenir" && editingItem) {
+      setNewName(editingItem.name);
+      setNewNotes(editingItem.notes || "");
+      setNewImageUrl(editingItem.image_url || "");
+      setNewTags(editingItem.tags || []);
+    } else if (urlModal === "addSouvenir") {
+      setNewName("");
+      setNewNotes("");
+      setNewImageUrl("");
+      setNewTags([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlModal, editingItem?.id]);
 
   function openAdd() {
-    setEditingItem(null);
-    setNewName("");
-    setNewNotes("");
-    setNewImageUrl("");
-    setNewTags([]);
-    setIsModalVisible(true);
+    if (readOnly) return;
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.set("modal", "addSouvenir");
+    p.delete("souvenirId");
+    router.push(`${pathname}?${p.toString()}`, { scroll: false });
+    pushedModalRef.current = true;
   }
 
   function openEdit(item: Souvenir) {
-    setEditingItem(item);
-    setNewName(item.name);
-    setNewNotes(item.notes || "");
-    setNewImageUrl(item.image_url || "");
-    setNewTags(item.tags || []);
-    setIsModalVisible(true);
+    if (readOnly) return;
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.set("modal", "editSouvenir");
+    p.set("souvenirId", item.id);
+    router.push(`${pathname}?${p.toString()}`, { scroll: false });
+    pushedModalRef.current = true;
   }
 
   function closeModal() {
-    setIsModalVisible(false);
-    setEditingItem(null);
-    setNewName("");
-    setNewNotes("");
-    setNewImageUrl("");
-    setNewTags([]);
+    setForceClosed(true);
+    if (pushedModalRef.current) {
+      pushedModalRef.current = false;
+      router.back();
+      return;
+    }
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.delete("modal");
+    p.delete("souvenirId");
+    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
   }
 
   async function handleSave() {
-    if (!newName.trim()) return;
+    if (!newName.trim()) {
+      message.error("請輸入商品名稱");
+      return;
+    }
     setAdding(true);
 
     let res;
@@ -103,12 +166,18 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
 
   async function handleToggle(item: Souvenir) {
     if (readOnly) return;
-    // optimistic
+    // optimistic，失敗回滾
     setItems((prev) => prev.map(i => i.id === item.id ? { ...i, is_checked: !i.is_checked } : i));
-    await fetch(`/api/souvenirs`, {
-      method: "PUT",
-      body: JSON.stringify({ ...item, is_checked: !item.is_checked }),
-    });
+    try {
+      const res = await fetch(`/api/souvenirs`, {
+        method: "PUT",
+        body: JSON.stringify({ ...item, is_checked: !item.is_checked }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setItems((prev) => prev.map(i => i.id === item.id ? { ...i, is_checked: item.is_checked } : i));
+      message.error("狀態更新失敗，請再試一次");
+    }
   }
 
   async function handleDelete(id: string) {
@@ -135,16 +204,31 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
       <div className="flex items-center justify-between px-1">
         <Typography.Text strong className="text-zinc-100 text-[15px]">伴手禮 & 購物清單</Typography.Text>
         {!readOnly && (
-          <Button
-            type="primary"
-            className="flex items-center justify-center gap-1.5 h-8 px-4 rounded-full bg-purple-500 hover:bg-purple-600 text-white border-0 text-[13px] font-medium transition-colors cursor-pointer"
-            onClick={openAdd}
-          >
+          <PillButton onClick={openAdd}>
             <PlusIcon size={13} />
             增加清單
-          </Button>
+          </PillButton>
         )}
       </div>
+
+      {items.length > 0 && (() => {
+        const done = items.filter(i => i.is_checked).length;
+        const pct = Math.round((done / items.length) * 100);
+        return (
+          <div className="px-1">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-zinc-500 text-xs">已完成 {done} / {items.length}</span>
+              <span className="text-zinc-600 text-xs">{pct}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#6366f1] to-[#a855f7] transition-all duration-300"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })()}
 
       {(() => {
         const usedTags = Array.from(new Set(items.flatMap(i => i.tags || [])));
@@ -154,7 +238,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
             <button
               onClick={() => setTagFilter(null)}
               className={`h-7 px-3 rounded-full text-xs font-medium transition-all cursor-pointer border ${tagFilter === null
-                ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
                 : "bg-white/[0.04] border-white/[0.08] text-zinc-500 hover:text-zinc-300 hover:border-white/20"
                 }`}
             >
@@ -165,7 +249,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
                 key={tag}
                 onClick={() => setTagFilter(tag === tagFilter ? null : tag)}
                 className={`h-7 px-3 rounded-full text-xs font-medium transition-all cursor-pointer border ${tagFilter === tag
-                  ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                  ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
                   : "bg-white/[0.04] border-white/[0.08] text-zinc-500 hover:text-zinc-300 hover:border-white/20"
                   }`}
               >
@@ -178,11 +262,11 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
 
       <Modal
         title={editingItem ? "編輯伴手禮" : "新增伴手禮"}
-        open={isModalVisible}
+        open={showModal}
         onCancel={closeModal}
+        afterClose={() => { setNewName(""); setNewNotes(""); setNewImageUrl(""); setNewTags([]); }}
         footer={null}
         destroyOnHidden
-        className="glass-modal"
       >
         <div className="flex flex-col gap-4 mt-6">
           <div className="flex flex-col gap-1.5">
@@ -191,17 +275,39 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
               placeholder="如：白色戀人"
               value={newName}
               onChange={e => setNewName(e.target.value)}
-              className="rounded-xl! border-white/10! hover:border-white/30! focus:border-purple-500! bg-white/5! text-white! h-10!"
+              className="rounded-xl! border-white/10! hover:border-white/30! focus:border-violet-500! bg-white/5! text-white! h-10!"
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Typography.Text className="text-zinc-400 text-sm">圖片網址 (可選)</Typography.Text>
-            <Input
-              placeholder="貼上圖片連結"
-              value={newImageUrl}
-              onChange={e => setNewImageUrl(e.target.value)}
-              className="rounded-xl! border-white/10! hover:border-white/30! focus:border-purple-500! bg-white/5! text-white! h-10!"
-            />
+            <Typography.Text className="text-zinc-400 text-sm">圖片 (可選)</Typography.Text>
+            {newImageUrl ? (
+              <div className="relative w-24 h-24">
+                <img src={newImageUrl} alt="伴手禮圖片" className="w-full h-full object-cover rounded-xl border border-white/10" />
+                <button
+                  type="button"
+                  aria-label="移除圖片"
+                  onClick={() => setNewImageUrl("")}
+                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-zinc-800 border border-white/[0.15] text-zinc-300 flex items-center justify-center hover:bg-zinc-700 transition-colors cursor-pointer"
+                >
+                  <CloseOutlined style={{ fontSize: 10 }} />
+                </button>
+              </div>
+            ) : (
+              <Upload
+                accept="image/*"
+                showUploadList={false}
+                disabled={uploading}
+                beforeUpload={(file) => { handleImageUpload(file); return false; }}
+              >
+                <button
+                  type="button"
+                  className="w-24 h-24 rounded-xl border border-dashed border-white/[0.15] text-zinc-500 flex flex-col items-center justify-center gap-1 hover:border-white/30 hover:text-zinc-300 transition-colors cursor-pointer"
+                >
+                  {uploading ? <LoadingOutlined /> : <PictureOutlined />}
+                  <span className="text-[11px]">{uploading ? "上傳中" : "上傳"}</span>
+                </button>
+              </Upload>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Typography.Text className="text-zinc-400 text-sm">自訂標籤 (Tags)</Typography.Text>
@@ -225,14 +331,14 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
               placeholder="數量、購買地點..."
               value={newNotes}
               onChange={e => setNewNotes(e.target.value)}
-              className="rounded-xl! border-white/10! hover:border-white/30! focus:border-purple-500! bg-white/5! text-white! min-h-[80px]!"
+              className="rounded-xl! border-white/10! hover:border-white/30! focus:border-violet-500! bg-white/5! text-white! min-h-[80px]!"
             />
           </div>
           <Button
             type="primary"
             onClick={handleSave}
             loading={adding}
-            className="w-full rounded-xl! bg-purple-500! text-white! hover:bg-purple-600! border-none! h-10! font-medium! mt-2! cursor-pointer"
+            className="w-full rounded-xl! bg-violet-500! text-white! hover:bg-violet-600! border-none! h-10! font-medium! mt-2! cursor-pointer"
           >
             {editingItem ? "儲存" : "加入清單"}
           </Button>
@@ -256,10 +362,10 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
       ) : items.length === 0 ? (
         <div
           className="flex flex-col items-center gap-4 py-20 rounded-3xl border border-white/5 bg-white/2"
-          style={{ background: 'radial-gradient(circle at 50% 50%, rgba(168,85,247,0.05) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.05) 0%, transparent 70%)' }}
         >
-          <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-            <GiftIcon size={32} stroke="#a855f7" />
+          <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
+            <GiftIcon size={32} stroke="#8b5cf6" />
           </div>
           <div className="text-center">
             <div className="text-zinc-200 font-medium mb-1">尚未建立清單</div>
@@ -268,7 +374,10 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {items.filter(item => !tagFilter || (item.tags && item.tags.includes(tagFilter))).map(item => (
+          {items
+            .filter(item => !tagFilter || (item.tags && item.tags.includes(tagFilter)))
+            .sort((a, b) => Number(a.is_checked) - Number(b.is_checked))
+            .map(item => (
             <div
               key={item.id}
               className={`flex flex-col rounded-2xl border transition-all overflow-hidden relative ${item.is_checked ? 'bg-white/5 border-white/5 opacity-60' : 'bg-white/10 border-white/10 shadow-lg'}`}
@@ -285,10 +394,10 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
               ) : (
                 <div
                   className="w-full h-24 flex items-center justify-center cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, rgba(168,85,247,0.1) 0%, rgba(139,92,246,0.05) 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.1) 0%, rgba(139,92,246,0.04) 100%)' }}
                   onClick={() => handleToggle(item)}
                 >
-                  <GiftIcon size={32} stroke="rgba(168,85,247,0.3)" />
+                  <GiftIcon size={32} stroke="rgba(139,92,246,0.3)" />
                 </div>
               )}
 
@@ -309,7 +418,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
                   {item.tags && item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {item.tags.map(tag => (
-                        <span key={tag} className={`text-[10px] px-1.5 py-0.5 rounded-md border ${item.is_checked ? 'text-zinc-600 border-zinc-700/50 bg-white/[0.01]' : 'text-purple-300 border-purple-500/20 bg-purple-500/10'}`}>
+                        <span key={tag} className={`text-[10px] px-1.5 py-0.5 rounded-md border ${item.is_checked ? 'text-zinc-600 border-zinc-700/50 bg-white/[0.01]' : 'text-violet-300 border-violet-500/20 bg-violet-500/10'}`}>
                           {tag}
                         </span>
                       ))}

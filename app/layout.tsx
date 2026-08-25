@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Michroma, Righteous, Comfortaa } from "next/font/google";
+import localFont from "next/font/local";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import Providers from "./providers";
 import "./globals.css";
@@ -18,6 +19,17 @@ const comfortaa = Comfortaa({
   variable: "--font-comfortaa",
   weight: "400",
   subsets: ["latin"],
+});
+
+// 全站主字：LINE Seed TC（圓潤現代、免費商用），中英文與數字同一套個性
+const lineSeed = localFont({
+  src: [
+    { path: "./fonts/LINESeedTW-Rg.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/LINESeedTW-Bd.woff2", weight: "700", style: "normal" },
+  ],
+  variable: "--font-line-seed",
+  display: "swap",
+  preload: false,
 });
 
 
@@ -71,7 +83,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-TW" className={`${geistSans.variable} ${geistMono.variable} ${comfortaa.variable}`}>
+    <html lang="zh-TW" className={`${geistSans.variable} ${geistMono.variable} ${comfortaa.variable} ${lineSeed.variable}`}>
       <body>
         <AntdRegistry>
           <Providers>{children}</Providers>

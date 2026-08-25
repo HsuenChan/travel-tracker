@@ -8,7 +8,7 @@ import {
   Typography, Tabs, Skeleton, Switch, App, Popover,
 } from "antd";
 import { EditOutlined, DeleteOutlined, CheckOutlined, CameraOutlined } from "@ant-design/icons";
-import { PlusIcon, CreditCardIcon, CategoryBadge } from "@/app/components/Icons";
+import { PlusIcon, CoinIcon, CategoryBadge } from "@/app/components/Icons";
 import { motion, AnimatePresence } from "framer-motion";
 import dayjs from "dayjs";
 import {
@@ -38,11 +38,8 @@ interface Props {
   currencies: string[];
   readOnly?: boolean;
   initialExpenses?: Expense[];
-}
-
-interface CurrencyOption {
-  value: string;
-  label: string;
+  /** 旅程結束日：已結束時子分頁預設進「統計」 */
+  tripEndDate?: string | null;
 }
 
 const EXPENSE_CATEGORIES = [
@@ -129,11 +126,7 @@ function calculateSettlement(
   return { balances, transactions };
 }
 
-const FALLBACK_CURRENCIES: CurrencyOption[] = [
-  "TWD", "USD", "EUR", "JPY", "KRW", "HKD", "SGD", "THB", "GBP", "AUD", "CNY", "MYR",
-].map((code) => ({ value: code, label: code }));
-
-export default function ExpensesTab({ tripId, people, currency, currencies, readOnly, initialExpenses }: Props) {
+export default function ExpensesTab({ tripId, people, currency, currencies, readOnly, initialExpenses, tripEndDate }: Props) {
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses || []);
   const [form] = Form.useForm();
   const router = useRouter();
@@ -143,7 +136,8 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   // Modal state derived from URL (only when not read-only)
   const urlModal = searchParams.get("modal");
   const urlExpenseId = searchParams.get("expenseId");
-  const showModal = !readOnly && (urlModal === "addExpense" || urlModal === "editExpense");
+  const [forceClosed, setForceClosed] = useState(false);
+  const showModal = !readOnly && !forceClosed && (urlModal === "addExpense" || urlModal === "editExpense");
   const editingExpense = useMemo<Expense | null>(() => {
     if (urlModal !== "editExpense" || !urlExpenseId) return null;
     return expenses.find(e => e.id === urlExpenseId) ?? null;
@@ -162,6 +156,8 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   const [parsingReceipt, setParsingReceipt] = useState(false);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const continueAfterSave = useRef(false);
+  const pushedModalRef = useRef(false);
+  const [loadError, setLoadError] = useState(false);
 
   const { modal, message } = App.useApp();
   const currencyOptions = currencies.map((c) => ({ value: c, label: c }));
@@ -184,28 +180,48 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
   useEffect(() => {
     if (readOnly) return;
+    const cacheKey = `travel_settlement_${tripId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) setPaidTransactions(new Set(JSON.parse(cached)));
+    if (cached && Date.now() - Number(localStorage.getItem(`${cacheKey}:ts`) || 0) < 60_000) return;
     fetch(`/api/expenses/settlement?tripId=${tripId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { keys: string[] } | null) => {
-        if (data?.keys) setPaidTransactions(new Set(data.keys));
+        if (data?.keys) {
+          setPaidTransactions(new Set(data.keys));
+          localStorage.setItem(cacheKey, JSON.stringify(data.keys));
+          localStorage.setItem(`${cacheKey}:ts`, String(Date.now()));
+        }
       })
       .catch(() => { });
   }, [tripId, readOnly]);
 
-  async function fetchExpenses() {
+  async function fetchExpenses(force = true) {
     const cacheKey = `travel_expenses_${tripId}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       setExpenses(JSON.parse(cached));
       setLoading(false);
-    } else {
-      setLoading(true);
     }
-    const res = await fetchWithAuth(`/api/expenses?tripId=${tripId}`);
-    if (res.ok) {
-      const data = await res.json();
-      setExpenses(data.expenses);
-      localStorage.setItem(cacheKey, JSON.stringify(data.expenses));
+    // 60 秒內的快取視為新鮮：切分頁重新掛載時不重打 API
+    if (!force && cached && Date.now() - Number(localStorage.getItem(`${cacheKey}:ts`) || 0) < 60_000) {
+      setLoading(false);
+      return;
+    }
+    if (!cached) setLoading(true);
+    try {
+      const res = await fetchWithAuth(`/api/expenses?tripId=${tripId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setExpenses(data.expenses);
+        localStorage.setItem(cacheKey, JSON.stringify(data.expenses));
+        localStorage.setItem(`${cacheKey}:ts`, String(Date.now()));
+        setLoadError(false);
+      } else if (!cached) {
+        setLoadError(true);
+      }
+    } catch {
+      if (!cached) setLoadError(true);
     }
     setLoading(false);
   }
@@ -215,7 +231,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
       setExpenses(initialExpenses);
       setLoading(false);
     } else {
-      fetchExpenses();
+      fetchExpenses(false);
     }
   }, [tripId, initialExpenses]);
 
@@ -315,6 +331,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   }
 
   async function handleDelete(id: string) {
+    const deleted = expenses.find((e) => e.id === id);
     try {
       const res = await fetchWithAuth("/api/expenses", {
         method: "DELETE",
@@ -325,10 +342,56 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         message.error("刪除失敗，請再試一次");
         return;
       }
-      message.success("已刪除費用");
       fetchExpenses();
+      if (deleted) {
+        const key = `undo-expense-${id}`;
+        message.success({
+          key,
+          duration: 5,
+          content: (
+            <span>
+              已刪除「{deleted.description}」
+              <button
+                type="button"
+                onClick={() => { message.destroy(key); restoreExpense(deleted); }}
+                className="ml-2 text-violet-500 font-medium underline cursor-pointer"
+              >
+                復原
+              </button>
+            </span>
+          ),
+        });
+      } else {
+        message.success("已刪除費用");
+      }
     } catch {
       message.error("刪除失敗，請檢查網路連線");
+    }
+  }
+
+  async function restoreExpense(exp: Expense) {
+    try {
+      const res = await fetchWithAuth("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tripId,
+          date: exp.date,
+          end_date: exp.end_date,
+          category: exp.category,
+          description: exp.description,
+          amount: exp.amount,
+          currency: exp.currency,
+          paid_by: exp.paid_by,
+          split_with: exp.split_with,
+          notes: exp.notes,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      message.success("已復原");
+      fetchExpenses();
+    } catch {
+      message.error("復原失敗，請再試一次");
     }
   }
 
@@ -358,6 +421,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   // Populate form when URL-driven modal opens
   useEffect(() => {
     if (readOnly) return;
+    if (urlModal === "addExpense" || urlModal === "editExpense") setForceClosed(false);
     if (urlModal === "editExpense" && editingExpense) {
       form.setFieldsValue({
         isRange: !!editingExpense.end_date,
@@ -391,6 +455,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     p.set("modal", "editExpense");
     p.set("expenseId", exp.id);
     router.push(`${pathname}?${p.toString()}`, { scroll: false });
+    pushedModalRef.current = true;
   }
 
   function openAdd() {
@@ -399,23 +464,30 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     p.set("modal", "addExpense");
     p.delete("expenseId");
     router.push(`${pathname}?${p.toString()}`, { scroll: false });
+    pushedModalRef.current = true;
   }
 
   function closeModal() {
     if (readOnly) return;
+    setForceClosed(true);
+    if (pushedModalRef.current) {
+      pushedModalRef.current = false;
+      router.back();
+      return;
+    }
     const p = new URLSearchParams(Array.from(searchParams.entries()));
     p.delete("modal");
     p.delete("expenseId");
     router.replace(`${pathname}?${p.toString()}`, { scroll: false });
-    form.resetFields();
   }
 
   const fmtAmt = (n: number) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtTotal = (n: number) => Math.round(n).toLocaleString("en-US");
 
+  // 個人視角一律以「分攤份」為口徑：只看他有分攤的費用，金額取 amount / 分攤人數
   const statsBaseExpenses = useMemo(() => {
     return expenses.filter(e => {
-      if (statsMemberFilter && !e.split_with.includes(statsMemberFilter) && e.paid_by !== statsMemberFilter) return false;
+      if (statsMemberFilter && !e.split_with.includes(statsMemberFilter)) return false;
       return true;
     });
   }, [expenses, statsMemberFilter]);
@@ -429,10 +501,8 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     () => statsFilteredExpenses.reduce((sum, e) => {
       const amount = toBaseCurrency(Number(e.amount), e.currency, currency, rates);
       if (statsMemberFilter) {
-        if (!e.split_with.includes(statsMemberFilter) && e.paid_by !== statsMemberFilter) return sum;
-        if (e.split_with.includes(statsMemberFilter) && e.split_with.length > 0)
-          return sum + (amount / e.split_with.length);
-        return sum + amount;
+        if (!e.split_with.includes(statsMemberFilter) || e.split_with.length === 0) return sum;
+        return sum + (amount / e.split_with.length);
       }
       return sum + amount;
     }, 0),
@@ -593,7 +663,8 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
           <div className="w-[1px] h-3 bg-white/10 mx-0.5" />
           <button
             onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-            className="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+            aria-label={sortOrder === "asc" ? "改為降冪排序" : "改為升冪排序"}
+            className="relative w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer after:absolute after:-inset-3 after:content-['']"
           >
             {sortOrder === "asc" ? "↑" : "↓"}
           </button>
@@ -695,6 +766,17 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
             </div>
           ))}
         </div>
+      ) : loadError && expenses.length === 0 ? (
+        <div className="text-center py-14 rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+          <div className="text-zinc-300 text-sm font-medium mb-1">費用載入失敗</div>
+          <div className="text-zinc-500 text-xs mb-4">請檢查網路連線後重試</div>
+          <button
+            onClick={() => fetchExpenses()}
+            className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-4 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
+          >
+            重新載入
+          </button>
+        </div>
       ) : expenses.length === 0 ? (
         <div
           className="flex flex-col items-center gap-3 py-12 pb-10 rounded-2xl border border-white/[0.06]"
@@ -704,7 +786,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
             className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center"
             style={{ background: 'rgba(20,184,166,0.1)', border: '1px solid rgba(20,184,166,0.18)' }}
           >
-            <CreditCardIcon size={26} stroke="#14b8a6" strokeWidth={1.5} />
+            <CoinIcon size={26} stroke="#14b8a6" strokeWidth={1.5} />
           </div>
           <div className="flex flex-col items-center gap-1">
             <Typography.Text className="text-zinc-300 text-sm font-medium">還沒有費用記錄</Typography.Text>
@@ -721,12 +803,12 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
           )}
         </div>
       ) : filteredExpenses.length === 0 ? (
-        <div className="text-zinc-600 text-center py-8 text-sm">此條件沒有費用</div>
+        <div className="text-zinc-400 text-center py-8 text-sm">此條件沒有費用</div>
       ) : (
         <>
           <div className="flex justify-end mb-2">
             <span className="text-zinc-500 text-xs">
-              {filteredExpenses.length} 筆{(categoryFilter.length > 0 || paidByFilter.length > 0 || dateFilter.length > 0) ? "（篩選中）" : ""} ≈ {currency} {fmtTotal(filteredTotal)}
+              {filteredExpenses.length} 筆{(categoryFilter.length > 0 || paidByFilter.length > 0 || dateFilter.length > 0) ? "（篩選中）" : ""} ≈ <span className="font-money">{currency} {fmtTotal(filteredTotal)}</span>
             </span>
           </div>
           <AnimatePresence initial={false}>
@@ -746,17 +828,17 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                       <Typography.Text strong className="text-zinc-100 text-sm">{exp.description}</Typography.Text>
                       {exp.category && <CategoryBadge category={exp.category} />}
                       {exp.date && (
-                        <span className="text-zinc-600 text-xs">
+                        <span className="text-zinc-400 text-xs">
                           {exp.date} {exp.end_date ? `→ ${exp.end_date}` : ""}
                         </span>
                       )}
                     </div>
                     <div className="flex gap-3 flex-wrap items-center">
-                      <Typography.Text strong className="text-blue-400 text-[15px]">
+                      <Typography.Text strong className="font-money text-blue-400 text-[15px]">
                         {exp.currency} {fmtAmt(Number(exp.amount))}
                       </Typography.Text>
                       {exp.currency !== currency && rates && (
-                        <span className="text-zinc-600 text-xs">
+                        <span className="font-money text-zinc-400 text-xs">
                           ≈ {currency} {fmtTotal(toBaseCurrency(Number(exp.amount), exp.currency, currency, rates))}
                         </span>
                       )}
@@ -768,15 +850,15 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                       )}
                     </div>
                     {exp.notes && (
-                      <div className="text-zinc-600 text-xs mt-1">{exp.notes}</div>
+                      <div className="text-zinc-400 text-xs mt-1">{exp.notes}</div>
                     )}
                   </div>
                   {!readOnly && (
-                    <div className="flex items-center gap-1 shrink-0 ml-1">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
                       <button
                         aria-label="編輯費用"
                         onClick={() => openEdit(exp)}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
                       >
                         <EditOutlined style={{ fontSize: 13 }} />
                       </button>
@@ -787,7 +869,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                           okText: "刪除", okType: "danger", cancelText: "取消",
                           onOk: () => handleDelete(exp.id),
                         })}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-red-500/15 hover:text-red-400 transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:bg-red-500/15 hover:text-red-400 transition-colors cursor-pointer"
                       >
                         <DeleteOutlined style={{ fontSize: 13 }} />
                       </button>
@@ -827,7 +909,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
       </div>
 
       {expenses.length === 0 ? (
-        <div className="text-zinc-600 text-center py-12 text-sm">新增費用後才能查看統計</div>
+        <div className="text-zinc-400 text-center py-12 text-sm">新增費用後才能查看統計</div>
       ) : (
         <>
           {/* Total card */}
@@ -837,17 +919,17 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                 總花費{(statsCategoryFilter.length > 0 || statsMemberFilter) ? "（篩選中）" : ""}
               </div>
               <div className="text-[26px] font-bold text-zinc-100 leading-none">
-                {currency} {fmtTotal(convertedTotal)}
+                <span className="font-money">{currency} {fmtTotal(convertedTotal)}</span>
               </div>
             </div>
-            <div className="text-zinc-600 text-[11px] text-right leading-relaxed">
+            <div className="text-zinc-400 text-[11px] text-right leading-relaxed">
               {rates ? <>已換算為 {currency}<br />匯率即時更新</> : "載入匯率中..."}
             </div>
           </div>
 
           {/* Pie + category cards */}
           <div className="flex gap-3 mb-4 items-stretch">
-            <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-3 flex flex-col items-center justify-center w-[148px] md:w-[400px] flex-shrink-0">
+            <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-3 hidden md:flex flex-col items-center justify-center md:w-[400px] flex-shrink-0">
               <div className="text-zinc-500 text-[11px] mb-2 self-start">類別佔比</div>
               <div className="w-full h-[110px] md:h-[360px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -872,7 +954,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                         return (
                           <div className="bg-[#18181b] border border-white/10 rounded-xl px-3 py-2 shadow-xl text-xs">
                             <div className="font-semibold text-zinc-200 mb-0.5">{payload[0].name}</div>
-                            <div className="text-blue-400">{currency} {Number(payload[0].value).toFixed(0)}</div>
+                            <div className="font-money text-blue-400">{currency} {Number(payload[0].value).toFixed(0)}</div>
                           </div>
                         );
                       }}
@@ -882,38 +964,57 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
+            <div className="flex-1 flex flex-col gap-2 overflow-hidden">
               {(() => {
                 const pieTotal = categoryStats.reduce((s, c) => s + c.total, 0);
                 const anySelected = statsCategoryFilter.length > 0;
-                return categoryStats.map((cat) => {
-                  const isSelected = statsCategoryFilter.includes(cat.category);
-                  return (
-                    <button
-                      key={cat.category}
-                      onClick={() => setStatsCategoryFilter(prev =>
-                        prev.includes(cat.category) ? prev.filter(c => c !== cat.category) : [...prev, cat.category]
-                      )}
-                      className={`rounded-[12px] px-3 py-2 flex items-center gap-2.5 cursor-pointer transition-all text-left border ${isSelected
-                        ? "bg-white/[0.06]"
-                        : anySelected
-                          ? "bg-white/[0.02] border-white/[0.05] opacity-40"
-                          : "bg-white/[0.03] border-white/[0.07]"
-                        }`}
-                      style={isSelected ? { borderColor: `${cat.color}70` } : undefined}
-                    >
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-zinc-300 text-xs font-medium leading-none">{cat.label}</div>
-                        <div className="text-zinc-600 text-[10px] mt-0.5">{cat.count} 筆</div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-zinc-200 text-xs font-semibold leading-none">{currency} {fmtTotal(cat.total)}</div>
-                        <div className="text-zinc-600 text-[10px] mt-0.5">{pieTotal > 0 ? Math.round((cat.total / pieTotal) * 100) : 0}%</div>
-                      </div>
-                    </button>
-                  );
-                });
+                return (
+                  <>
+                    {/* 單一堆疊比例條：一眼看出佔比 */}
+                    <div className="h-2.5 w-full rounded-full overflow-hidden flex bg-white/[0.05]">
+                      {categoryStats.map((cat) => {
+                        const pct = pieTotal > 0 ? (cat.total / pieTotal) * 100 : 0;
+                        const dimmed = anySelected && !statsCategoryFilter.includes(cat.category);
+                        return (
+                          <div
+                            key={cat.category}
+                            className="h-full transition-all duration-300"
+                            style={{ width: `${pct}%`, backgroundColor: cat.color, opacity: dimmed ? 0.25 : 0.9 }}
+                          />
+                        );
+                      })}
+                    </div>
+                    {/* 類別卡：兩欄緊湊排列 */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {categoryStats.map((cat) => {
+                        const isSelected = statsCategoryFilter.includes(cat.category);
+                        const pct = pieTotal > 0 ? Math.round((cat.total / pieTotal) * 100) : 0;
+                        return (
+                          <button
+                            key={cat.category}
+                            onClick={() => setStatsCategoryFilter(prev =>
+                              prev.includes(cat.category) ? prev.filter(c => c !== cat.category) : [...prev, cat.category]
+                            )}
+                            className={`rounded-[12px] px-2.5 py-2 cursor-pointer transition-all text-left border ${isSelected
+                              ? "bg-white/[0.06]"
+                              : anySelected
+                                ? "bg-white/[0.02] border-white/[0.05] opacity-40"
+                                : "bg-white/[0.03] border-white/[0.07]"
+                              }`}
+                            style={isSelected ? { borderColor: `${cat.color}70` } : undefined}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                              <span className="text-zinc-300 text-xs font-medium truncate flex-1">{cat.label}</span>
+                              <span className="text-zinc-400 text-[10px] shrink-0">{pct}%</span>
+                            </div>
+                            <div className="font-money text-zinc-200 text-xs font-semibold mt-1">{currency} {fmtTotal(cat.total)}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
               })()}
             </div>
           </div>
@@ -944,7 +1045,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                       return (
                         <div className="bg-[#18181b] border border-white/10 rounded-xl px-3 py-2 shadow-xl text-xs">
                           <div className="text-zinc-400 mb-0.5">{label}</div>
-                          <div className="font-semibold text-blue-400">{currency} {fmtTotal(Number(payload[0].value))}</div>
+                          <div className="font-money font-semibold text-blue-400">{currency} {fmtTotal(Number(payload[0].value))}</div>
                         </div>
                       );
                     }}
@@ -965,7 +1066,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                   <div key={p.name} className="mb-3 last:mb-0">
                     <div className="flex justify-between items-center mb-1.5">
                       <span className="text-zinc-300 text-xs font-medium">{p.name}</span>
-                      <span className="text-zinc-200 text-xs font-semibold">{currency} {fmtTotal(p.total)}</span>
+                      <span className="font-money text-zinc-200 text-xs font-semibold">{currency} {fmtTotal(p.total)}</span>
                     </div>
                     <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                       <div
@@ -1000,17 +1101,17 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                         {exp.category && <CategoryBadge category={exp.category} />}
                       </div>
                       <div className="flex gap-2 mt-0.5 flex-wrap">
-                        {exp.date && <span className="text-zinc-600 text-[11px]">{exp.date}</span>}
-                        {exp.paid_by && <span className="text-zinc-600 text-[11px]">{exp.paid_by} 付</span>}
+                        {exp.date && <span className="text-zinc-400 text-[11px]">{exp.date}</span>}
+                        {exp.paid_by && <span className="text-zinc-400 text-[11px]">{exp.paid_by} 付</span>}
                         {exp.split_with?.length > 0 && (
-                          <span className="text-zinc-600 text-[11px]">{exp.split_with.join("、")} 分攤</span>
+                          <span className="text-zinc-400 text-[11px]">{exp.split_with.join("、")} 分攤</span>
                         )}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-blue-400 text-sm font-semibold">{exp.currency} {fmtAmt(Number(exp.amount))}</div>
+                      <div className="font-money text-blue-400 text-sm font-semibold">{exp.currency} {fmtAmt(Number(exp.amount))}</div>
                       {exp.currency !== currency && rates && (
-                        <div className="text-zinc-600 text-[11px]">≈ {currency} {fmtTotal(converted)}</div>
+                        <div className="text-zinc-400 text-[11px]">≈ {currency} {fmtTotal(converted)}</div>
                       )}
                     </div>
                   </div>
@@ -1031,11 +1132,11 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         {addButton}
       </div>
       {people.length === 0 ? (
-        <div className="text-zinc-600 text-center py-8">
+        <div className="text-zinc-400 text-center py-8">
           請先在旅程編輯中加入分帳成員
         </div>
       ) : settlementNeedsRates ? (
-        <div className="text-zinc-600 text-center py-8">
+        <div className="text-zinc-400 text-center py-8">
           匯率載入中，稍候即可顯示換算後的結算金額…
         </div>
       ) : (
@@ -1050,7 +1151,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                 <div key={p} className="flex justify-between items-center py-2 border-b border-[#27272a]">
                   <Typography.Text className="text-zinc-200">{p}</Typography.Text>
                   <Typography.Text className={`font-semibold ${bal >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {bal >= 0 ? "+" : ""}{bal.toFixed(2)} {currency}
+                    <span className="font-money">{bal >= 0 ? "+" : ""}{bal.toFixed(2)} {currency}</span>
                   </Typography.Text>
                 </div>
               );
@@ -1063,7 +1164,8 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                 應付款項
               </Typography.Text>
               {transactions.map((t, i) => {
-                const txKey = `${t.from}→${t.to}`;
+                // key 含金額：結算金額一變，舊的繳清標記自動失效，不會誤導
+                const txKey = `${t.from}→${t.to}:${t.amount.toFixed(2)}`;
                 const isPaid = paidTransactions.has(txKey);
                 return (
                   <div
@@ -1075,12 +1177,12 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                       <span className="text-zinc-500"> 付給 </span>
                       <span className="text-teal-400 font-semibold">{t.to}</span>
                       <span className="text-zinc-500">：</span>
-                      <span className="text-violet-400 font-semibold">{currency} {t.amount.toFixed(2)}</span>
+                      <span className="font-money text-violet-400 font-semibold">{currency} {t.amount.toFixed(2)}</span>
                     </span>
                     <button
                       aria-label={isPaid ? "取消繳清標記" : "標記為已繳清"}
                       onClick={() => togglePaid(txKey, isPaid)}
-                      className={`ml-3 w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 cursor-pointer ${isPaid ? "bg-green-500/20 border-green-500/50 text-green-400" : "border-zinc-700 text-zinc-700 hover:border-zinc-500 hover:text-zinc-400"}`}
+                      className={`relative ml-3 w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-all duration-200 cursor-pointer after:absolute after:-inset-2.5 after:content-[''] ${isPaid ? "bg-green-500/20 border-green-500/50 text-green-400" : "border-zinc-600 text-zinc-600 hover:border-zinc-400 hover:text-zinc-300"}`}
                     >
                       {isPaid && <CheckOutlined style={{ fontSize: 11 }} />}
                     </button>
@@ -1104,8 +1206,9 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     <>
       <Tabs
         className="expenses-tabs"
+        defaultActiveKey={tripEndDate && dayjs().format("YYYY-MM-DD") > tripEndDate ? "stats" : "list"}
         renderTabBar={(props, DefaultTabBar) => (
-          <div className="sticky top-[64px] z-10 backdrop-blur-md pt-1 md:backdrop-blur-none md:relative md:top-0 md:z-0">
+          <div className="sticky top-[64px] z-30 bg-[#09090b]/60 backdrop-blur-md pt-1 md:bg-transparent md:backdrop-blur-none md:relative md:top-0 md:z-0">
             <DefaultTabBar {...props} style={{ marginBottom: 0 }} />
           </div>
         )}
@@ -1118,6 +1221,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
       <Modal
         title={editingExpense ? "編輯費用" : "新增費用"}
+        afterClose={() => form.resetFields()}
         open={showModal}
         onCancel={closeModal}
         footer={null}
@@ -1186,7 +1290,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
               rules={[{ required: true, message: "請輸入金額" }]}
               className="flex-1"
             >
-              <InputNumber min={0} precision={2} placeholder="0.00" style={{ width: "100%" }} />
+              <InputNumber min={0} precision={2} placeholder="0.00" inputMode="decimal" style={{ width: "100%" }} />
             </Form.Item>
             <Form.Item name="currency" label="貨幣" className="w-40">
               <Select

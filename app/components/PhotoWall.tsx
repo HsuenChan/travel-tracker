@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Spin, Typography } from "antd";
+import { Button, Typography } from "antd";
 import { PictureOutlined } from "@ant-design/icons";
 import PhotoFramePreview from "./PhotoFramePreview";
+import PillButton from "./PillButton";
 
 interface MediaItem {
   id: string;
@@ -226,7 +227,7 @@ export default function PhotoWall({ albumUrl }: Props) {
 
       {nextPageToken ? (
         <div className="text-center mt-4">
-          <Button onClick={loadMore} loading={loadingMore}>載入更多</Button>
+          <PillButton onClick={loadMore} disabled={loadingMore}>{loadingMore ? "載入中..." : "載入更多"}</PillButton>
         </div>
       ) : (
         <div className="text-center mt-5 pb-2">
@@ -273,7 +274,7 @@ export default function PhotoWall({ albumUrl }: Props) {
                   rel="noopener noreferrer"
                   className="text-white bg-white/15 px-5 py-2 rounded-full text-sm no-underline"
                 >
-                  ▶ 在 Google Photos 播放影片 ↗
+                  在 Google Photos 播放影片 ↗
                 </a>
               </div>
             ) : (
@@ -307,6 +308,7 @@ export default function PhotoWall({ albumUrl }: Props) {
             <button
               onClick={(e) => { e.stopPropagation(); setPreviewPhoto(currentPhoto); }}
               title="下載（含邊框與相機資訊）"
+              aria-label="下載照片（含邊框與相機資訊）"
               className="absolute top-4 right-[60px] bg-white/[0.12] border-none rounded-full w-[42px] h-[42px] text-white cursor-pointer flex items-center justify-center"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -318,6 +320,7 @@ export default function PhotoWall({ albumUrl }: Props) {
           {/* Close */}
           <button
             onClick={closeLightbox}
+            aria-label="關閉照片檢視"
             className="absolute top-4 right-4 bg-white/[0.12] border-none rounded-full w-[42px] h-[42px] text-white cursor-pointer text-lg flex items-center justify-center"
           >
             ✕
@@ -327,6 +330,7 @@ export default function PhotoWall({ albumUrl }: Props) {
           {photos.length > 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); prevPhoto(); }}
+              aria-label="上一張照片"
               className="absolute top-1/2 left-3 -translate-y-1/2 bg-white/[0.12] border-none rounded-full w-[42px] h-[42px] text-white cursor-pointer text-[24px] flex items-center justify-center"
             >
               ‹
@@ -337,6 +341,7 @@ export default function PhotoWall({ albumUrl }: Props) {
           {photos.length > 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); nextPhoto(); }}
+              aria-label="下一張照片"
               className="absolute top-1/2 right-3 -translate-y-1/2 bg-white/[0.12] border-none rounded-full w-[42px] h-[42px] text-white cursor-pointer text-[24px] flex items-center justify-center"
             >
               ›
@@ -383,7 +388,16 @@ function LazyPhoto({
     <div
       ref={ref}
       onClick={() => onClick(index)}
-      className="rounded-md overflow-hidden cursor-pointer bg-[#1c1c1e] relative"
+      role="button"
+      tabIndex={0}
+      aria-label={`檢視照片 ${photo.filename}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick(index);
+        }
+      }}
+      className="rounded-md overflow-hidden cursor-pointer bg-[#1c1c1e] relative focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2"
       style={{
         flexGrow: 1,
         flexBasis: `${flexBasis}px`,

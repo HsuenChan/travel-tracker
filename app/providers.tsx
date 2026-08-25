@@ -21,7 +21,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           colorBgContainer: "#18181b",
           colorBorder: "#27272a",
           borderRadius: 20,
-          fontFamily: "var(--font-geist-sans), sans-serif",
+          fontFamily: 'var(--font-geist-sans), -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif',
         },
         components: {
           Layout: {

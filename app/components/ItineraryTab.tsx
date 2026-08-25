@@ -1,12 +1,12 @@
 "use client";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
-import { PlusIcon, CalendarIcon, LocationIcon, CategoryBadge } from "@/app/components/Icons";
+import { PlusIcon, CalendarIcon, LocationIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon } from "@/app/components/Icons";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
@@ -58,19 +58,6 @@ interface WeatherDay {
   minTemp: number;
 }
 
-function wmoEmoji(code: number): string {
-  if (code === 0) return "☀️";
-  if (code <= 2) return "🌤️";
-  if (code === 3) return "☁️";
-  if (code <= 48) return "🌫️";
-  if (code <= 55) return "🌦️";
-  if (code <= 67) return "🌧️";
-  if (code <= 77) return "🌨️";
-  if (code <= 82) return "🌦️";
-  if (code <= 86) return "🌨️";
-  return "⛈️";
-}
-
 interface HealthIssue {
   level: "error" | "warning" | "ok";
   title: string;
@@ -90,11 +77,11 @@ interface PreviewItem {
 }
 
 const AI_INTERESTS = [
-  { value: "food", label: "🍜 美食" },
-  { value: "attraction", label: "🏛 文化景點" },
-  { value: "nature", label: "🌿 自然" },
-  { value: "shopping", label: "🛍 購物" },
-  { value: "experience", label: "🎌 體驗" },
+  { value: "food", label: "美食" },
+  { value: "attraction", label: "文化景點" },
+  { value: "nature", label: "自然" },
+  { value: "shopping", label: "購物" },
+  { value: "experience", label: "體驗" },
 ];
 
 const TIME_OPTIONS = Array.from({ length: 15 }, (_, i) => {
@@ -132,6 +119,16 @@ const CATEGORY_ACCENT: Record<string, { from: string; to: string }> = {
   other: { from: '#a1a1aa', to: '#71717a' },   // zinc   — badge #a1a1aa
 };
 
+const CATEGORY_DOT_ICONS: Record<string, ReactNode> = {
+  transport: <CatTransportIcon size={11} />,
+  hotel: <CatHotelIcon size={11} />,
+  food: <CatFoodIcon size={11} />,
+  attraction: <CatAttractionIcon size={11} />,
+  shopping: <CatShoppingIcon size={11} />,
+  activity: <CatActivityIcon size={11} />,
+  other: <CatOtherIcon size={11} />,
+};
+
 export default function ItineraryTab({ tripId, isActive, destination, readOnly, initialItems }: Props) {
   const [items, setItems] = useState<ItineraryItem[]>(initialItems || []);
   const [form] = Form.useForm();
@@ -143,7 +140,9 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   const urlModal = searchParams.get("modal");
   const urlItemId = searchParams.get("itemId");
   const urlDate = searchParams.get("date");
-  const showModal = !readOnly && (urlModal === "addItinerary" || urlModal === "editItinerary");
+  const [forceClosed, setForceClosed] = useState(false);
+  const pushedModalRef = useRef(false);
+  const showModal = !readOnly && !forceClosed && (urlModal === "addItinerary" || urlModal === "editItinerary");
   const editingItem = useMemo<ItineraryItem | null>(() => {
     if (urlModal !== "editItinerary" || !urlItemId) return null;
     return items.find(i => i.id === urlItemId) ?? null;
@@ -152,6 +151,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   const [loading, setLoading] = useState(true);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
+  const [loadError, setLoadError] = useState(false);
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherDay>>({});
   const { modal, message } = App.useApp();
 
@@ -174,20 +174,32 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   const [aiPreview, setAIPreview] = useState<PreviewItem[]>([]);
   const [aiConfirming, setAIConfirming] = useState(false);
 
-  async function fetchItems() {
+  async function fetchItems(force = true) {
     const cacheKey = `travel_itinerary_${tripId}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       setItems(JSON.parse(cached));
       setLoading(false);
-    } else {
-      setLoading(true);
     }
-    const res = await fetchWithAuth(`/api/itinerary?tripId=${tripId}`);
-    if (res.ok) {
-      const data = await res.json();
-      setItems(data.items);
-      localStorage.setItem(cacheKey, JSON.stringify(data.items));
+    // 60 秒內的快取視為新鮮：切分頁重新掛載時不重打 API
+    if (!force && cached && Date.now() - Number(localStorage.getItem(`${cacheKey}:ts`) || 0) < 60_000) {
+      setLoading(false);
+      return;
+    }
+    if (!cached) setLoading(true);
+    try {
+      const res = await fetchWithAuth(`/api/itinerary?tripId=${tripId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data.items);
+        localStorage.setItem(cacheKey, JSON.stringify(data.items));
+        localStorage.setItem(`${cacheKey}:ts`, String(Date.now()));
+        setLoadError(false);
+      } else if (!cached) {
+        setLoadError(true);
+      }
+    } catch {
+      if (!cached) setLoadError(true);
     }
     setLoading(false);
   }
@@ -197,16 +209,21 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
       setItems(initialItems);
       setLoading(false);
     } else if (isActive) {
-      fetchItems();
+      fetchItems(false);
     }
   }, [tripId, isActive, initialItems]);
 
-  useEffect(() => {
-    if (!destination || items.length === 0) return;
-    const city = destination.split(/[,，、]/)[0].trim();
+  // 只依賴日期範圍字串，items 參照變動不會重打天氣 API
+  const weatherRange = useMemo(() => {
+    if (items.length === 0) return null;
     const allDates = items.map((item) => item.date).sort();
-    const startDate = allDates[0];
-    const endDate = allDates[allDates.length - 1];
+    return `${allDates[0]}~${allDates[allDates.length - 1]}`;
+  }, [items]);
+
+  useEffect(() => {
+    if (!destination || !weatherRange) return;
+    const city = destination.split(/[,，、]/)[0].trim();
+    const [startDate, endDate] = weatherRange.split("~");
     fetch(`/api/weather?city=${encodeURIComponent(city)}&startDate=${startDate}&endDate=${endDate}`)
       .then((r) => r.json())
       .then((data) => {
@@ -218,15 +235,13 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
         setWeatherMap(map);
       })
       .catch(() => { });
-  }, [destination, items]);
+  }, [destination, weatherRange]);
 
   useEffect(() => {
     if (!isActive || loading) return;
     const todayEl = document.getElementById(`itinerary-date-${todayStr}`);
     if (todayEl) {
       setTimeout(() => todayEl.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    } else {
-      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [isActive, loading]);
 
@@ -282,6 +297,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   }
 
   async function handleDelete(id: string) {
+    const deleted = items.find((i) => i.id === id);
     try {
       const res = await fetchWithAuth("/api/itinerary", {
         method: "DELETE",
@@ -292,16 +308,63 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
         message.error("刪除失敗，請再試一次");
         return;
       }
-      message.success("已刪除行程");
       fetchItems();
+      if (deleted) {
+        const key = `undo-itinerary-${id}`;
+        message.success({
+          key,
+          duration: 5,
+          content: (
+            <span>
+              已刪除「{deleted.title}」
+              <button
+                type="button"
+                onClick={() => { message.destroy(key); restoreItem(deleted); }}
+                className="ml-2 text-violet-500 font-medium underline cursor-pointer"
+              >
+                復原
+              </button>
+            </span>
+          ),
+        });
+      } else {
+        message.success("已刪除行程");
+      }
     } catch {
       message.error("刪除失敗，請檢查網路連線");
+    }
+  }
+
+  async function restoreItem(item: ItineraryItem) {
+    try {
+      const res = await fetchWithAuth("/api/itinerary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tripId,
+          date: item.date,
+          time: item.time,
+          end_date: item.end_date,
+          end_time: item.end_time,
+          title: item.title,
+          category: item.category,
+          location: item.location,
+          notes: item.notes,
+          image_urls: item.image_urls ?? [],
+        }),
+      });
+      if (!res.ok) throw new Error();
+      message.success("已復原");
+      fetchItems();
+    } catch {
+      message.error("復原失敗，請再試一次");
     }
   }
 
   // Populate form when URL-driven modal opens
   useEffect(() => {
     if (readOnly) return;
+    if (urlModal === "addItinerary" || urlModal === "editItinerary") setForceClosed(false);
     if (urlModal === "editItinerary" && editingItem) {
       form.setFieldsValue({
         date: editingItem.date ? dayjs(editingItem.date) : null,
@@ -329,6 +392,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
     p.set("modal", "editItinerary");
     p.set("itemId", item.id);
     router.push(`${pathname}?${p.toString()}`, { scroll: false });
+    pushedModalRef.current = true;
   }
 
   function openAdd(date?: string) {
@@ -338,17 +402,22 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
     p.delete("itemId");
     if (date) p.set("date", date); else p.delete("date");
     router.push(`${pathname}?${p.toString()}`, { scroll: false });
+    pushedModalRef.current = true;
   }
 
   function closeModal() {
     if (readOnly) return;
+    setForceClosed(true);
+    if (pushedModalRef.current) {
+      pushedModalRef.current = false;
+      router.back();
+      return;
+    }
     const p = new URLSearchParams(Array.from(searchParams.entries()));
     p.delete("modal");
     p.delete("itemId");
     p.delete("date");
     router.replace(`${pathname}?${p.toString()}`, { scroll: false });
-    form.resetFields();
-    setImageUrls([]);
   }
 
   async function handleImageUpload(file: File) {
@@ -384,7 +453,13 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
       if (res.ok) {
         const data = await res.json();
         setHealthReport(data.issues ?? []);
+      } else {
+        message.error("健康檢查失敗，請再試一次");
+        setHealthOpen(false);
       }
+    } catch {
+      message.error("健康檢查失敗，請檢查網路連線");
+      setHealthOpen(false);
     } finally {
       setHealthLoading(false);
     }
@@ -412,7 +487,11 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
         const data = await res.json();
         setAIPreview(data.items ?? []);
         setAIStep("preview");
+      } else {
+        message.error("AI 排程生成失敗，請再試一次");
       }
+    } catch {
+      message.error("AI 排程生成失敗，請檢查網路連線");
     } finally {
       setAIGenerating(false);
     }
@@ -422,7 +501,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
     const toInsert = aiPreview.filter((item) => !item.removed);
     setAIConfirming(true);
     try {
-      await Promise.all(
+      const results = await Promise.all(
         toInsert.map((item) =>
           fetchWithAuth("/api/itinerary", {
             method: "POST",
@@ -437,9 +516,13 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
               location: item.location,
               notes: item.notes,
             }),
-          }),
+          }).then((r) => r.ok).catch(() => false),
         ),
       );
+      const failed = results.filter((ok) => !ok).length;
+      if (failed > 0) {
+        message.warning(`已寫入 ${results.length - failed} 筆，${failed} 筆失敗 — 請檢查後補上`);
+      }
       setAIModalOpen(false);
       setAIPreview([]);
       setAIStep("prefs");
@@ -468,19 +551,24 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
     grouped[date].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
   });
 
-  const timelineItems = dates.map((date) => {
+  const timelineItems = dates.flatMap((date) => {
     const isToday = date === todayStr;
     const isPast = date < todayStr;
     const dotColor = isToday ? "#a1a1aa" : isPast ? "#27272a" : "#52525b";
 
-    return {
-      key: date,
+    const dateNode = {
+      key: `date-${date}`,
       color: dotColor,
       content: (
-        <div id={`itinerary-date-${date}`} className="mb-5 scroll-mt-4">
-          <div className="flex items-center gap-2 mb-2.5 flex-wrap sticky top-[64px] z-20 py-2 backdrop-blur-md">
+        <div id={`itinerary-date-${date}`} className="scroll-mt-20 md:scroll-mt-36">
+          <div className="flex items-center gap-2 mb-2.5 flex-wrap sticky top-16 md:top-32 z-40 py-2 bg-[#09090b]/60 backdrop-blur-md">
             <Typography.Text
-              className={`text-[13px] font-semibold ${isToday ? "text-violet-400" : isPast ? "text-zinc-600" : "text-zinc-400"
+              title="跳到下一天"
+              onClick={() => {
+                const next = dates[(dates.indexOf(date) + 1) % dates.length];
+                document.getElementById(`itinerary-date-${next}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className={`font-display text-[13px] font-semibold cursor-pointer hover:opacity-75 transition-opacity select-none ${isToday ? "text-violet-400" : isPast ? "text-zinc-600" : "text-zinc-400"
                 }`}
             >
               {date} <span className="opacity-50 text-xs ml-0.5">(週{WEEKDAYS[dayjs(date).day()]})</span>
@@ -499,39 +587,110 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                   color: isPast ? "#52525b" : "#a1a1aa",
                 }}
               >
-                {wmoEmoji(weatherMap[date].code)} {weatherMap[date].maxTemp}° / {weatherMap[date].minTemp}°
+                <WeatherIcon code={weatherMap[date].code} size={12} /> {weatherMap[date].maxTemp}° / {weatherMap[date].minTemp}°
               </span>
             )}
             {!readOnly && (
               <button
                 aria-label={`在 ${date} 新增行程`}
                 onClick={() => openAdd(date)}
-                className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-500 border border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.12] hover:text-zinc-200 transition-colors cursor-pointer"
+                className="relative w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 border border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.12] hover:text-zinc-200 transition-colors cursor-pointer after:absolute after:-inset-2.5 after:content-['']"
               >
                 <PlusIcon size={10} />
               </button>
             )}
           </div>
-          {grouped[date].map((item, itemIndex) => (
+        </div>
+      ),
+    };
+
+    const itemNodes = grouped[date].map((item, itemIndex) => {
+            const hasImage = !!(item.image_urls && item.image_urls.length > 0);
+            const timeLabel = (item.time || item.end_time) ? (
+              <span className="text-xs shrink-0 tabular-nums">
+                {item.time ?? ""}
+                {(item.end_time || (item.end_date && item.end_date !== item.date)) && (
+                  <span className="opacity-70">
+                    {" → "}
+                    {item.end_date && item.end_date !== item.date ? `${item.end_date} ` : ""}
+                    {item.end_time ?? ""}
+                  </span>
+                )}
+              </span>
+            ) : null;
+            const locationInner = item.location ? (
+              <>
+                <a
+                  href={
+                    item.location.startsWith("http")
+                      ? item.location
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="在 Google Maps 開啟地點"
+                  className="w-6 h-6 -my-1 -ml-1.5 -mr-1 rounded-full flex items-center justify-center shrink-0 !text-violet-400/75 hover:!text-violet-300 hover:bg-violet-500/10 transition-colors"
+                >
+                  <LocationIcon size={12} />
+                </a>
+                {item.location.startsWith("http") ? (
+                  <a
+                    href={item.location}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="!text-violet-400/75 hover:!text-violet-300 hover:!underline underline-offset-2 transition-colors"
+                  >
+                    查看地圖
+                  </a>
+                ) : (
+                  <span className="truncate">{item.location}</span>
+                )}
+              </>
+            ) : null;
+            const actionButtons = !readOnly ? (
+              <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                <button
+                  aria-label="編輯行程"
+                  onClick={() => openEdit(item)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
+                >
+                  <EditOutlined style={{ fontSize: 13 }} />
+                </button>
+                <button
+                  aria-label="刪除行程"
+                  onClick={() => modal.confirm({
+                    title: `確定刪除「${item.title}」？`,
+                    okText: "刪除", okType: "danger", cancelText: "取消",
+                    onOk: () => handleDelete(item.id),
+                  })}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:bg-red-500/15 hover:text-red-400 transition-colors cursor-pointer"
+                >
+                  <DeleteOutlined style={{ fontSize: 13 }} />
+                </button>
+              </div>
+            ) : null;
+      return {
+        key: item.id,
+        icon: (
+          <span className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center border border-white/[0.12] bg-[#131316] text-zinc-400">
+            {CATEGORY_DOT_ICONS[item.category ?? "other"] ?? CATEGORY_DOT_ICONS.other}
+          </span>
+        ),
+        content: (
             <motion.div
               key={item.id}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.28, ease: "easeOut", delay: itemIndex * 0.05 }}
-              className="relative bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden mb-2"
+              className="relative bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden"
+              style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
             >
-              {item.category && (
-                <div
-                  className="absolute left-0 top-0 bottom-0 w-1 z-10"
-                  style={{ background: `linear-gradient(to bottom, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).to})` }}
-                />
-              )}
               <div className="block md:flex">
               {item.image_urls && item.image_urls.length > 0 && (() => {
                 const cover = parseCoverPos(item.image_urls[0]);
                 return (
-                  <div className="relative w-full h-36 md:w-64 md:h-auto md:min-h-[128px] md:shrink-0">
+                  <div className="relative w-full h-32 md:w-64 md:h-auto md:min-h-[128px] md:shrink-0">
                     <Image.PreviewGroup items={item.image_urls.map((u) => parseCoverPos(u).clean)}>
                       <Image
                         src={cover.clean}
@@ -553,72 +712,61 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                         +{item.image_urls.length - 1}
                       </span>
                     )}
+                    {/* 手機：標題疊在下緣漸層上 */}
+                    <div className="md:hidden absolute left-3.5 right-12 bottom-1 pointer-events-none">
+                      <Typography.Text strong className="!text-zinc-50 text-[15px] leading-snug">{item.title}</Typography.Text>
+                    </div>
+                    {/* 手機：操作鈕疊在圖片右上（與伴手禮卡一致） */}
+                    {!readOnly && (
+                      <div className="md:hidden absolute top-2 right-2 flex gap-1 bg-black/30 backdrop-blur-[2px] rounded-full p-0.5">
+                        <button
+                          aria-label="編輯行程"
+                          onClick={() => openEdit(item)}
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:bg-black/25 transition-colors cursor-pointer"
+                        >
+                          <EditOutlined style={{ fontSize: 13 }} />
+                        </button>
+                        <button
+                          aria-label="刪除行程"
+                          onClick={() => modal.confirm({
+                            title: `確定刪除「${item.title}」？`,
+                            okText: "刪除", okType: "danger", cancelText: "取消",
+                            onOk: () => handleDelete(item.id),
+                          })}
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:text-red-400 hover:bg-black/25 transition-colors cursor-pointer"
+                        >
+                          <DeleteOutlined style={{ fontSize: 13 }} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
-              <div className="flex-1 min-w-0" style={{ padding: "12px 14px 12px 18px" }}>
-              <div className="flex justify-between items-start">
+              <div className={`flex-1 min-w-0 ${hasImage ? "pt-1 md:pt-0" : "pt-3"} px-3.5 pb-3 md:flex md:flex-col md:justify-center md:py-3`}>
+              {!hasImage && (
+                <div className="md:hidden flex justify-between items-start mb-1">
+                  <Typography.Text strong className="!text-zinc-50 text-[15px] leading-snug flex-1 min-w-0">{item.title}</Typography.Text>
+                  {actionButtons && <div className="-mt-1">{actionButtons}</div>}
+                </div>
+              )}
+              {(timeLabel || item.category || locationInner) && (
+                <div className="md:hidden flex items-center gap-2 flex-wrap mb-1 text-zinc-500 text-xs">
+                  {timeLabel && <span className="text-zinc-500">{timeLabel}</span>}
+                  {item.category && <CategoryBadge category={item.category} />}
+                  {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
+                </div>
+              )}
+              <div className="hidden md:flex justify-between items-start">
                 <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap mb-1">
-                  {(item.time || item.end_time) && (
-                    <span className="text-zinc-500 text-xs shrink-0 tabular-nums">
-                      {item.time ?? ""}
-                      {(item.end_time || (item.end_date && item.end_date !== item.date)) && (
-                        <span className="text-zinc-600">
-                          {" → "}
-                          {item.end_date && item.end_date !== item.date ? `${item.end_date} ` : ""}
-                          {item.end_time ?? ""}
-                        </span>
-                      )}
-                    </span>
-                  )}
+                  {timeLabel && <span className="text-zinc-500">{timeLabel}</span>}
                   <Typography.Text strong className="text-zinc-100 text-sm">{item.title}</Typography.Text>
                   {item.category && <CategoryBadge category={item.category} />}
                 </div>
-                {!readOnly && (
-                  <div className="flex items-center gap-1 shrink-0 ml-1">
-                    <button
-                      aria-label="編輯行程"
-                      onClick={() => openEdit(item)}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
-                    >
-                      <EditOutlined style={{ fontSize: 13 }} />
-                    </button>
-                    <button
-                      aria-label="刪除行程"
-                      onClick={() => modal.confirm({
-                        title: `確定刪除「${item.title}」？`,
-                        okText: "刪除", okType: "danger", cancelText: "取消",
-                        onOk: () => handleDelete(item.id),
-                      })}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:bg-red-500/15 hover:text-red-400 transition-colors cursor-pointer"
-                    >
-                      <DeleteOutlined style={{ fontSize: 13 }} />
-                    </button>
-                  </div>
-                )}
+                {actionButtons}
               </div>
-              {item.location && (
-                <div className="text-zinc-500 text-xs mb-0.5 flex items-center gap-1">
-                  <a
-                    href={
-                      item.location.startsWith("http")
-                        ? item.location
-                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="在 Google Maps 開啟地點"
-                    className="w-6 h-6 -my-1 -ml-1.5 rounded-full flex items-center justify-center shrink-0 text-zinc-500 hover:text-violet-400 hover:bg-white/[0.08] transition-colors"
-                  >
-                    <LocationIcon size={12} />
-                  </a>
-                  {item.location.startsWith("http") ? (
-                    <a href={item.location} target="_blank" rel="noopener noreferrer" className="location-link">
-                      查看地圖
-                    </a>
-                  ) : (
-                    <span className="truncate">{item.location}</span>
-                  )}
+              {locationInner && (
+                <div className="hidden md:flex text-zinc-500 text-xs mb-0.5 items-center gap-0.5">
+                  {locationInner}
                 </div>
               )}
               {item.notes && (
@@ -630,10 +778,11 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
               </div>
               </div>
             </motion.div>
-          ))}
-        </div>
-      ),
-    };
+        ),
+      };
+    });
+
+    return [dateNode, ...itemNodes];
   });
 
   return (
@@ -648,7 +797,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                 className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer"
                 style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}
               >
-                <span style={{ fontSize: 9 }}>✦</span> AI 排程
+                <SparkleIcon size={10} /> AI 排程
               </button>
               <button
                 onClick={handleHealthCheck}
@@ -658,7 +807,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                   ? { background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }
                   : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#71717a" }}
               >
-                {healthLoading ? <LoadingOutlined style={{ fontSize: 10 }} /> : <span>⚕</span>} 健康
+                {healthLoading ? <LoadingOutlined style={{ fontSize: 10 }} /> : <HealthIcon size={11} />} 行程檢查
               </button>
               <button
                 onClick={() => openAdd()}
@@ -677,7 +826,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
         <div className="mb-4 rounded-[18px] overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
             <div className="flex items-center gap-2">
-              <span className="text-sm">⚕</span>
+              <HealthIcon size={14} className="text-zinc-300" />
               <span className="text-zinc-200 text-[13px] font-semibold">行程健康報告</span>
               {!healthLoading && healthReport && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
@@ -693,9 +842,10 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
               <Skeleton active paragraph={{ rows: 2 }} title={false} />
             ) : (healthReport ?? []).map((issue, i) => (
               <div key={i} className="flex gap-2.5">
-                <span className="text-[13px] shrink-0 mt-0.5">
-                  {issue.level === "error" ? "🔴" : issue.level === "warning" ? "🟡" : "🟢"}
-                </span>
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${issue.level === "error" ? "bg-red-400" : issue.level === "warning" ? "bg-amber-400" : "bg-emerald-400"}`}
+                  aria-label={issue.level === "error" ? "嚴重" : issue.level === "warning" ? "建議" : "正常"}
+                />
                 <div>
                   <span className="text-zinc-200 text-[12px] font-medium">{issue.title}</span>
                   <p className="text-zinc-500 text-[11px] mt-0.5 leading-relaxed">{issue.detail}</p>
@@ -707,12 +857,39 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
       )}
 
       {loading ? (
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] px-[14px] py-4">
-              <Skeleton active paragraph={{ rows: 1, width: "60%" }} title={{ width: "30%" }} />
+        <div className="flex flex-col gap-3 animate-pulse">
+          <div className="h-4 w-36 rounded-full bg-white/[0.06] mb-1" />
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden">
+              {i !== 1 ? (
+                <div className="block md:flex">
+                  <div className="w-full h-32 md:w-64 md:h-auto md:min-h-[128px] md:shrink-0 bg-white/[0.05]" />
+                  <div className="flex-1 min-w-0 p-4 space-y-2.5">
+                    <div className="h-3.5 w-40 max-w-full rounded-full bg-white/[0.06]" />
+                    <div className="h-3 w-28 max-w-full rounded-full bg-white/[0.05]" />
+                    <div className="h-3 w-3/5 rounded-full bg-white/[0.04]" />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 space-y-2.5">
+                  <div className="h-4 w-48 max-w-full rounded-full bg-white/[0.06]" />
+                  <div className="h-3 w-32 max-w-full rounded-full bg-white/[0.05]" />
+                  <div className="h-3 w-2/3 rounded-full bg-white/[0.04]" />
+                </div>
+              )}
             </div>
           ))}
+        </div>
+      ) : loadError && dates.length === 0 ? (
+        <div className="text-center py-14 rounded-3xl border border-white/5 bg-white/[0.02]">
+          <div className="text-zinc-300 text-sm font-medium mb-1">行程載入失敗</div>
+          <div className="text-zinc-500 text-xs mb-4">請檢查網路連線後重試</div>
+          <button
+            onClick={() => fetchItems()}
+            className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-4 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
+          >
+            重新載入
+          </button>
         </div>
       ) : dates.length === 0 ? (
         <div
@@ -746,13 +923,14 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
           )}
         </div>
       ) : (
-        <Timeline items={timelineItems} />
+        <Timeline className="itinerary-timeline" items={timelineItems} />
       )}
 
       <Modal
         title={editingItem ? "編輯行程" : "新增行程"}
         open={showModal}
         onCancel={closeModal}
+        afterClose={() => { form.resetFields(); setImageUrls([]); }}
         footer={null}
         width={520}
         centered={true}
@@ -865,7 +1043,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
       <Modal
         open={aiModalOpen}
         onCancel={() => { setAIModalOpen(false); setAIStep("prefs"); setAIPreview([]); }}
-        title={aiStep === "prefs" ? "✦ AI 幫我排行程" : "✦ AI 行程預覽"}
+        title={aiStep === "prefs" ? "AI 幫我排行程" : "AI 行程預覽"}
         footer={null}
         width={500}
         centered={true}
@@ -960,9 +1138,9 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
               <div className="text-zinc-400 text-[12px] font-medium mb-2">交通方式</div>
               <div className="flex gap-2">
                 {([
-                  { value: "public", label: "🚇 大眾運輸" },
-                  { value: "self",   label: "🚗 自駕" },
-                  { value: "mixed",  label: "🔀 混合" },
+                  { value: "public", label: "大眾運輸" },
+                  { value: "self",   label: "自駕" },
+                  { value: "mixed",  label: "混合" },
                 ] as const).map(({ value, label }) => (
                   <button
                     key={value}
@@ -998,7 +1176,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
 
             {items.length > 0 && (
               <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl" style={{ background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.15)" }}>
-                <span className="text-sm mt-0.5 shrink-0">ℹ️</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-1.5 shrink-0" />
                 <span className="text-zinc-400 text-[11px] leading-relaxed">
                   你已有 {items.length} 個行程項目，AI 會自動避開衝突時段。
                 </span>
@@ -1011,7 +1189,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
               className="w-full py-3 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
               style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.8),rgba(99,102,241,0.8))", color: "#fff", boxShadow: "0 4px 20px rgba(139,92,246,0.25)" }}
             >
-              {aiGenerating ? <LoadingOutlined /> : <span>✦</span>}
+              {aiGenerating ? <LoadingOutlined /> : <SparkleIcon size={12} />}
               {aiGenerating ? "AI 生成中..." : "生成行程預覽"}
             </button>
           </div>
@@ -1046,7 +1224,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                       {weatherMap[date] && (
                         <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full"
                           style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#71717a" }}>
-                          {wmoEmoji(weatherMap[date].code)} {weatherMap[date].maxTemp}°/{weatherMap[date].minTemp}°
+                          <WeatherIcon code={weatherMap[date].code} size={11} /> {weatherMap[date].maxTemp}°/{weatherMap[date].minTemp}°
                         </span>
                       )}
                     </div>

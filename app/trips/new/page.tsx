@@ -5,7 +5,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { Form, Input, DatePicker, Select, Row, Col } from "antd";
 import { motion, AnimatePresence, useAnimation, useMotionValue, useMotionTemplate, useSpring, useTransform } from "framer-motion";
 import {
-  PlaneIcon, PhotoIcon, CalendarIcon, CreditCardIcon, NotepadIcon, GiftIcon,
+  PlaneIcon, PhotoIcon, CalendarIcon, CoinIcon, NotepadIcon, GiftIcon,
 } from "@/app/components/Icons";
 import dayjs from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
@@ -14,7 +14,7 @@ import LoginGlobe from "@/app/components/LoginGlobe";
 const ALL_TABS = [
   { key: "transport",  label: "路線",  icon: <PlaneIcon size={18} /> },
   { key: "itinerary",  label: "行程",  icon: <CalendarIcon size={18} /> },
-  { key: "expenses",   label: "費用",  icon: <CreditCardIcon size={18} /> },
+  { key: "expenses",   label: "費用",  icon: <CoinIcon size={18} /> },
   { key: "photos",     label: "照片",  icon: <PhotoIcon size={18} /> },
   { key: "notes",      label: "筆記",  icon: <NotepadIcon size={18} /> },
   { key: "souvenirs",  label: "伴手禮", icon: <GiftIcon size={18} /> },
@@ -582,6 +582,7 @@ export default function NewTripPage() {
   const [saving, setSaving] = useState(false);
   const isTransitioning = useRef(false);
   const lastScrollTime = useRef(0);
+  const wheelAccum = useRef(0);
 
   // 3D mouse parallax motion values
   const mouseX = useMotionValue(0);
@@ -599,6 +600,7 @@ export default function NewTripPage() {
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
   const [currencyOptions, setCurrencyOptions] = useState<CurrencyOption[]>([]);
   const [destQuery, setDestQuery] = useState("");
+  const [destSearchError, setDestSearchError] = useState(false);
   const [destOptions, setDestOptions] = useState<DestOption[]>([]);
   const [destSearching, setDestSearching] = useState(false);
   const destCoordsRef = useRef<Record<string, { lat: number; lng: number }>>({});
@@ -658,9 +660,16 @@ export default function NewTripPage() {
         if (res.ok) {
           const { results } = await res.json() as { results: DestOption[] };
           setDestOptions(results);
+          setDestSearchError(false);
           results.forEach(r => { destCoordsRef.current[r.value] = { lat: r.lat, lng: r.lng }; });
           results.forEach(r => { if (r.countryCode) destCodesRef.current[r.value] = r.countryCode; });
+        } else {
+          setDestOptions([]);
+          setDestSearchError(true);
         }
+      } catch {
+        setDestOptions([]);
+        setDestSearchError(true);
       } finally { setDestSearching(false); }
     }, 400);
     return () => clearTimeout(t);
@@ -689,24 +698,30 @@ export default function NewTripPage() {
   function handlePageWheel(e: React.WheelEvent) {
     if (isMobile) return;
     const now = Date.now();
-    if (now - lastScrollTime.current < 800) return;
-    if (Math.abs(e.deltaY) < 20) return;
+    if (now - lastScrollTime.current < 700) return;
 
     const formEl = formScrollRef.current;
     if (formEl && formEl.contains(e.target as Node)) {
       if (e.deltaY > 0) {
         const atBottom = formEl.scrollTop + formEl.clientHeight >= formEl.scrollHeight - 4;
-        if (!atBottom) return;
-      } else {
-        if (formEl.scrollTop > 0) return;
+        if (!atBottom) { wheelAccum.current = 0; return; }
+      } else if (formEl.scrollTop > 0) {
+        wheelAccum.current = 0;
+        return;
       }
     }
 
-    if (e.deltaY > 0 && step < STEPS.length - 1) {
+    // 蓄力翻頁：反向滾動清零，累積超過閾值才翻，觸控板輕掃不誤觸
+    if (Math.sign(e.deltaY) !== Math.sign(wheelAccum.current)) wheelAccum.current = 0;
+    wheelAccum.current += e.deltaY;
+
+    if (wheelAccum.current > 120 && step < STEPS.length - 1) {
       lastScrollTime.current = now;
+      wheelAccum.current = 0;
       handleNext();
-    } else if (e.deltaY < 0 && step > 0) {
+    } else if (wheelAccum.current < -120 && step > 0) {
       lastScrollTime.current = now;
+      wheelAccum.current = 0;
       handleBack();
     }
   }
@@ -778,12 +793,18 @@ export default function NewTripPage() {
         </button>
 
         <div className="flex-1 min-w-0">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={step}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
+              custom={direction}
+              variants={{
+                enter: (d: number) => ({ opacity: 0, y: d * 8 }),
+                center: { opacity: 1, y: 0 },
+                exit: (d: number) => ({ opacity: 0, y: d * -8 }),
+              }}
+              initial="enter"
+              animate="center"
+              exit="exit"
               transition={{ duration: 0.22 }}
             >
               <div className="text-[#f4f4f5] font-bold text-sm leading-tight">{STEPS[step].title}</div>
@@ -827,14 +848,14 @@ export default function NewTripPage() {
               key={step}
               custom={direction}
               variants={{
-                enter: (d: number) => ({ opacity: 0, y: d * 60, scale: 0.96 }),
+                enter: (d: number) => ({ opacity: 0, y: d * 140, scale: 0.94 }),
                 center: { opacity: 1, y: 0, scale: 1 },
-                exit: (d: number) => ({ opacity: 0, y: d * -60, scale: 0.96 }),
+                exit: (d: number) => ({ opacity: 0, y: d * -140, scale: 0.94 }),
               }}
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.42, ease: [0.4, 0, 0.2, 1] }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               style={{ position: "absolute", inset: 0, rotateX, rotateY, transformStyle: "preserve-3d" }}
             >
               {scenes[step]}
@@ -884,13 +905,19 @@ export default function NewTripPage() {
               className="cute-form"
               initialValues={{ currency: ["TWD"], enabledTabs: ALL_TABS.map(t => t.key) }}
             >
-              <AnimatePresence mode="wait">
+              <AnimatePresence mode="popLayout" custom={direction}>
                 <motion.div
                   key={step}
-                  initial={{ opacity: 0, x: 24 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -24 }}
-                  transition={{ duration: 0.28 }}
+                  custom={direction}
+                  variants={{
+                    enter: (d: number) => ({ opacity: 0, y: d * 48 }),
+                    center: { opacity: 1, y: 0 },
+                    exit: (d: number) => ({ opacity: 0, y: d * -48 }),
+                  }}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                   style={{ willChange: "opacity, transform" }}
                 >
                   {step === 0 && (
@@ -930,8 +957,10 @@ export default function NewTripPage() {
                         loading={destSearching}
                         notFoundContent={
                           destQuery.length < 2
-                            ? <span className="text-zinc-500 text-xs">請輸入至少 2 個字搜尋</span>
-                            : <span className="text-zinc-500 text-xs">找不到相符地點</span>
+                            ? <span className="text-zinc-400 text-xs">請輸入至少 2 個字搜尋</span>
+                            : destSearchError
+                              ? <span className="text-amber-400/90 text-xs">搜尋服務忙碌中，請稍後再試</span>
+                              : <span className="text-zinc-400 text-xs">找不到相符地點</span>
                         }
                         placeholder="搜尋地區..."
                       />
