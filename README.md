@@ -98,6 +98,8 @@ Run the SQL files in `supabase/` in order via the [Supabase SQL Editor](https://
 | `01_schema.sql` | Core tables (trips, expenses, itinerary, etc.) |
 | `02_line_bot.sql` | LINE Bot integration tables |
 | `03_member_links.sql` | Maps trip member names to authenticated accounts |
+| `04_itinerary_images.sql` | Itinerary item photos (`image_urls` array + storage bucket; safe to re-run) |
+| `05_settlement_paid.sql` | Persistent settlement paid marks |
 
 ### LINE Bot Setup
 
