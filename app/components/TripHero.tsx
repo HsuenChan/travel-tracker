@@ -3,7 +3,9 @@
 import { forwardRef, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Typography } from "antd";
-import { CalendarIcon, LocationIcon, UsersIcon } from "./Icons";
+import { CalendarIcon, LocationIcon } from "./Icons";
+import dayjs from "dayjs";
+import { parseCoverPos } from "@/lib/coverPos";
 
 export function getDestinationAccent(countries: string): { from: string; to: string } {
   const c = (countries ?? "").toLowerCase();
@@ -27,17 +29,18 @@ interface TripHeroProps {
   startDate?: string | null;
   endDate?: string | null;
   countries?: string | null;
-  people?: string[];
   notes?: string | null;
-  /** 公開分享頁傳 false，不顯示分帳成員名單 */
-  showPeople?: boolean;
-  /** 登入版專屬的互動區（成員頭像、分帳綁定），插在 pills 與備註之間 */
+  /** 行程第一張照片：有值時 hero 以照片為背景 */
+  coverUrl?: string | null;
+  /** pills 列尾端靠右的內容（成員頭像） */
+  pillsEnd?: ReactNode;
+  /** 登入版專屬的互動區（分帳綁定面板），插在 pills 之後 */
   children?: ReactNode;
 }
 
 /** 旅程 hero 卡：trips 頁與分享頁共用的視覺（權限差異由呼叫端決定要不要塞 children） */
 const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
-  { name, startDate, endDate, countries, people = [], notes, showPeople = true, children },
+  { name, startDate, endDate, countries, notes, coverUrl, pillsEnd, children },
   ref,
 ) {
   const accent = getDestinationAccent(countries ?? "");
@@ -47,6 +50,17 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
   const duration = startDate && endDate
     ? Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000)
     : null;
+  // 旅途中進度：第 N / M 天
+  const today = dayjs().format("YYYY-MM-DD");
+  const inTrip = !!(startDate && endDate && today >= startDate && today <= endDate);
+  const dayIndex = inTrip && startDate
+    ? Math.round((new Date(today).getTime() - new Date(startDate).getTime()) / 86400000) + 1
+    : null;
+  const cover = coverUrl ? parseCoverPos(coverUrl) : null;
+  // 照片背景上的 pill 需要玻璃底＋blur 才讀得清（底色淡、靠 blur 補可讀性）
+  const pillGlass = cover
+    ? { backgroundColor: "rgba(24,24,27,0.35)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
+    : null;
 
   return (
     <div
@@ -54,9 +68,25 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
       className="rounded-4xl md:mb-8 mb-4 overflow-hidden relative shadow-2xl border border-white/6 px-5 py-6 md:p-8 min-h-[100px] md:min-h-[130px]"
       style={{ background: `linear-gradient(145deg, ${accent.from}17 0%, rgba(139,92,246,0.05) 60%, rgba(9,9,11,0.98) 100%)` }}
     >
+      {/* 封面照片背景：深色漸層壓底保持文字可讀 */}
+      {cover && (
+        <>
+          <img
+            src={cover.clean}
+            alt=""
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: `center ${cover.pos}%`, filter: "saturate(0.85) brightness(0.9)" }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: "linear-gradient(160deg, rgba(9,9,11,0.5) 0%, rgba(9,9,11,0.72) 55%, rgba(9,9,11,0.94) 100%)" }}
+          />
+        </>
+      )}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse at 85% 0%, ${accent.from}22 0%, transparent 55%)` }}
+        style={{ background: `radial-gradient(ellipse at 85% 0%, ${accent.from}${cover ? "14" : "22"} 0%, transparent 55%)` }}
       />
 
       {name && (
@@ -68,10 +98,17 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
         >
           <Typography.Title
             level={2}
-            className="font-display !text-zinc-100 !m-0 !mb-5 !leading-tight !font-black tracking-tight !text-[24px] md:!text-[30px]"
+            className={`font-display !text-zinc-100 !m-0 ${notes ? "!mb-1.5" : "!mb-5"} !leading-tight !font-black tracking-tight !text-[24px] md:!text-[30px]`}
           >
             {name}
           </Typography.Title>
+
+          {notes && (
+            <div
+              className="notes-content hero-subtitle mb-5 text-[13px] leading-relaxed text-zinc-400 max-w-xl"
+              dangerouslySetInnerHTML={{ __html: notes }}
+            />
+          )}
 
           <div className="flex flex-wrap gap-2.5 items-center">
             {startDate && endDate && (
@@ -80,8 +117,9 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
                 style={{
                   background: `${accent.from}17`,
                   border: `1px solid ${accent.from}33`,
-                  color: accent.from,
+                  color: cover ? "#e4e4e7" : accent.from,
                   boxShadow: `0 0 15px ${accent.from}1a`,
+                  ...pillGlass,
                 }}
               >
                 <CalendarIcon size={11} />
@@ -89,7 +127,7 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
               </span>
             )}
             {duration !== null && (
-              <span className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-300 rounded-full px-3.5 py-1 text-[13px] font-medium">
+              <span className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-300 rounded-full px-3.5 py-1 text-[13px] font-medium" style={pillGlass ?? undefined}>
                 {duration} 天
               </span>
             )}
@@ -102,27 +140,42 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
                   border: `1px solid ${accent.from}28`,
                   color: accent.from,
                   boxShadow: `0 0 15px ${accent.from}15`,
+                  ...pillGlass,
                 }}
               >
                 <LocationIcon size={11} />
                 {c}
               </span>
             ))}
-            {showPeople && people.length > 0 && (
-              <span className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-400 rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5">
-                <UsersIcon size={11} />
-                {people.join("、")}
+            {dayIndex !== null && duration !== null && (
+              <span
+                className="font-display rounded-full px-3.5 py-1 text-[13px] font-bold flex items-center gap-1.5"
+                style={{
+                  background: "rgba(139,92,246,0.16)",
+                  border: "1px solid rgba(139,92,246,0.35)",
+                  color: "#c4b5fd",
+                }}
+              >
+                第 {dayIndex} / {duration} 天
               </span>
             )}
+            {pillsEnd && <span className="ml-auto flex items-center">{pillsEnd}</span>}
           </div>
 
-          {children}
-
-          {notes && (
-            <div className="bg-white/5 rounded-2xl p-5 mt-6 text-zinc-300 text-[14px] leading-relaxed border border-white/5 shadow-inner overflow-hidden">
-              <div className="notes-content" dangerouslySetInnerHTML={{ __html: notes }} />
+          {/* 旅途中進度線 */}
+          {dayIndex !== null && duration !== null && duration > 0 && (
+            <div className="mt-4 h-1 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${Math.min(100, (dayIndex / duration) * 100)}%`,
+                  background: "linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)",
+                }}
+              />
             </div>
           )}
+
+          {children}
         </motion.div>
       )}
     </div>

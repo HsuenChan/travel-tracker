@@ -12,7 +12,25 @@ export async function GET() {
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ trips: trips ?? [] });
+
+  // 附上每趟旅程的封面（第一筆有照片的行程），單一查詢避免 N+1
+  const list = trips ?? [];
+  if (list.length > 0) {
+    const { data: items } = await supabase
+      .from("itinerary_items")
+      .select("trip_id,image_urls,date,time")
+      .in("trip_id", list.map((t) => t.id))
+      .not("image_urls", "is", null)
+      .order("date", { ascending: true })
+      .order("time", { ascending: true, nullsFirst: true });
+    const coverMap: Record<string, string> = {};
+    for (const it of items ?? []) {
+      if (!coverMap[it.trip_id] && it.image_urls?.length > 0) coverMap[it.trip_id] = it.image_urls[0];
+    }
+    for (const t of list) t.cover_url = coverMap[t.id] ?? null;
+  }
+
+  return NextResponse.json({ trips: list });
 }
 
 export async function POST(request: NextRequest) {

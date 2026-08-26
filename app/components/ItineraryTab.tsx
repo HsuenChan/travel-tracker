@@ -10,20 +10,11 @@ import { PlusIcon, CalendarIcon, LocationIcon, CategoryBadge, SparkleIcon, Healt
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
+import { parseCoverPos, withCoverPos } from "@/lib/coverPos";
+import { compressImage } from "@/lib/compressImage";
 
 const todayStr = dayjs().format("YYYY-MM-DD");
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
-
-/** Cover focal position is stored as a `#pos=NN` (0-100, vertical %) suffix on the image URL */
-function parseCoverPos(url: string): { clean: string; pos: number } {
-  const m = url.match(/#pos=(\d+)$/);
-  return m ? { clean: url.replace(/#pos=\d+$/, ""), pos: Number(m[1]) } : { clean: url, pos: 50 };
-}
-
-function withCoverPos(url: string, pos: number): string {
-  const clean = url.replace(/#pos=\d+$/, "");
-  return pos === 50 ? clean : `${clean}#pos=${pos}`;
-}
 
 /** Ensure all <a> tags in Quill HTML open in a new tab */
 function processLinks(html: string): string {
@@ -423,8 +414,9 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   async function handleImageUpload(file: File) {
     setUploadingCount((c) => c + 1);
     try {
+      const compressed = await compressImage(file);
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", compressed);
       fd.append("tripId", tripId);
       const res = await fetchWithAuth("/api/itinerary/upload", { method: "POST", body: fd });
       if (res.ok) {
@@ -556,9 +548,11 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
     const isPast = date < todayStr;
     const dotColor = isToday ? "#a1a1aa" : isPast ? "#27272a" : "#52525b";
 
+    const walked = date <= todayStr;
     const dateNode = {
       key: `date-${date}`,
       color: dotColor,
+      className: walked ? "rail-done" : undefined,
       content: (
         <div id={`itinerary-date-${date}`} className="scroll-mt-20 md:scroll-mt-36">
           <div className="flex items-center gap-2 mb-2.5 flex-wrap sticky top-16 md:top-32 z-40 py-2 bg-[#09090b]/60 backdrop-blur-md">
@@ -671,6 +665,7 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
             ) : null;
       return {
         key: item.id,
+        className: walked ? "rail-done" : undefined,
         icon: (
           <span className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center border border-white/[0.12] bg-[#131316] text-zinc-400">
             {CATEGORY_DOT_ICONS[item.category ?? "other"] ?? CATEGORY_DOT_ICONS.other}

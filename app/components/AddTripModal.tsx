@@ -238,8 +238,8 @@ export default function AddTripModal({ onClose, onSaved }: Props) {
           </Select>
         </Form.Item>
 
-        <Form.Item name="notes" label="備註">
-          <QuillEditor placeholder="這趟旅程的心得或備忘..." />
+        <Form.Item name="notes" label="副標題">
+          <QuillEditor placeholder="一句話介紹這趟旅程，會顯示在標題下方..." />
         </Form.Item>
 
         <Form.Item

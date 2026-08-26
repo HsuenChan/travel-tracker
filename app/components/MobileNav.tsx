@@ -44,13 +44,11 @@ export default function MobileNav({
       style={{
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
         background: "#1e1c28",
-        filter: "url(#nav-goo)",
+        /* drop-shadow 串在 goo 之後：髮絲線沿融合後的剪影走，小球凸起處才接得上 */
+        filter: "url(#nav-goo) drop-shadow(0 -1px 0 rgba(255,255,255,0.09))",
       }}
     >
-      <div
-        className="relative flex justify-around items-stretch h-[62px] px-1"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-      >
+      <div className="relative flex justify-around items-stretch h-[62px] px-1">
         {/* 會跑的小球：與 bar 同色，經 gooey 濾鏡與 bar 融合 */}
         {ballLeft !== null && (
           <span

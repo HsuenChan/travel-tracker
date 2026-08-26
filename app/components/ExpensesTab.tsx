@@ -401,6 +401,19 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
       if (isPaid) next.delete(txKey); else next.add(txKey);
       return next;
     });
+    // 峰終慶祝：這一勾把最後一筆繳清 → 撒 confetti
+    if (!isPaid && transactions.length > 0) {
+      const next = new Set(paidTransactions);
+      next.add(txKey);
+      const allPaid = transactions.every((t) => next.has(`${t.from}→${t.to}:${t.amount.toFixed(2)}`));
+      if (allPaid) {
+        import("canvas-confetti").then(({ default: confetti }) => {
+          const colors = ["#8b5cf6", "#a855f7", "#6366f1", "#4ade80"];
+          confetti({ particleCount: 90, spread: 75, origin: { y: 0.6 }, colors, zIndex: 3000 });
+          setTimeout(() => confetti({ particleCount: 45, spread: 110, startVelocity: 32, origin: { y: 0.55 }, colors, zIndex: 3000 }), 280);
+        });
+      }
+    }
     if (readOnly) return;
     fetchWithAuth("/api/expenses/settlement", {
       method: isPaid ? "DELETE" : "POST",

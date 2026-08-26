@@ -16,6 +16,7 @@ import {
   Dropdown,
 } from "antd";
 import { getCountryFlags } from "@/lib/countries";
+import { parseCoverPos } from "@/lib/coverPos";
 import { UserOutlined, AimOutlined, LoadingOutlined } from "@ant-design/icons";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
@@ -37,6 +38,7 @@ interface Trip {
   created_at: string;
   destinations?: { name: string; lat: number; lng: number }[] | null;
   country_codes?: string | null;
+  cover_url?: string | null;
 }
 
 interface Segment {
@@ -144,6 +146,22 @@ function TripCard({
           willChange: "transform",
         }}
       >
+        {/* 封面照片背景 */}
+        {trip.cover_url && (
+          <>
+            <img
+              src={parseCoverPos(trip.cover_url).clean}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: "saturate(0.85) brightness(0.9)" }}
+            />
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: "linear-gradient(120deg, rgba(9,9,11,0.62) 0%, rgba(9,9,11,0.82) 60%, rgba(9,9,11,0.95) 100%)" }}
+            />
+          </>
+        )}
         {/* Mouse-tracking glow */}
         <div
           className="absolute inset-0 pointer-events-none"
@@ -162,7 +180,7 @@ function TripCard({
             boxShadow: selected ? `0 0 10px ${accent.from}` : "none",
           }}
         />
-        <div className="flex items-start justify-between mb-2">
+        <div className="relative flex items-start justify-between mb-2">
           <div className="flex-1 min-w-0">
             {(flags || trip.start_date) && (
               <div className="flex items-center justify-between mb-1">
@@ -190,15 +208,15 @@ function TripCard({
             <AimOutlined style={{ fontSize: 13 }} />
           </button>
         </div>
-        <div className="space-y-1">
+        <div className="relative space-y-1">
           {(trip.start_date || trip.end_date) && (
-            <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
+            <div className={`flex items-center gap-1.5 text-[11px] ${trip.cover_url ? "text-zinc-300" : "text-zinc-500"}`}>
               <CalendarIcon size={12} className="opacity-60 shrink-0" />
               <span>{trip.start_date}{trip.end_date && ` → ${trip.end_date}`}</span>
             </div>
           )}
           {trip.countries && (
-            <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
+            <div className={`flex items-center gap-1.5 text-[11px] ${trip.cover_url ? "text-zinc-300" : "text-zinc-500"}`}>
               <LocationIcon size={12} className="opacity-60 shrink-0" />
               <span className="truncate">{trip.countries}</span>
             </div>
@@ -517,7 +535,7 @@ export default function Home() {
             { value: segmentsCount, label: "段落" },
           ].map(({ value, label }) => (
             <div key={label} className="flex-1 bg-white/[0.04] rounded-[14px] py-2.5 text-center border border-white/[0.07]">
-              <div className="text-zinc-100 text-xl font-bold leading-none">{value}</div>
+              <div className="font-money text-zinc-100 text-xl font-bold leading-none">{value}</div>
               <div className="text-zinc-600 text-[11px] mt-[3px]">{label}</div>
             </div>
           ))}

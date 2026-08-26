@@ -988,8 +988,8 @@ export default function NewTripPage() {
                           ))}
                         </Select>
                       </Form.Item>
-                      <Form.Item name="notes" label="備註" className="!mb-3">
-                        <QuillEditor placeholder="這趟旅程的心得或備忘..." />
+                      <Form.Item name="notes" label="副標題" className="!mb-3">
+                        <QuillEditor placeholder="一句話介紹這趟旅程，會顯示在標題下方..." />
                       </Form.Item>
                       <Form.Item name="photoAlbumId" label="Google Photos 相簿連結" extra="在 Google Photos 相簿內點「分享」→「建立連結」取得網址" className="!mb-0">
                         <Input placeholder="https://photos.app.goo.gl/..." />
