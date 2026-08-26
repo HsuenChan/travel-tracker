@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { Layout, Typography, Tag, Timeline, Spin, ConfigProvider, theme } from "antd";
 import SegmentCard from "@/app/components/SegmentCard";
 import TripHero from "@/app/components/TripHero";
@@ -15,7 +14,6 @@ import NotesTab from "@/app/components/NotesTab";
 import SouvenirsTab from "@/app/components/SouvenirsTab";
 import { motion, AnimatePresence } from "framer-motion";
 
-const TripMap = dynamic(() => import("@/app/components/TripMap"), { ssr: false });
 
 interface Trip {
   id: string;
@@ -237,13 +235,6 @@ export default function SharePage() {
                       尚無交通安排
                     </div>
                   )}
-
-                  <div className="mt-7">
-                    <div className="mb-3 flex items-center justify-between px-1">
-                      <Typography.Text strong className="text-zinc-100 text-[15px]">旅程地圖</Typography.Text>
-                    </div>
-                    <TripMap tripId={trip.id} initialItems={itinerary} />
-                  </div>
                 </div>
               )}
               {activeTab === "expenses" && (

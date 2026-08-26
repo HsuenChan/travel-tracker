@@ -3,7 +3,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import {
   Button, Typography, Input,
@@ -23,7 +22,6 @@ import SegmentCard from "@/app/components/SegmentCard";
 import TripHero from "@/app/components/TripHero";
 import TripRecapCard from "@/app/components/TripRecapCard";
 import MobileNav from "@/app/components/MobileNav";
-const TripMap = dynamic(() => import("@/app/components/TripMap"), { ssr: false });
 import {
   PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon,
   CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
@@ -915,17 +913,7 @@ export default function TripPage() {
                 exit={{ opacity: 0, x: tabDirection * -24 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
               >
-                {activeTab === "transport" && (
-                  <>
-                    {transportContent}
-                    <div className="mt-7">
-                      <div className="mb-3 flex items-center justify-between">
-                        <Typography.Text strong className="text-zinc-100 text-[15px]">旅程地圖</Typography.Text>
-                      </div>
-                      <TripMap tripId={id} />
-                    </div>
-                  </>
-                )}
+                {activeTab === "transport" && transportContent}
                 {activeTab === "itinerary" && <ItineraryTab tripId={id} isActive destination={trip.countries} />}
                 {activeTab === "notes" && <NotesTab tripId={id} />}
                 {activeTab === "souvenirs" && <SouvenirsTab tripId={id} />}
