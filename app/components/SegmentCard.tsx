@@ -114,15 +114,15 @@ export default function SegmentCard({
         <div>
           {seg.time ? (
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              {seg.date && <span className="text-[12px] text-zinc-500">{dayjs(seg.date).format("M/D")}</span>}
-              <span className="text-[20px] font-bold text-zinc-200 leading-tight">{seg.time}</span>
+              {seg.date && <span className="font-money text-[11px] text-zinc-500">{dayjs(seg.date).format("M/D")}</span>}
+              <span className="font-money text-[15px] font-semibold text-zinc-300 leading-tight">{seg.time}</span>
               {seg.from_iata && (() => {
                 const twTime = toTaiwanTime(seg.date, seg.time, seg.from_iata);
-                return twTime ? <span className="text-[11px] text-zinc-400">台灣 {twTime}</span> : null;
+                return twTime ? <span className="font-money text-[10px] text-zinc-500">台灣 {twTime}</span> : null;
               })()}
             </div>
           ) : (
-            <div className="text-[20px] font-light text-zinc-700 leading-tight">—</div>
+            <div className="text-[15px] font-light text-zinc-700 leading-tight">—</div>
           )}
         </div>
         <div className="text-right">
@@ -132,9 +132,9 @@ export default function SegmentCard({
                 const twTime = toTaiwanTime(seg.arrival_date || seg.date, seg.arrival_time, seg.to_iata);
                 return twTime ? <span className="text-[11px] text-zinc-400">台灣 {twTime}</span> : null;
               })()}
-              <span className="text-[20px] font-bold text-zinc-200 leading-tight">{seg.arrival_time}</span>
+              <span className="font-money text-[15px] font-semibold text-zinc-300 leading-tight">{seg.arrival_time}</span>
               {(seg.arrival_date || seg.date) && (
-                <span className="text-[12px] text-zinc-500">
+                <span className="font-money text-[11px] text-zinc-500">
                   {seg.arrival_date ? dayjs(seg.arrival_date).format("M/D") : dayjs(seg.date).format("M/D")}
                 </span>
               )}

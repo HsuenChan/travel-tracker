@@ -288,8 +288,8 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
           </Select>
         </Form.Item>
 
-        <Form.Item name="notes" label="備註">
-          <QuillEditor />
+        <Form.Item name="notes" label="副標題">
+          <QuillEditor placeholder="一句話介紹這趟旅程，會顯示在標題下方..." />
         </Form.Item>
 
         <Form.Item

@@ -181,12 +181,12 @@ export default function SharePage() {
 
         <Layout.Content className="max-w-[800px] mx-auto py-6 px-4 pb-24 w-full">
           <TripHero
+            coverUrl={(itinerary.find((i: { image_urls?: string[] | null }) => i.image_urls && i.image_urls.length > 0)?.image_urls?.[0]) ?? null}
             name={trip.name}
             startDate={trip.start_date}
             endDate={trip.end_date}
             countries={trip.countries}
             notes={trip.notes}
-            showPeople={false}
           />
 
           {/* Desktop Tabs (Segmented-like) */}

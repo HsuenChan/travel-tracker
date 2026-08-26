@@ -427,6 +427,12 @@ body {
   padding-bottom: 12px !important;
 }
 
+/* 自訂 icon 點比預設 dot 寬，補左邊距避免被 overflow: clip 裁切
+   （antd cssinjs 的 .ant-steps reset 較晚注入會蓋掉這裡，必須 !important） */
+.itinerary-timeline {
+  padding-inline-start: 10px !important;
+}
+
 /* Display 字：LINE Seed TC，只用在品牌時刻（旅程標題、日期列、大數字） */
 .font-display {
   font-family: var(--font-line-seed), var(--font-geist-sans), "PingFang TC", "Microsoft JhengHei", sans-serif;
@@ -434,7 +440,23 @@ body {
 
 /* 金額數字：等寬字型對齊 */
 .font-money {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace !important;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+}
+
+/* 行程時間軸：已走過的路段上色 */
+.itinerary-timeline .rail-done .ant-timeline-item-rail {
+  border-inline-start-color: rgba(139, 92, 246, 0.45) !important;
+}
+
+/* hero 副標題的連結是配角：常態低調，hover 才亮 */
+.hero-subtitle a {
+  color: rgba(196, 181, 253, 0.75);
+  text-decoration-color: rgba(196, 181, 253, 0.25);
+}
+
+.hero-subtitle a:hover {
+  color: #c4b5fd;
+  text-decoration-color: currentColor;
 }

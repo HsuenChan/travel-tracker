@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import {
   Button, Typography, Input,
-  Skeleton, Popconfirm, Timeline, Tooltip, App, Select,
+  Skeleton, Popconfirm, Timeline, Tooltip, App, Select, Modal,
 } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
 import EditTripModal from "@/app/components/EditTripModal";
@@ -21,6 +21,7 @@ import SouvenirsTab from "@/app/components/SouvenirsTab";
 import LineBotTripModal from "@/app/components/LineBotTripModal";
 import SegmentCard from "@/app/components/SegmentCard";
 import TripHero from "@/app/components/TripHero";
+import TripRecapCard from "@/app/components/TripRecapCard";
 import MobileNav from "@/app/components/MobileNav";
 const TripMap = dynamic(() => import("@/app/components/TripMap"), { ssr: false });
 import {
@@ -100,6 +101,9 @@ export default function TripPage() {
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [itineraryStats, setItineraryStats] = useState<{ items: number; locations: number } | null>(null);
+  const [membersLoaded, setMembersLoaded] = useState(false);
 
   // Esc 關閉 bottom sheet
   useEffect(() => {
@@ -146,6 +150,23 @@ export default function TripPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip]);
+
+  // 峰終回顧：旅程結束後第一次打開這頁時撒一次 confetti（之後只留回顧卡）
+  const tripEnded = !!(trip?.end_date && dayjs().format("YYYY-MM-DD") > trip.end_date);
+  useEffect(() => {
+    if (!tripEnded) return;
+    const seenKey = `travel_recap_seen_${id}`;
+    if (localStorage.getItem(seenKey)) return;
+    localStorage.setItem(seenKey, "1");
+    const t = setTimeout(() => {
+      import("canvas-confetti").then(({ default: confetti }) => {
+        const colors = ["#8b5cf6", "#a855f7", "#6366f1", "#e4e4e7"];
+        confetti({ particleCount: 90, spread: 75, origin: { y: 0.35 }, colors, zIndex: 3000 });
+        setTimeout(() => confetti({ particleCount: 45, spread: 110, startVelocity: 32, origin: { y: 0.3 }, colors, zIndex: 3000 }), 280);
+      });
+    }, 650);
+    return () => clearTimeout(t);
+  }, [tripEnded, id]);
 
   // Shared element transition: hero expands from card's screen position
   const heroRef = useRef<HTMLDivElement>(null);
@@ -317,6 +338,7 @@ export default function TripPage() {
       fetchSegments(),
       fetchMembers(),
       fetchMemberLinks(),
+      fetchCover(),
       fetchWithAuth("/api/auth/status").then((r) => r.json()).then((d) => setUserId(d.userId)).catch(() => { }),
     ]).finally(() => setLoading(false));
   }
@@ -328,6 +350,22 @@ export default function TripPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  async function fetchCover() {
+    try {
+      const res = await fetchWithAuth(`/api/itinerary?tripId=${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        const items: { image_urls?: string[] | null; location?: string | null }[] = data.items ?? [];
+        const withImg = items.find((i) => i.image_urls && i.image_urls.length > 0);
+        setCoverUrl(withImg?.image_urls?.[0] ?? null);
+        setItineraryStats({
+          items: items.length,
+          locations: new Set(items.map((i) => i.location?.trim()).filter(Boolean)).size,
+        });
+      }
+    } catch { }
+  }
+
   async function fetchMembers() {
     try {
       const res = await fetchWithAuth(`/api/trips/${id}/members`);
@@ -335,7 +373,9 @@ export default function TripPage() {
         const data = await res.json();
         setMembers(data.members);
       }
-    } catch { }
+    } catch { } finally {
+      setMembersLoaded(true);
+    }
   }
 
   async function fetchMemberLinks() {
@@ -465,7 +505,8 @@ export default function TripPage() {
   const isMember = !isOwner && members.some(m => m.user_id === userId);
 
   function memberAvatarColor(uid: string) {
-    const palette = ["#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#3b82f6"];
+    // 深色寶石調：夠深讓白字可讀、彩度收斂貼合深紫品牌，仍保有成員間辨識度
+    const palette = ["#7c3aed", "#4f46e5", "#a21caf", "#0f766e", "#1d4ed8", "#be185d", "#6d28d9"];
     let hash = 0;
     for (let i = 0; i < uid.length; i++) hash = uid.charCodeAt(i) + ((hash << 5) - hash);
     return palette[Math.abs(hash) % palette.length];
@@ -682,12 +723,21 @@ export default function TripPage() {
           startDate={trip?.start_date}
           endDate={trip?.end_date}
           countries={trip?.countries}
-          people={people}
           notes={trip?.notes}
-        >
-            {members.length > 0 && (
-              <div className="flex items-center gap-2.5 mt-4">
-                <div className="flex items-center">
+          coverUrl={coverUrl}
+          pillsEnd={
+            !membersLoaded ? (
+              <span className="flex items-center">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="w-7 h-7 rounded-full bg-white/10 animate-pulse"
+                    style={{ marginLeft: i === 0 ? 0 : -8, border: "1px solid rgba(9,9,11,0.6)" }}
+                  />
+                ))}
+              </span>
+            ) : members.length > 0 ? (
+              <span className="flex items-center">
                   {members.map((m, i) => {
                     const canRemove = isOwner && !m.is_owner;
                     const isRemoving = removingMemberId === m.user_id;
@@ -696,12 +746,12 @@ export default function TripPage() {
                         src={m.avatar_url}
                         alt={m.name}
                         onError={() => markAvatarFailed(m.user_id)}
-                        className="w-7 h-7 rounded-full border-2 border-zinc-900 object-cover"
+                        className="w-7 h-7 rounded-full object-cover" style={{ border: "1px solid rgba(9,9,11,0.6)", boxShadow: "0 0 0 1px rgba(255,255,255,0.12)" }}
                       />
                     ) : (
                       <div
-                        className="w-7 h-7 rounded-full border-2 border-zinc-900 flex items-center justify-center text-white text-[11px] font-bold"
-                        style={{ background: memberAvatarColor(m.user_id) }}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold"
+                        style={{ background: memberAvatarColor(m.user_id), border: "1px solid rgba(9,9,11,0.6)", boxShadow: "0 0 0 1px rgba(255,255,255,0.12)" }}
                       >
                         {isRemoving ? <LoadingOutlined style={{ fontSize: 11 }} /> : m.name.charAt(0).toUpperCase()}
                       </div>
@@ -730,22 +780,20 @@ export default function TripPage() {
                       </Tooltip>
                     );
                   })}
-                </div>
-                <span className="text-zinc-400 text-[12px]">共同編輯</span>
-                {(isOwner || isMember) && people.length > 0 && (
-                  <button
-                    onClick={() => setShowBindingPanel((v) => !v)}
-                    className={`ml-auto flex items-center gap-1.5 text-[12px] transition-colors cursor-pointer ${showBindingPanel ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300"}`}
-                  >
-                    <UsersIcon size={11} /> 分帳綁定
-                  </button>
-                )}
-              </div>
-            )}
+              </span>
+            ) : null
+          }
+        />
 
-            {showBindingPanel && (isOwner || isMember) && people.length > 0 && (
-              <div className="mt-3">
-                <div className="flex flex-col gap-2">
+        <Modal
+          open={showBindingPanel}
+          onCancel={() => setShowBindingPanel(false)}
+          footer={null}
+          title="分帳綁定"
+          centered
+        >
+          {(isOwner || isMember) && people.length > 0 ? (
+            <div className="flex flex-col gap-2 pt-1">
                   {people.map((p) => {
                     const link = memberLinks.find((l) => l.person_name === p);
                     const boundUserId = link?.user_id ?? null;
@@ -803,11 +851,21 @@ export default function TripPage() {
                       </div>
                     );
                   })}
-                </div>
-              </div>
-            )}
+            </div>
+          ) : (
+            <div className="text-zinc-500 text-[13px] py-4 text-center">先在旅程編輯加入分帳成員，再回來綁定</div>
+          )}
+        </Modal>
 
-        </TripHero>
+        {trip && tripEnded && (
+          <TripRecapCard
+            days={trip.start_date && trip.end_date
+              ? Math.round((new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()) / 86400000)
+              : null}
+            itemCount={itineraryStats?.items ?? 0}
+            locationCount={itineraryStats?.locations ?? 0}
+          />
+        )}
 
         {trip && (
         <motion.div
@@ -1012,6 +1070,22 @@ export default function TripPage() {
                 <div>
                   <div className="text-zinc-100 text-[14px] font-medium">邀請夥伴</div>
                   <div className="text-zinc-500 text-[11px] mt-0.5">複製邀請連結共同編輯</div>
+                </div>
+              </button>
+            )}
+
+            {/* 分帳綁定 */}
+            {(isOwner || isMember) && people.length > 0 && (
+              <button
+                onClick={() => { setShowMoreSheet(false); setShowBindingPanel(true); }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer text-left"
+              >
+                <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(139,92,246,0.15)" }}>
+                  <UsersIcon size={16} stroke="#a78bfa" />
+                </div>
+                <div>
+                  <div className="text-zinc-100 text-[14px] font-medium">分帳綁定</div>
+                  <div className="text-zinc-500 text-[11px] mt-0.5">把分帳名單對應到成員帳號</div>
                 </div>
               </button>
             )}
