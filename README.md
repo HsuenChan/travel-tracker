@@ -13,8 +13,8 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 
 ### Key Features
 
-- **Interactive 3D Globe** — WebGL rendering with animated flight arcs, region-level markers, and smooth transitions. Destinations stored as precise lat/lng coordinates via Nominatim / OpenStreetMap. Country flags auto-resolved from Nominatim ISO codes.
-- **Route Tab** — Combine transport segments (flights, trains, buses) and an interactive Leaflet map in one view.
+- **Interactive 3D Globe** — WebGL rendering with animated flight arcs (all tracks shown by default), region-level markers, and smooth transitions. Destinations stored as precise lat/lng coordinates via Nominatim / OpenStreetMap. Country flags auto-resolved from Nominatim ISO codes. The trip drawer opens with a storytelling footprint summary — year span, trips, unique countries (counted by ISO code), and total travel days.
+- **Route Tab** — Boarding-pass style cards for transport segments (flights, trains, buses).
 - **Rich Text Notes + AI** — Full Quill editor with six section chips that trigger AI-generated content (travel tips, packing list, transit guides, etc.) via Google Gemini. Shared across all trip members. Opens in read mode with an explicit edit toggle; unsaved edits are kept as a local draft (restored on return, with an unsaved-changes indicator) so switching tabs never loses work.
 - **Itinerary Planning** — Multi-day events with a unified date-time range picker (end time optional). Timeline shows day-of-week labels, real-time weather forecasts, and per-item category icon nodes on the rail. Per-item rich text notes with clickable links, plus multiple photos per item (downscaled client-side before upload to Supabase Storage; the first photo becomes a full-width cover on top of the card with a +N badge and lightbox gallery).
 - **Multi-Currency Expenses** — Track costs across currencies (TWD, EUR, JPY, …) with live exchange rates, sortable list, and automatic settlement calculations (all amounts converted to the trip's base currency). Settlement rows can be marked as paid, persisted to the database for all members. The form remembers the last payer and offers save-and-add-another for fast consecutive entry. Stats tab includes a clickable pie chart (desktop), a stacked proportion bar with category grid (mobile), monospaced amounts, and a per-member perspective view. Ended trips open the stats sub-tab by default.
@@ -45,7 +45,6 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 | Framework | Next.js 16 (App Router) |
 | UI | Ant Design 6 + Tailwind CSS 4 |
 | 3D Rendering | react-globe.gl + Three.js |
-| 2D Map | react-leaflet + Leaflet |
 | Rich Text | react-quill-new (Quill) |
 | Database | Supabase (PostgreSQL) |
 | Auth | Supabase Auth (Google OAuth) |
@@ -136,8 +135,8 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 
 ### 核心功能
 
-- **互動式 3D 地球儀** — WebGL 渲染飛行弧線動畫，目的地精確到地區層級座標（Nominatim / OpenStreetMap）。國旗 emoji 從 Nominatim ISO code 自動解析，無需維護硬編碼對照表。
-- **路線分頁** — 整合交通段落（航班、火車、巴士）與 Leaflet 互動地圖。
+- **互動式 3D 地球儀** — WebGL 渲染飛行弧線動畫（預設顯示全部航跡），目的地精確到地區層級座標（Nominatim / OpenStreetMap）。國旗 emoji 從 Nominatim ISO code 自動解析，無需維護硬編碼對照表。旅程清單開頭以說故事語氣呈現旅遊足跡——年份跨度、趟數、國家數（以 ISO 國碼去重）與旅遊總天數。
+- **路線分頁** — 登機證風格的交通段落卡片（航班、火車、巴士）。
 - **筆記分頁（富文字 + AI）** — 完整 Quill 富文字編輯器，六個區塊 Chip 可觸發 AI 生成旅遊內容（旅遊注意事項、該帶什麼、地鐵攻略等），由 Google Gemini 驅動，所有成員共享。預設為閱讀模式、點「編輯」才進入編輯器；未儲存的編輯會自動存成本機草稿（回來時還原並提示），切換分頁不再遺失內容。
 - **進階行程規劃** — 支援跨日事件與日期時間範圍選擇器（結束時間可留空），時間軸顯示星期標籤、每日即時天氣預報與逐筆類別 icon 節點，備註支援富文字與可點擊連結；每筆行程可上傳多張圖片（上傳前先在瀏覽器端縮圖壓縮，存於 Supabase Storage），第一張以全寬封面呈現於卡片頂部、多張顯示 +N 標記，點擊開啟燈箱可瀏覽全部。
 - **旅途中模式與快速記帳** — 旅程進行期間打開旅程頁直接落在今日行程；hero 以行程第一張照片為封面並顯示「第 N / M 天」進度 pill 與進度條，首頁旅程卡片同步顯示封面照，時間軸已走過的路段會上色。手機版右下常駐「記帳」懸浮按鈕，任何分頁一鍵記帳。
@@ -161,7 +160,6 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 | 框架 | Next.js 16 (App Router) |
 | UI 元件庫 | Ant Design 6 + Tailwind CSS 4 |
 | 3D 渲染 | react-globe.gl + Three.js |
-| 2D 地圖 | react-leaflet + Leaflet |
 | 富文字編輯器 | react-quill-new (Quill) |
 | 資料庫 | Supabase (PostgreSQL) |
 | 身份驗證 | Supabase Auth（Google OAuth）|

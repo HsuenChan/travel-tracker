@@ -549,24 +549,23 @@ const SORTED_KEYS = Object.keys(COUNTRY_CODES).sort((a, b) => b.length - a.lengt
 // Matches purely numeric / postal-code tokens like "860-8601" or "10001"
 const POSTAL_RE = /^[\d][\d\s\-]+$/;
 
-export function getCountryFlags(countriesStr: string, countryCodes?: string): string {
+/** 解析出不重複的 ISO 國碼清單：優先用儲存的 codes，否則從 Nominatim display 字串推斷
+ *（跳過郵遞區號、日韓行政區歸屬母國）。國旗與「幾個國家」統計共用這套邏輯。 */
+export function getCountryCodes(countriesStr: string, countryCodes?: string): string[] {
   // If we have stored ISO codes, use them directly — no map needed
   if (countryCodes && countryCodes.trim()) {
     const seen = new Set<string>();
     return countryCodes
       .split(",")
       .map(c => c.trim().toUpperCase())
-      .filter(c => c.length === 2 && !seen.has(c) && seen.add(c))
-      .slice(0, 4)
-      .map(code => flagEmoji(code))
-      .join(" ");
+      .filter(c => c.length === 2 && !seen.has(c) && seen.add(c));
   }
 
-  // Fallback: parse from the display_name string (existing logic)
-  if (!countriesStr) return "";
+  // Fallback: parse from the display_name string
+  if (!countriesStr) return [];
 
   const seen = new Set<string>();
-  const flags: string[] = [];
+  const codes: string[] = [];
 
   const parts = countriesStr
     .split(/[,，、\/]/)
@@ -574,8 +573,6 @@ export function getCountryFlags(countriesStr: string, countryCodes?: string): st
     .filter(Boolean);
 
   for (const name of parts) {
-    if (flags.length >= 4) break;
-
     // skip postal codes
     if (POSTAL_RE.test(name)) continue;
 
@@ -603,11 +600,18 @@ export function getCountryFlags(countriesStr: string, countryCodes?: string): st
 
     if (code && !seen.has(code)) {
       seen.add(code);
-      flags.push(flagEmoji(code));
+      codes.push(code);
     }
   }
 
-  return flags.join(" ");
+  return codes;
+}
+
+export function getCountryFlags(countriesStr: string, countryCodes?: string): string {
+  return getCountryCodes(countriesStr, countryCodes)
+    .slice(0, 4)
+    .map((code) => flagEmoji(code))
+    .join(" ");
 }
 
 export const TRIP_GRADIENTS = [

@@ -15,7 +15,7 @@ import {
   Skeleton,
   Dropdown,
 } from "antd";
-import { getCountryFlags } from "@/lib/countries";
+import { getCountryFlags, getCountryCodes } from "@/lib/countries";
 import { parseCoverPos } from "@/lib/coverPos";
 import { UserOutlined, AimOutlined, LoadingOutlined } from "@ant-design/icons";
 import {
@@ -247,7 +247,7 @@ export default function Home() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [showAllTracks, setShowAllTracks] = useState(false);
+  const [showAllTracks, setShowAllTracks] = useState(true);
   const [sortKey, setSortKey] = useState<"added" | "date">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [newTripId, setNewTripId] = useState<string | null>(null);
@@ -326,18 +326,27 @@ export default function Home() {
     prevTripIdsRef.current = new Set(trips.map(t => t.id));
   }, [trips]);
 
-  const uniqueCountries = Array.from(
-    new Set(
-      trips.flatMap((t) =>
-        t.countries ? t.countries.split(/[,，、]/).map((c) => c.trim()).filter(Boolean) : []
-      )
-    )
-  ).length;
+  // 跟卡片國旗同一套解析：數 unique ISO 國碼，Nominatim 地址片段（縣市、郵遞區號）不會被誤算成國家
+  const uniqueCountries = new Set(
+    trips.flatMap((t) => getCountryCodes(t.countries ?? "", t.country_codes ?? ""))
+  ).size;
+  const totalTravelDays = trips.reduce((sum, t) => {
+    if (!t.start_date || !t.end_date) return sum;
+    const d = Math.round((new Date(t.end_date).getTime() - new Date(t.start_date).getTime()) / 86400000);
+    return sum + Math.max(0, d);
+  }, 0);
+
+  // 旅遊足跡的年份跨度（例：2024 到 2026）
+  const tripYears = trips.flatMap((t) =>
+    [t.start_date, t.end_date].filter(Boolean).map((d) => Number((d as string).slice(0, 4)))
+  );
+  const minYear = tripYears.length ? Math.min(...tripYears) : null;
+  const maxYear = tripYears.length ? Math.max(...tripYears) : null;
 
   const statsActive = isMobile ? drawerOpen : !loading;
   const tripsCount = useCountUp(trips.length, statsActive);
   const countriesCount = useCountUp(uniqueCountries, statsActive);
-  const segmentsCount = useCountUp(segments.length, statsActive);
+  const daysCount = useCountUp(totalTravelDays, statsActive);
 
   // Login page mouse parallax (hooks must be top-level, applied only in !authenticated JSX)
   const loginMouseX = useMotionValue(0);
@@ -526,13 +535,23 @@ export default function Home() {
     </div>
   ) : (
     <>
-      {/* Stats summary */}
+      {/* Stats summary：說故事語氣的旅遊足跡 */}
       <div className="pt-4 px-4 pb-3 border-b border-[#27272a]">
+        {trips.length > 0 && (
+          <p className="text-zinc-400 text-[13px] leading-relaxed mb-2.5 px-0.5">
+            {minYear !== null && (
+              minYear === maxYear
+                ? <>在 <span className="font-money text-zinc-300">{minYear}</span> 這一年，</>
+                : <>從 <span className="font-money text-zinc-300">{minYear}</span> 到 <span className="font-money text-zinc-300">{maxYear}</span>，</>
+            )}
+            你一共走過了：
+          </p>
+        )}
         <div className="flex gap-2 mb-3">
           {[
-            { value: tripsCount, label: "旅程" },
-            { value: countriesCount, label: "國家" },
-            { value: segmentsCount, label: "段落" },
+            { value: tripsCount, label: "趟旅程" },
+            { value: countriesCount, label: "個國家" },
+            { value: daysCount, label: "天的旅途" },
           ].map(({ value, label }) => (
             <div key={label} className="flex-1 bg-white/[0.04] rounded-[14px] py-2.5 text-center border border-white/[0.07]">
               <div className="font-money text-zinc-100 text-xl font-bold leading-none">{value}</div>
@@ -552,8 +571,8 @@ export default function Home() {
                   if (sortKey === key) setSortDir((d) => d === "desc" ? "asc" : "desc");
                   else { setSortKey(key); setSortDir("desc"); }
                 }}
-                className={`flex-1 py-[6px] text-[11px] rounded-full cursor-pointer transition-all duration-200 font-bold border ${active
-                  ? "bg-linear-to-r from-[#6366f1] via-[#8b5cf6] to-[#14b8a6] border-none text-white shadow-[0_4px_12px_rgba(99,102,241,0.35)]"
+                className={`flex-1 py-[6px] text-[11px] rounded-full cursor-pointer transition-all duration-200 font-medium border ${active
+                  ? "bg-violet-500/15 border-violet-500/30 text-violet-300"
                   : "bg-white/5 border-white/5 text-zinc-500 hover:bg-white/10 hover:text-zinc-400"
                   }`}
               >
