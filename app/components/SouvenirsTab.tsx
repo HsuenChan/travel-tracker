@@ -4,8 +4,17 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Typography, Checkbox, Input, Button, App, Modal, Select, Skeleton, Upload } from "antd";
 import PillButton from "./PillButton";
+import { motion } from "framer-motion";
 import { DeleteOutlined, EditOutlined, PictureOutlined, CloseOutlined, LoadingOutlined } from "@ant-design/icons";
-import { PlusIcon, GiftIcon } from "@/app/components/Icons";
+import { PlusIcon, GiftIcon, GridIcon, MenuListIcon } from "@/app/components/Icons";
+
+type ViewMode = "card" | "list";
+
+/** 顯示方式是個人閱讀習慣，不分旅程 */
+const VIEW_KEY = "travel_souvenirs_view";
+
+/** 勾掉後項目會沉到底部，用位移動畫讓使用者看得到它跑去哪 */
+const LAYOUT_TRANSITION = { type: "tween" as const, duration: 0.6, ease: [0.2, 0, 0, 1] as const };
 
 interface Souvenir {
   id: string;
@@ -37,6 +46,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
     return items.find(i => i.id === urlSouvenirId) ?? null;
   }, [urlModal, urlSouvenirId, items]);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("card");
   const [uploading, setUploading] = useState(false);
   const { message, modal } = App.useApp();
 
@@ -84,7 +94,18 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
     setLoading(false);
   }
 
-  useEffect(() => { load(false); }, [tripId]);
+  // 從 localStorage 還原顯示方式；SSR 沒有 localStorage，所以掛載後才套用
+  function restoreViewMode() {
+    const saved = localStorage.getItem(VIEW_KEY);
+    if (saved === "card" || saved === "list") setViewMode(saved);
+  }
+
+  function changeView(mode: ViewMode) {
+    setViewMode(mode);
+    localStorage.setItem(VIEW_KEY, mode);
+  }
+
+  useEffect(() => { restoreViewMode(); load(false); }, [tripId]);
 
   // Modal 狀態進 URL：手機返回鍵可關閉，行為與行程/費用一致
   useEffect(() => {
@@ -199,16 +220,41 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
     });
   }
 
+  const visibleItems = items
+    .filter(item => !tagFilter || (item.tags && item.tags.includes(tagFilter)))
+    .sort((a, b) => Number(a.is_checked) - Number(b.is_checked));
+
   return (
     <div className="flex flex-col gap-4 mx-auto pb-10">
-      <div className="flex items-center justify-between px-1">
-        <Typography.Text strong className="text-zinc-100 text-[15px]">伴手禮 & 購物清單</Typography.Text>
-        {!readOnly && (
-          <PillButton onClick={openAdd}>
-            <PlusIcon size={13} />
-            增加清單
-          </PillButton>
-        )}
+      <div className="flex items-center justify-between px-1 gap-2">
+        <Typography.Text strong className="text-zinc-100 text-[15px] shrink-0">伴手禮 & 購物清單</Typography.Text>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.08] rounded-full p-0.5">
+            {([
+              { mode: "card" as const, label: "卡片檢視", icon: <GridIcon size={13} /> },
+              { mode: "list" as const, label: "列表檢視", icon: <MenuListIcon size={13} /> },
+            ]).map(({ mode, label, icon }) => (
+              <button
+                key={mode}
+                onClick={() => changeView(mode)}
+                aria-label={label}
+                aria-pressed={viewMode === mode}
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors cursor-pointer ${viewMode === mode
+                  ? "bg-white/10 text-zinc-100"
+                  : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+              >
+                {icon}
+              </button>
+            ))}
+          </div>
+          {!readOnly && (
+            <PillButton onClick={openAdd}>
+              <PlusIcon size={13} />
+              增加清單
+            </PillButton>
+          )}
+        </div>
       </div>
 
       {items.length > 0 && (() => {
@@ -372,18 +418,82 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
             <div className="text-zinc-500 text-xs px-10">在這裡記錄準備為自己與親友購買的伴手禮吧。</div>
           </div>
         </div>
+      ) : viewMode === "list" ? (
+        <div className="flex flex-col gap-1.5">
+          {visibleItems.map(item => (
+            <motion.div
+              key={item.id}
+              layout
+              transition={LAYOUT_TRANSITION}
+              className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-[background-color,border-color,opacity] duration-300 ${item.is_checked ? 'bg-white/[0.03] border-white/5 opacity-60' : 'bg-white/[0.06] border-white/10'}`}
+            >
+              <div onClick={(e) => { if (!readOnly) e.stopPropagation(); }}>
+                <Checkbox
+                  checked={item.is_checked}
+                  onChange={() => handleToggle(item)}
+                  disabled={readOnly}
+                />
+              </div>
+              {item.image_url && (
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  className="w-10 h-10 rounded-lg object-cover shrink-0"
+                />
+              )}
+              <div className="flex-1 min-w-0" onClick={() => handleToggle(item)}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`text-sm font-medium truncate select-none ${item.is_checked ? 'line-through text-zinc-500' : 'text-zinc-100'}`}>
+                    {item.name}
+                  </span>
+                  {item.tags && item.tags.length > 0 && (
+                    <div className="flex gap-1 shrink-0">
+                      {item.tags.map(tag => (
+                        <span key={tag} className={`text-[10px] px-1.5 py-0.5 rounded-md border ${item.is_checked ? 'text-zinc-600 border-zinc-700/50 bg-white/[0.01]' : 'text-violet-300 border-violet-500/20 bg-violet-500/10'}`}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {item.notes && (
+                  <div className={`text-xs mt-0.5 select-none line-clamp-2 leading-relaxed ${item.is_checked ? 'text-zinc-600' : 'text-zinc-500'}`}>
+                    {item.notes}
+                  </div>
+                )}
+              </div>
+              {!readOnly && (
+                <div className="flex items-center gap-1 shrink-0 bg-black/30 backdrop-blur-[2px] rounded-full p-0.5">
+                  <button
+                    aria-label="編輯伴手禮"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:bg-black/25 transition-colors cursor-pointer"
+                    onClick={(e) => { e.stopPropagation(); openEdit(item); }}
+                  >
+                    <EditOutlined style={{ fontSize: 13 }} />
+                  </button>
+                  <button
+                    aria-label="刪除伴手禮"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:text-red-400 hover:bg-black/25 transition-colors cursor-pointer"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                  >
+                    <DeleteOutlined style={{ fontSize: 13 }} />
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {items
-            .filter(item => !tagFilter || (item.tags && item.tags.includes(tagFilter)))
-            .sort((a, b) => Number(a.is_checked) - Number(b.is_checked))
-            .map(item => (
-            <div
+          {visibleItems.map(item => (
+            <motion.div
               key={item.id}
-              className={`flex flex-col rounded-2xl border transition-all overflow-hidden relative ${item.is_checked ? 'bg-white/5 border-white/5 opacity-60' : 'bg-white/10 border-white/10 shadow-lg'}`}
+              layout
+              transition={LAYOUT_TRANSITION}
+              className={`flex flex-col rounded-2xl border overflow-hidden relative transition-[background-color,border-color,opacity] duration-300 ${item.is_checked ? 'bg-white/5 border-white/5 opacity-60' : 'bg-white/10 border-white/10 shadow-lg'}`}
             >
-              {/* Image Section */}
-              {item.image_url ? (
+              {/* Image Section（沒有圖片就不佔位） */}
+              {item.image_url && (
                 <div
                   className="w-full h-32 bg-zinc-800 relative cursor-pointer"
                   onClick={() => handleToggle(item)}
@@ -391,18 +501,10 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
                   <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent" />
                 </div>
-              ) : (
-                <div
-                  className="w-full h-24 flex items-center justify-center cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.1) 0%, rgba(139,92,246,0.04) 100%)' }}
-                  onClick={() => handleToggle(item)}
-                >
-                  <GiftIcon size={32} stroke="rgba(139,92,246,0.3)" />
-                </div>
               )}
 
-              {/* Content Section */}
-              <div className="p-3 flex items-start gap-3">
+              {/* Content Section：沒有圖片時右側要讓開絕對定位的操作鈕 */}
+              <div className={`p-3 flex items-start gap-3 ${!item.image_url && !readOnly ? "pr-[70px]" : ""}`}>
                 <div className="pt-0.5" onClick={(e) => { if (!readOnly) e.stopPropagation(); }}>
                   <Checkbox
                     checked={item.is_checked}
@@ -449,7 +551,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
                   </button>
                 </div>
               )}
-            </div>
+            </motion.div>
           ))}
         </div>
       )}

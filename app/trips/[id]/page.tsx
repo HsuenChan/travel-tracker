@@ -459,7 +459,7 @@ export default function TripPage() {
       }
       const { shareUrl } = await res.json();
       const urlWithTab = `${shareUrl}${shareUrl.includes("?") ? "&" : "?"}tab=${activeTab}`;
-      await deliverLink(urlWithTab, trip?.name ?? "Travel Tracker", "已複製分享連結");
+      await deliverLink(urlWithTab, `${trip?.name ?? "旅程"} - Travel Tracker`, "已複製分享連結");
       setShowMoreSheet(false);
     } catch {
       messageApi.error("產生分享連結失敗，請檢查網路連線");
@@ -914,7 +914,16 @@ export default function TripPage() {
                 transition={{ duration: 0.2, ease: "easeOut" }}
               >
                 {activeTab === "transport" && transportContent}
-                {activeTab === "itinerary" && <ItineraryTab tripId={id} isActive destination={trip.countries} />}
+                {activeTab === "itinerary" && (
+                  <ItineraryTab
+                    tripId={id}
+                    isActive
+                    destination={trip.countries}
+                    people={people}
+                    currency={primaryCurrency}
+                    currencies={currencies}
+                  />
+                )}
                 {activeTab === "notes" && <NotesTab tripId={id} />}
                 {activeTab === "souvenirs" && <SouvenirsTab tripId={id} />}
                 {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} tripEndDate={trip.end_date} />}
