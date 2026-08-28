@@ -6,10 +6,11 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
-import { PlusIcon, CalendarIcon, LocationIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon } from "@/app/components/Icons";
+import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon } from "@/app/components/Icons";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
+import QuickExpenseModal from "@/app/components/QuickExpenseModal";
 import { parseCoverPos, withCoverPos } from "@/lib/coverPos";
 import { compressImage } from "@/lib/compressImage";
 
@@ -80,12 +81,37 @@ const TIME_OPTIONS = Array.from({ length: 15 }, (_, i) => {
   return { value: `${String(h).padStart(2, "0")}:00`, label: `${String(h).padStart(2, "0")}:00` };
 });
 
+interface LinkedExpense {
+  id: string;
+  itinerary_item_id: string | null;
+  description: string;
+  amount: number;
+  currency: string;
+  paid_by: string | null;
+}
+
 interface Props {
   tripId: string;
   isActive?: boolean;
   destination: string;
   readOnly?: boolean;
   initialItems?: ItineraryItem[];
+  /** 分帳成員與幣別：行程內記帳用，唯讀分享頁只用來顯示金額 */
+  people?: string[];
+  currency?: string;
+  currencies?: string[];
+  initialExpenses?: LinkedExpense[];
+}
+
+/** 同幣別合併，跨幣別並列（行程卡上不換匯，避免多打一支匯率 API） */
+function formatExpenseTotals(list: LinkedExpense[]): string {
+  const byCurrency: Record<string, number> = {};
+  list.forEach((e) => {
+    byCurrency[e.currency] = (byCurrency[e.currency] ?? 0) + Number(e.amount);
+  });
+  return Object.entries(byCurrency)
+    .map(([cur, total]) => `${cur} ${Math.round(total).toLocaleString("en-US")}`)
+    .join(" · ");
 }
 
 const CATEGORIES = [
@@ -120,7 +146,10 @@ const CATEGORY_DOT_ICONS: Record<string, ReactNode> = {
   other: <CatOtherIcon size={11} />,
 };
 
-export default function ItineraryTab({ tripId, isActive, destination, readOnly, initialItems }: Props) {
+export default function ItineraryTab({
+  tripId, isActive, destination, readOnly, initialItems,
+  people = [], currency = "TWD", currencies = ["TWD"], initialExpenses,
+}: Props) {
   const [items, setItems] = useState<ItineraryItem[]>(initialItems || []);
   const [form] = Form.useForm();
   const router = useRouter();
@@ -145,6 +174,11 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
   const [loadError, setLoadError] = useState(false);
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherDay>>({});
   const { modal, message } = App.useApp();
+
+  // 行程內記帳
+  const [expenses, setExpenses] = useState<LinkedExpense[]>(initialExpenses ?? []);
+  const [quickItem, setQuickItem] = useState<ItineraryItem | null>(null);
+  const [quickSaving, setQuickSaving] = useState(false);
 
   // Health check
   const [healthLoading, setHealthLoading] = useState(false);
@@ -203,6 +237,63 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
       fetchItems(false);
     }
   }, [tripId, isActive, initialItems]);
+
+  // 與費用分頁共用同一份快取，切過來通常能直接畫出金額
+  async function fetchExpenses() {
+    const cacheKey = `travel_expenses_${tripId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try { setExpenses(JSON.parse(cached)); } catch { }
+    }
+    try {
+      const res = await fetchWithAuth(`/api/expenses?tripId=${tripId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setExpenses(data.expenses ?? []);
+        localStorage.setItem(cacheKey, JSON.stringify(data.expenses));
+        localStorage.setItem(`${cacheKey}:ts`, String(Date.now()));
+      }
+    } catch { }
+  }
+
+  useEffect(() => {
+    if (initialExpenses) {
+      setExpenses(initialExpenses);
+    } else if (isActive && !readOnly) {
+      fetchExpenses();
+    }
+  }, [tripId, isActive, readOnly, initialExpenses]);
+
+  const expensesByItem = useMemo(() => {
+    const map: Record<string, LinkedExpense[]> = {};
+    expenses.forEach((e) => {
+      if (!e.itinerary_item_id) return;
+      (map[e.itinerary_item_id] ??= []).push(e);
+    });
+    return map;
+  }, [expenses]);
+
+  async function handleQuickExpense(payload: Record<string, unknown>): Promise<boolean> {
+    setQuickSaving(true);
+    try {
+      const res = await fetchWithAuth("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        message.error("儲存失敗，請再試一次");
+        return false;
+      }
+      await fetchExpenses();
+      return true;
+    } catch {
+      message.error("儲存失敗，請檢查網路連線");
+      return false;
+    } finally {
+      setQuickSaving(false);
+    }
+  }
 
   // 只依賴日期範圍字串，items 參照變動不會重打天氣 API
   const weatherRange = useMemo(() => {
@@ -663,6 +754,33 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                 </button>
               </div>
             ) : null;
+            const linkedExpenses = expensesByItem[item.id] ?? [];
+            const hasExpenses = linkedExpenses.length > 0;
+            // 與時間／地點同一種份量：純文字＋icon，不用藥丸底
+            const amountInner = (
+              <>
+                <CoinIcon size={11} strokeWidth={1.6} />
+                <span className="font-money">
+                  {hasExpenses ? formatExpenseTotals(linkedExpenses) : `${currency} 0`}
+                </span>
+                {hasExpenses && <span className="opacity-60">· {linkedExpenses.length}</span>}
+              </>
+            );
+            const amountBase = "inline-flex items-center gap-1 -my-1 py-1 shrink-0";
+            const amountTone = hasExpenses ? "text-teal-400/75" : "text-zinc-500";
+            // 金額本身就是記帳入口：點下去開快速記帳表單
+            const expenseChip = readOnly
+              ? (hasExpenses ? <span className={`${amountBase} ${amountTone}`}>{amountInner}</span> : null)
+              : (
+                <button
+                  type="button"
+                  onClick={() => setQuickItem(item)}
+                  aria-label={`記一筆費用到「${item.title}」`}
+                  className={`${amountBase} ${amountTone} ${hasExpenses ? "hover:text-teal-300" : "hover:text-zinc-300"} transition-colors cursor-pointer`}
+                >
+                  {amountInner}
+                </button>
+              );
       return {
         key: item.id,
         className: walked ? "rail-done" : undefined,
@@ -744,11 +862,12 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                   {actionButtons && <div className="-mt-1">{actionButtons}</div>}
                 </div>
               )}
-              {(timeLabel || item.category || locationInner) && (
+              {(timeLabel || item.category || locationInner || expenseChip) && (
                 <div className="md:hidden flex items-center gap-2 flex-wrap mb-1 text-zinc-500 text-xs">
                   {timeLabel && <span className="text-zinc-500">{timeLabel}</span>}
                   {item.category && <CategoryBadge category={item.category} />}
                   {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
+                  {expenseChip}
                 </div>
               )}
               <div className="hidden md:flex justify-between items-start">
@@ -759,9 +878,10 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
                 </div>
                 {actionButtons}
               </div>
-              {locationInner && (
-                <div className="hidden md:flex text-zinc-500 text-xs mb-0.5 items-center gap-0.5">
-                  {locationInner}
+              {(locationInner || expenseChip) && (
+                <div className="hidden md:flex text-zinc-500 text-xs mb-0.5 items-center gap-2 flex-wrap">
+                  {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
+                  {expenseChip}
                 </div>
               )}
               {item.notes && (
@@ -1291,6 +1411,23 @@ export default function ItineraryTab({ tripId, isActive, destination, readOnly, 
           );
         })()}
       </Modal>
+
+      <QuickExpenseModal
+        open={!!quickItem}
+        tripId={tripId}
+        item={quickItem && {
+          id: quickItem.id,
+          title: quickItem.title,
+          date: quickItem.date,
+          category: quickItem.category,
+        }}
+        people={people}
+        currency={currency}
+        currencies={currencies}
+        saving={quickSaving}
+        onClose={() => setQuickItem(null)}
+        onSubmit={handleQuickExpense}
+      />
     </>
   );
 }

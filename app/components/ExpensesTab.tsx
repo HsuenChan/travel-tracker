@@ -9,6 +9,11 @@ import {
 } from "antd";
 import { EditOutlined, DeleteOutlined, CheckOutlined, CameraOutlined } from "@ant-design/icons";
 import { PlusIcon, CoinIcon, CategoryBadge } from "@/app/components/Icons";
+import {
+  EXPENSE_CATEGORIES,
+  EXPENSE_CATEGORY_MAP as CATEGORY_MAP,
+  EXPENSE_CATEGORY_COLORS as CATEGORY_COLORS,
+} from "@/lib/expenseCategories";
 import { motion, AnimatePresence } from "framer-motion";
 import dayjs from "dayjs";
 import {
@@ -29,6 +34,14 @@ interface Expense {
   split_with: string[];
   notes: string | null;
   created_at: string;
+  itinerary_item_id?: string | null;
+  itinerary_title?: string | null;
+}
+
+interface ItineraryOption {
+  id: string;
+  date: string;
+  title: string;
 }
 
 interface Props {
@@ -41,32 +54,6 @@ interface Props {
   /** 旅程結束日：已結束時子分頁預設進「統計」 */
   tripEndDate?: string | null;
 }
-
-const EXPENSE_CATEGORIES = [
-  { value: "flight", label: "機票" },
-  { value: "transport", label: "交通" },
-  { value: "hotel", label: "住宿" },
-  { value: "food", label: "餐飲" },
-  { value: "attraction", label: "景點" },
-  { value: "shopping", label: "購物" },
-  { value: "activity", label: "活動" },
-  { value: "other", label: "其他" },
-];
-
-const CATEGORY_MAP: Record<string, string> = Object.fromEntries(
-  EXPENSE_CATEGORIES.map((c) => [c.value, c.label])
-);
-
-const CATEGORY_COLORS: Record<string, string> = {
-  flight: "#0ea5e9",
-  transport: "#3b82f6",
-  hotel: "#8b5cf6",
-  food: "#f59e0b",
-  attraction: "#10b981",
-  shopping: "#ec4899",
-  activity: "#f97316",
-  other: "#71717a",
-};
 
 const PERSON_COLORS = ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#f97316"];
 
@@ -158,6 +145,8 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   const continueAfterSave = useRef(false);
   const pushedModalRef = useRef(false);
   const [loadError, setLoadError] = useState(false);
+  const [itineraryOptions, setItineraryOptions] = useState<ItineraryOption[]>([]);
+  const [itineraryFilter, setItineraryFilter] = useState<string[]>([]);
 
   const { modal, message } = App.useApp();
   const currencyOptions = currencies.map((c) => ({ value: c, label: c }));
@@ -235,6 +224,30 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     }
   }, [tripId, initialExpenses]);
 
+  // 「關聯行程」下拉的選項；唯讀分享頁不需要（也沒有 API 權限）
+  useEffect(() => {
+    if (readOnly) return;
+    const cacheKey = `travel_itinerary_${tripId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try { setItineraryOptions(JSON.parse(cached)); } catch { }
+    }
+    fetchWithAuth(`/api/itinerary?tripId=${tripId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { items: ItineraryOption[] } | null) => {
+        if (data?.items) setItineraryOptions(data.items);
+      })
+      .catch(() => { });
+  }, [tripId, readOnly]);
+
+  const itinerarySelectOptions = useMemo(
+    () => itineraryOptions.map((i) => ({
+      value: i.id,
+      label: `${dayjs(i.date).format("M/D")}　${i.title}`,
+    })),
+    [itineraryOptions]
+  );
+
   async function handleReceiptUpload(file: File) {
     setParsingReceipt(true);
     const formData = new FormData();
@@ -288,6 +301,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
       paid_by: values.paid_by ?? null,
       split_with: values.split_with ?? [],
       notes: values.notes ?? null,
+      itinerary_item_id: values.itinerary_item_id ?? null,
     };
 
     try {
@@ -385,6 +399,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
           paid_by: exp.paid_by,
           split_with: exp.split_with,
           notes: exp.notes,
+          itinerary_item_id: exp.itinerary_item_id ?? null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -448,6 +463,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         paid_by: editingExpense.paid_by,
         split_with: editingExpense.split_with,
         notes: editingExpense.notes,
+        itinerary_item_id: editingExpense.itinerary_item_id ?? null,
       });
     } else if (urlModal === "addExpense") {
       form.resetFields();
@@ -527,14 +543,30 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     [expenses]
   );
 
+  // 只列出「真的有費用掛上去」的行程，避免下拉塞滿整趟行程
+  const linkedItineraryOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    expenses.forEach((e) => {
+      if (e.itinerary_item_id) map.set(e.itinerary_item_id, e.itinerary_title ?? "行程");
+    });
+    if (map.size === 0) return [];
+    const opts = [...map].map(([value, label]) => ({ value, label }));
+    if (expenses.some((e) => !e.itinerary_item_id)) opts.push({ value: "__none__", label: "未關聯行程" });
+    return opts;
+  }, [expenses]);
+
+  // 關聯全被解除時，殘留的篩選條件不該讓列表永遠空白
+  const activeItineraryFilter = linkedItineraryOptions.length > 0 ? itineraryFilter : [];
+
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => {
       if (categoryFilter.length > 0 && !categoryFilter.includes(e.category ?? "")) return false;
       if (paidByFilter.length > 0 && !paidByFilter.includes(e.paid_by ?? "")) return false;
       if (dateFilter.length > 0 && !dateFilter.includes(e.date ?? "")) return false;
+      if (activeItineraryFilter.length > 0 && !activeItineraryFilter.includes(e.itinerary_item_id ?? "__none__")) return false;
       return true;
     });
-  }, [expenses, categoryFilter, paidByFilter, dateFilter]);
+  }, [expenses, categoryFilter, paidByFilter, dateFilter, activeItineraryFilter]);
 
   const usedPaidBy = useMemo(
     () => [...new Set(expenses.map(e => e.paid_by).filter(Boolean))] as string[],
@@ -771,6 +803,19 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         )}
       </div>
 
+      {linkedItineraryOptions.length > 0 && (
+        <Select
+          mode="multiple"
+          className="w-full mb-4"
+          placeholder="篩選關聯行程"
+          allowClear
+          value={activeItineraryFilter}
+          onChange={setItineraryFilter}
+          options={linkedItineraryOptions}
+          maxTagCount="responsive"
+        />
+      )}
+
       {loading ? (
         <div className="flex flex-col gap-3">
           {[1, 2, 3].map((i) => (
@@ -819,9 +864,9 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
         <div className="text-zinc-400 text-center py-8 text-sm">此條件沒有費用</div>
       ) : (
         <>
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end my-2">
             <span className="text-zinc-500 text-xs">
-              {filteredExpenses.length} 筆{(categoryFilter.length > 0 || paidByFilter.length > 0 || dateFilter.length > 0) ? "（篩選中）" : ""} ≈ <span className="font-money">{currency} {fmtTotal(filteredTotal)}</span>
+              {filteredExpenses.length} 筆{(categoryFilter.length > 0 || paidByFilter.length > 0 || dateFilter.length > 0 || activeItineraryFilter.length > 0) ? "（篩選中）" : ""} ≈ <span className="font-money">{currency} {fmtTotal(filteredTotal)}</span>
             </span>
           </div>
           <AnimatePresence initial={false}>
@@ -867,11 +912,11 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                     )}
                   </div>
                   {!readOnly && (
-                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                    <div className="flex items-center gap-1 shrink-0 ml-1 bg-black/30 backdrop-blur-[2px] rounded-full p-0.5">
                       <button
                         aria-label="編輯費用"
                         onClick={() => openEdit(exp)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:bg-black/25 transition-colors cursor-pointer"
                       >
                         <EditOutlined style={{ fontSize: 13 }} />
                       </button>
@@ -882,7 +927,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                           okText: "刪除", okType: "danger", cancelText: "取消",
                           onOk: () => handleDelete(exp.id),
                         })}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:bg-red-500/15 hover:text-red-400 transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:text-red-400 hover:bg-black/25 transition-colors cursor-pointer"
                       >
                         <DeleteOutlined style={{ fontSize: 13 }} />
                       </button>
@@ -1295,6 +1340,17 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
                 <DatePicker className="w-full" placeholder="結束" />
               </Form.Item>
             </div>
+          )}
+          {itinerarySelectOptions.length > 0 && (
+            <Form.Item name="itinerary_item_id" label="關聯行程">
+              <Select
+                placeholder="不關聯行程"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                options={itinerarySelectOptions}
+              />
+            </Form.Item>
           )}
           <div className="flex gap-3">
             <Form.Item
