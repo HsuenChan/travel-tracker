@@ -50,6 +50,14 @@ function textToHtml(text: string): string {
   return html;
 }
 
+/**
+ * Quill 的 semantic HTML 會把每一個空格都換成 &nbsp;，閱讀模式的英文長句因此
+ * 永遠不會斷行。單獨出現的還原成普通空格，連續兩個以上（使用者刻意排版）保留。
+ */
+function normalizeSpaces(html: string): string {
+  return html.replace(/(?:&nbsp;)+/g, (run) => (run.length === 6 ? " " : run));
+}
+
 /** Append HTML to existing note content, stripping trailing Quill empty para */
 function appendToContent(prev: string, html: string): string {
   const cleaned = prev.replace(/(<p><br><\/p>)+\s*$/, "").trim();
@@ -161,16 +169,18 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
 
   async function handleSave() {
     setSaving(true);
+    const content = normalizeSpaces(noteContent);
     try {
       const res = await fetchWithAuth(`/api/trips/${tripId}/notes`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: { content: noteContent } }),
+        body: JSON.stringify({ notes: { content } }),
       });
       if (res.ok) {
         messageApi.success("已儲存");
-        localStorage.setItem(`travel_notes_${tripId}`, noteContent);
-        setLastSaved(noteContent);
+        localStorage.setItem(`travel_notes_${tripId}`, content);
+        setNoteContent(content);
+        setLastSaved(content);
         setEditing(false);
       } else {
         messageApi.error("儲存失敗，請重試");
@@ -217,10 +227,10 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
                 </PillButton>
               </div>
             )}
-            <div className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] p-5 min-h-[140px]">
+            <div className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] p-4 min-h-[140px]">
               {noteContent && noteContent.replace(/<p><br><\/p>/g, "").trim() !== "" ? (
                 <div
-                  className="notes-content text-zinc-300 text-[14px] leading-relaxed"
+                  className="notes-content text-zinc-200 text-[14px] leading-[1.75]"
                   dangerouslySetInnerHTML={{ __html: noteContent }}
                 />
               ) : (
