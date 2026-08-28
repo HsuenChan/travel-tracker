@@ -133,14 +133,16 @@ body {
 
 .custom-quill .ql-editor {
   color: #e4e4e7 !important;
-  padding: 12px 14px !important;
-  line-height: 2;
+  padding: 14px 16px !important;
+  line-height: 1.75;
   max-height: 60vh !important;
 }
 
 .custom-quill .ql-editor.ql-blank::before {
   color: #52525b !important;
   font-style: normal !important;
+  left: 16px !important;
+  right: 16px !important;
 }
 
 .custom-quill .ql-stroke {
@@ -261,34 +263,188 @@ body {
   font-size: 12px;
 }
 
-/* Notes display rendered HTML styles */
-.notes-content h1 {
-  @apply text-lg font-bold mb-2 text-zinc-100;
+/*
+  Rendered-note typography — 編輯器（.ql-editor）與閱讀模式（.notes-content）
+  共用同一組規則，兩個模式的排版必定一致。
+  字級一律用 em：.notes-content 也被 hero 副標題與行程備註沿用，那兩處的
+  基準字級比較小，寫死 px 會爆版。
+*/
+.notes-content h1,
+.custom-quill .ql-editor h1 {
+  font-size: 1.35em;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #f4f4f5;
+  margin: 1.2em 0 0.45em;
 }
 
-.notes-content h2 {
-  @apply text-base font-bold mb-1.5 text-zinc-100;
+.notes-content h2,
+.custom-quill .ql-editor h2 {
+  font-size: 1.15em;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #f4f4f5;
+  margin: 1.4em 0 0.4em;
 }
 
-.notes-content p {
-  @apply mb-0.5;
+.notes-content h3,
+.custom-quill .ql-editor h3 {
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #e4e4e7;
+  margin: 1.3em 0 0.3em;
+}
+
+/* 第一個區塊不需要上間距，否則整段內容會往下掉一截 */
+.notes-content> :first-child,
+.custom-quill .ql-editor> :first-child {
+  margin-top: 0;
+}
+
+.notes-content p,
+.custom-quill .ql-editor p {
+  margin: 0 0 0.5em;
+}
+
+.notes-content p:last-child,
+.custom-quill .ql-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.notes-content strong,
+.custom-quill .ql-editor strong {
+  font-weight: 700;
+  color: #f4f4f5;
+}
+
+.notes-content a,
+.custom-quill .ql-editor a {
+  @apply text-violet-400 underline underline-offset-2 hover:text-violet-300 transition-colors;
+  word-break: break-all;
+}
+
+/* 網址、地址這種長字串要跟編輯器一樣會折行，不能撐破容器 */
+.notes-content {
+  overflow-wrap: break-word;
+}
+
+/*
+  清單的 marker 兩邊機制不同，只能分開寫、但把縮排對齊：
+  編輯器裡 Quill 一律用 <ol data-list="..."> 並自己用 .ql-ui 畫符號；
+  存檔後的 semantic HTML 是真的 <ul>/<ol>，符號被 Tailwind preflight 清掉要補回來。
+*/
+.notes-content ul,
+.notes-content ol {
+  padding-left: 1.5em;
+  margin: 0.3em 0 0.6em;
 }
 
 .notes-content ul {
-  @apply list-disc ml-4 mb-1.5;
+  list-style-type: disc;
 }
 
 .notes-content ol {
-  @apply list-decimal ml-4 mb-1.5;
+  list-style-type: decimal;
 }
 
-.notes-content strong {
-  @apply font-bold text-zinc-100;
+.notes-content li>ul,
+.notes-content li>ol {
+  margin: 0.2em 0 0;
 }
 
-.notes-content a {
-  @apply text-violet-400 underline underline-offset-2 hover:text-violet-300 transition-colors;
-  word-break: break-all;
+.custom-quill .ql-editor ol {
+  padding-left: 0;
+  margin: 0.3em 0 0.6em;
+}
+
+/* 引言：蓋掉 quill.snow 預設的淺灰 #ccc 左邊條，深色底上太跳 */
+.notes-content blockquote,
+.custom-quill .ql-editor blockquote {
+  border-left: 3px solid rgba(139, 92, 246, 0.3);
+  padding: 0.1em 0 0.1em 0.9em;
+  margin: 0.8em 0;
+  color: #8f8f99;
+}
+
+/* 分隔線 */
+.notes-content hr,
+.custom-quill .ql-editor hr {
+  height: 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  margin: 1.4em 0;
+}
+
+/*
+  表格：兩邊的黑線來源不同 —
+  編輯器是 quill.core 的 .ql-editor td{border:1px solid #000}；
+  閱讀模式是 getSemanticHTML() 硬把 border:1px solid #000 寫成 inline style 存進 DB
+  （quill/core/editor.js），inline style 只能用 !important 蓋掉，舊筆記才不用重存。
+*/
+.notes-content table,
+.custom-quill .ql-editor table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.notes-content td,
+.notes-content th,
+.custom-quill .ql-editor td,
+.custom-quill .ql-editor th {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 10px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.notes-content th,
+.notes-content tr:first-child td,
+.custom-quill .ql-editor th,
+.custom-quill .ql-editor tr:first-child td {
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  color: #f4f4f5;
+}
+
+/* 游標落在表格內時，工具列下方展開的表格操作列（掛在 .ql-toolbar 裡） */
+.custom-quill .ql-toolbar .ql-table-actions {
+  clear: both;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.custom-quill .ql-toolbar .ql-table-actions button {
+  float: none;
+  width: auto;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  color: #a1a1aa;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.custom-quill .ql-toolbar .ql-table-actions button:hover {
+  color: #e4e4e7;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.custom-quill .ql-toolbar .ql-table-actions button.is-danger:hover {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
 }
 
 /* Taller Quill variant used in Notes tab */
