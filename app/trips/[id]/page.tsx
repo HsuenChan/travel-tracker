@@ -115,9 +115,9 @@ export default function TripPage() {
     setFailedAvatars((prev) => new Set(prev).add(key));
   const { modal, message: messageApi } = App.useApp();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "transport");
-  const hadTabParamRef = useRef(!!searchParams.get("tab"));
-  const autoTabAppliedRef = useRef(false);
+  // 空字串＝落點還沒決定；由下面的 resolver effect 依 enabled_tabs 決定，避免閃一下未啟用的分頁
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "");
+  const landedRef = useRef(false);
 
   // Modal open state derived from URL — avoids duplicate history entries
   const urlModal = searchParams.get("modal");
@@ -135,19 +135,35 @@ export default function TripPage() {
     }
   }, [trip]);
 
-  // 旅途中模式：旅程期間開啟且 URL 未指定分頁時，直接落在今日行程
+  // 分頁落點：URL 指定 > 旅途中模式（今日行程）> 啟用清單的第一頁。
+  // 落點決定後仍會持續檢查：在「顯示分頁」把當前分頁關掉時跳回第一頁。
   useEffect(() => {
-    if (!trip || hadTabParamRef.current || autoTabAppliedRef.current) return;
-    if (activeTab !== "transport") return;
-    if (trip.enabled_tabs && !trip.enabled_tabs.includes("itinerary")) return;
-    const today = dayjs().format("YYYY-MM-DD");
-    if (trip.start_date && trip.end_date && today >= trip.start_date && today <= trip.end_date) {
-      autoTabAppliedRef.current = true;
+    if (!trip) return;
+    const enabled = trip.enabled_tabs?.length ? trip.enabled_tabs : ALL_TABS;
+    let target: string | null = null;
+
+    const firstLanding = !landedRef.current;
+    if (firstLanding) {
+      landedRef.current = true;
+      const fromUrl = searchParams.get("tab");
+      const today = dayjs().format("YYYY-MM-DD");
+      const inTrip = !!(trip.start_date && trip.end_date && today >= trip.start_date && today <= trip.end_date);
+      if (fromUrl && enabled.includes(fromUrl)) target = fromUrl;
+      else if (inTrip && enabled.includes("itinerary")) target = "itinerary";
+      else target = enabled[0];
+    } else if (!enabled.includes(activeTab)) {
+      target = enabled[0];
+    }
+
+    if (target && target !== activeTab) {
       setTabDirection(1);
-      setActiveTab("itinerary");
+      setActiveTab(target);
+      // 首次落點要保留 URL 上的 modal（深連結開的表單不該被關掉）；
+      // 「當前分頁被關掉」時 modal 已經關了，順手清掉殘留參數
+      writeTabToUrl(target, { clearModal: !firstLanding });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trip]);
+  }, [trip, activeTab, searchParams]);
 
   // 峰終回顧：旅程結束後第一次打開這頁時撒一次 confetti（之後只留回顧卡）
   const tripEnded = !!(trip?.end_date && dayjs().format("YYYY-MM-DD") > trip.end_date);
@@ -210,8 +226,8 @@ export default function TripPage() {
 
   // Sync tab state with URL on back/forward navigation
   useEffect(() => {
-    const tabFromUrl = searchParams.get("tab") || "transport";
-    if (tabFromUrl !== activeTab && tabOrderRef.current.includes(tabFromUrl)) {
+    const tabFromUrl = searchParams.get("tab");
+    if (tabFromUrl && tabFromUrl !== activeTab && tabOrderRef.current.includes(tabFromUrl)) {
       const order = tabOrderRef.current;
       setTabDirection(order.indexOf(tabFromUrl) > order.indexOf(activeTab) ? 1 : -1);
       setActiveTab(tabFromUrl);
@@ -259,21 +275,26 @@ export default function TripPage() {
     window.scrollTo({ top: Math.max(0, y), behavior: "instant" });
   }
 
+  /** 把分頁寫進 URL；replace (not push) so browser back leaves the page instead of stepping through visited tabs */
+  function writeTabToUrl(val: string, opts?: { clearModal?: boolean }) {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set("tab", val);
+    if (opts?.clearModal) {
+      current.delete("modal");
+      current.delete("segmentId");
+    }
+    const search = current.toString();
+    const query = search ? `?${search}` : "";
+    router.replace(`/trips/${id}${query}`, { scroll: false });
+  }
+
   const handleTabChange = (val: string) => {
     if (val === activeTab) return;
     const order = tabOrderRef.current;
     setTabDirection(order.indexOf(val) > order.indexOf(activeTab) ? 1 : -1);
     setActiveTab(val);
     scrollToTabContent();
-
-    // replace (not push) so browser back leaves the page instead of stepping through visited tabs
-    const current = new URLSearchParams(Array.from(searchParams.entries()));
-    current.set("tab", val);
-    current.delete("modal");
-    current.delete("segmentId");
-    const search = current.toString();
-    const query = search ? `?${search}` : "";
-    router.replace(`/trips/${id}${query}`, { scroll: false });
+    writeTabToUrl(val, { clearModal: true });
   };
 
   useEffect(() => {
@@ -670,6 +691,17 @@ export default function TripPage() {
               >
                 {inviting ? <LoadingOutlined size={13} /> : <UserPlusIcon size={13} />}
                 邀請
+              </button>
+            )}
+
+            {(isOwner || isMember) && people.length > 0 && (
+              <button
+                onClick={() => setShowBindingPanel(true)}
+                title="把分帳名單對應到成員帳號"
+                className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
+              >
+                <UsersIcon size={13} />
+                分帳綁定
               </button>
             )}
 

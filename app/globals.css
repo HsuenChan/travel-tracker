@@ -541,6 +541,18 @@ body {
   border-inline-start-color: rgba(139, 92, 246, 0.45) !important;
 }
 
+/* 跨日行程：從續日精簡條跳回開始日卡片時的短暫高亮 */
+.itinerary-timeline .item-flash {
+  animation: item-flash 1.4s ease-out;
+}
+
+@keyframes item-flash {
+  0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+  15% { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.55); }
+  70% { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+}
+
 /* hero 副標題的連結是配角：常態低調，hover 才亮 */
 .hero-subtitle a {
   color: rgba(196, 181, 253, 0.75);

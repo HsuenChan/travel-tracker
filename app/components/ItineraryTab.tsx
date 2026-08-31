@@ -146,6 +146,31 @@ const CATEGORY_DOT_ICONS: Record<string, ReactNode> = {
   other: <CatOtherIcon size={11} />,
 };
 
+/** 跨日行程最多展開幾天：end_date 誤填成隔年時，時間軸不該長出上百個空日期 */
+const MAX_SPAN_DAYS = 30;
+
+/** 一筆行程覆蓋的日期；超過上限只留頭尾兩天，total 仍是真實天數 */
+function getSpan(item: ItineraryItem): { days: string[]; total: number } {
+  const start = dayjs(item.date);
+  if (!item.end_date || item.end_date <= item.date || !start.isValid()) {
+    return { days: [item.date], total: 1 };
+  }
+  const end = dayjs(item.end_date);
+  if (!end.isValid()) return { days: [item.date], total: 1 };
+  const total = end.diff(start, "day") + 1;
+  const days = total > MAX_SPAN_DAYS
+    ? [item.date, item.end_date]
+    : Array.from({ length: total }, (_, i) => start.add(i, "day").format("YYYY-MM-DD"));
+  return { days, total };
+}
+
+/** 續日精簡條的狀態字：依類別換說法 */
+const CONTINUE_LABEL: Record<string, string> = {
+  hotel: "住宿中",
+  transport: "移動中",
+  activity: "進行中",
+};
+
 export default function ItineraryTab({
   tripId, isActive, destination, readOnly, initialItems,
   people = [], currency = "TWD", currencies = ["TWD"], initialExpenses,
@@ -298,8 +323,15 @@ export default function ItineraryTab({
   // 只依賴日期範圍字串，items 參照變動不會重打天氣 API
   const weatherRange = useMemo(() => {
     if (items.length === 0) return null;
-    const allDates = items.map((item) => item.date).sort();
-    return `${allDates[0]}~${allDates[allDates.length - 1]}`;
+    const starts = items.map((item) => item.date).sort();
+    const ends = items
+      .map((item) => (item.end_date && item.end_date > item.date ? item.end_date : item.date))
+      .sort();
+    const start = starts[0];
+    const last = ends[ends.length - 1];
+    // end_date 打錯（例如隔年）不該讓天氣 API 拉一整年的範圍
+    const capped = dayjs(start).add(MAX_SPAN_DAYS * 2, "day").format("YYYY-MM-DD");
+    return `${start}~${last > capped ? capped : last}`;
   }, [items]);
 
   useEffect(() => {
@@ -619,19 +651,39 @@ export default function ItineraryTab({
     setAIPreview((prev) => prev.map((item) => item._id === id ? { ...item, removed: !item.removed } : item));
   }
 
-  const grouped = items.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
+  /** 從續日精簡條跳回開始日的完整卡片，並短暫高亮 */
+  function jumpToItem(id: string) {
+    const el = document.getElementById(`itinerary-item-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("item-flash");
+    window.setTimeout(() => el.classList.remove("item-flash"), 1400);
+  }
+
+  const spans = new Map(items.map((item) => [item.id, getSpan(item)] as const));
+  // 開始日 → 完整卡片
+  const startsOn = items.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
     if (!acc[item.date]) acc[item.date] = [];
     acc[item.date].push(item);
     return acc;
   }, {});
-  const dates = Object.keys(grouped).sort();
+  // 跨日行程的續日 → 精簡條（不含開始日，避免同一天出現兩次）
+  const continuesOn = items.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
+    (spans.get(item.id)?.days ?? []).slice(1).forEach((d) => {
+      if (!acc[d]) acc[d] = [];
+      acc[d].push(item);
+    });
+    return acc;
+  }, {});
+  const dates = Array.from(new Set([...Object.keys(startsOn), ...Object.keys(continuesOn)])).sort();
   const timeToMinutes = (t: string | null) => {
     if (!t) return 9999;
     const [h, m] = t.split(":").map(Number);
     return (h || 0) * 60 + (m || 0);
   };
   dates.forEach((date) => {
-    grouped[date].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+    startsOn[date]?.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+    continuesOn[date]?.sort((a, b) => a.date.localeCompare(b.date) || timeToMinutes(a.time) - timeToMinutes(b.time));
   });
 
   const timelineItems = dates.flatMap((date) => {
@@ -689,7 +741,42 @@ export default function ItineraryTab({
       ),
     };
 
-    const itemNodes = grouped[date].map((item, itemIndex) => {
+    // 跨日行程在續日只給一條精簡狀態條：不重複整張卡，也不放編輯／記帳鈕
+    const continuingNodes = (continuesOn[date] ?? []).map((item) => {
+      const total = spans.get(item.id)?.total ?? 1;
+      const dayIndex = dayjs(date).diff(dayjs(item.date), "day") + 1;
+      const isLastDay = date === item.end_date;
+      const stateLabel = CONTINUE_LABEL[item.category ?? "other"] ?? "持續中";
+      const endLabel = item.category === "hotel" ? "退房" : "結束";
+      return {
+        key: `cont-${item.id}-${date}`,
+        className: walked ? "rail-done" : undefined,
+        icon: (
+          <span className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center border border-dashed border-white/[0.14] bg-[#131316] text-zinc-600">
+            {CATEGORY_DOT_ICONS[item.category ?? "other"] ?? CATEGORY_DOT_ICONS.other}
+          </span>
+        ),
+        content: (
+          <button
+            type="button"
+            onClick={() => jumpToItem(item.id)}
+            aria-label={`查看「${item.title}」，${stateLabel}第 ${dayIndex}/${total} 天`}
+            className="group w-full flex items-center gap-2 min-w-0 text-left px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/[0.1] transition-colors cursor-pointer"
+          >
+            <span className="text-[12px] text-zinc-400 truncate min-w-0 group-hover:text-zinc-200 transition-colors">
+              {item.title}
+            </span>
+            <span className="text-[11px] text-zinc-600 shrink-0 tabular-nums">
+              {stateLabel} {dayIndex}/{total} 天
+              {isLastDay && item.end_time ? ` · ${endLabel} ${item.end_time}` : ""}
+            </span>
+            <span className="ml-auto shrink-0 text-[11px] text-zinc-700 group-hover:text-zinc-500 transition-colors">›</span>
+          </button>
+        ),
+      };
+    });
+
+    const itemNodes = (startsOn[date] ?? []).map((item, itemIndex) => {
             const hasImage = !!(item.image_urls && item.image_urls.length > 0);
             const timeLabel = (item.time || item.end_time) ? (
               <span className="text-xs shrink-0 tabular-nums">
@@ -796,6 +883,7 @@ export default function ItineraryTab({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.28, ease: "easeOut", delay: itemIndex * 0.05 }}
+              id={`itinerary-item-${item.id}`}
               className="relative bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden"
               style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
             >
@@ -897,7 +985,7 @@ export default function ItineraryTab({
       };
     });
 
-    return [dateNode, ...itemNodes];
+    return [dateNode, ...continuingNodes, ...itemNodes];
   });
 
   return (
