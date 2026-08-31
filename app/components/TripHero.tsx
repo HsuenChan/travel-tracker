@@ -34,7 +34,7 @@ interface TripHeroProps {
   coverUrl?: string | null;
   /** pills 列尾端靠右的內容（成員頭像） */
   pillsEnd?: ReactNode;
-  /** 登入版專屬的互動區（分帳綁定面板），插在 pills 之後 */
+  /** 登入版專屬的互動區，插在 pills 之後（分帳綁定已改為獨立 Modal，目前沒有呼叫端使用） */
   children?: ReactNode;
 }
 

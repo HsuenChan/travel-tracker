@@ -157,6 +157,9 @@ export default function SharePageClient() {
       return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
     });
 
+  // URL 或預設的分頁沒被啟用時，內容區不該整片空白：夾到第一個可見分頁
+  const visibleTab = tabs.some((t) => t.key === activeTab) ? activeTab : (tabs[0]?.key ?? activeTab);
+
   return (
     <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
       <Layout className="min-h-screen bg-[#09090b] text-zinc-400" style={{ overflow: 'clip' }}>
@@ -194,7 +197,7 @@ export default function SharePageClient() {
                 <button
                   key={tab.key}
                   onClick={() => handleTabChange(tab.key)}
-                  className={`flex items-center gap-2 px-5 h-9 rounded-full text-sm font-medium transition-all duration-300 cursor-pointer ${activeTab === tab.key
+                  className={`flex items-center gap-2 px-5 h-9 rounded-full text-sm font-medium transition-all duration-300 cursor-pointer ${visibleTab === tab.key
                     ? "bg-white/10 text-white shadow-sm"
                     : "text-zinc-500 hover:text-zinc-300"
                     }`}
@@ -209,14 +212,14 @@ export default function SharePageClient() {
           {/* Tab Content */}
           <AnimatePresence mode="wait">
             <motion.div
-              key={activeTab}
+              key={visibleTab}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
               onAnimationComplete={() => { }}
             >
-              {activeTab === "itinerary" && (
+              {visibleTab === "itinerary" && (
                 <ItineraryTab
                   tripId={trip.id}
                   isActive={true}
@@ -229,7 +232,7 @@ export default function SharePageClient() {
                   initialExpenses={expenses}
                 />
               )}
-              {activeTab === "transport" && (
+              {visibleTab === "transport" && (
                 <div className="space-y-4">
                   <Typography.Text strong className="text-zinc-100 text-[15px] block mb-2 px-1">路線安排</Typography.Text>
                   {segments.length > 0 ? (
@@ -241,7 +244,7 @@ export default function SharePageClient() {
                   )}
                 </div>
               )}
-              {activeTab === "expenses" && (
+              {visibleTab === "expenses" && (
                 <ExpensesTab
                   tripId={trip.id}
                   people={trip.people || []}
@@ -252,20 +255,20 @@ export default function SharePageClient() {
                   tripEndDate={trip.end_date}
                 />
               )}
-              {activeTab === "notes" && (
+              {visibleTab === "notes" && (
                 <NotesTab
                   tripId={trip.id}
                   readOnly={true}
                   initialContent={note?.content}
                 />
               )}
-              {activeTab === "souvenirs" && (
+              {visibleTab === "souvenirs" && (
                 <SouvenirsTab
                   tripId={trip.id}
                   readOnly={true}
                 />
               )}
-              {activeTab === "photos" && (
+              {visibleTab === "photos" && (
                 <div className="space-y-4">
                   <Typography.Text strong className="text-zinc-100 text-[15px] block mb-2 px-1">相簿</Typography.Text>
                   {trip.photo_album_id ? (
@@ -292,7 +295,7 @@ export default function SharePageClient() {
 
         <MobileNav
           className="md:hidden"
-          activeKey={activeTab}
+          activeKey={visibleTab}
           onChange={handleTabChange}
           tabs={tabs}
         />
