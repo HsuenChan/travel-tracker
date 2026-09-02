@@ -6,7 +6,7 @@ import { Typography, Checkbox, Input, Button, App, Modal, Select, Skeleton, Uplo
 import PillButton from "./PillButton";
 import { motion } from "framer-motion";
 import { DeleteOutlined, EditOutlined, PictureOutlined, CloseOutlined, LoadingOutlined } from "@ant-design/icons";
-import { PlusIcon, BackpackIcon, GridIcon, MenuListIcon } from "@/app/components/Icons";
+import { PlusIcon, BackpackIcon, GridIcon, MenuListIcon, ArchiveIcon, TrashIcon } from "@/app/components/Icons";
 
 type ViewMode = "card" | "list";
 type WeightRole = "base" | "worn" | "consumable";
@@ -53,6 +53,28 @@ function fmtWeight(g: number): string {
   if (!g) return "0 g";
   if (g >= 1000) return `${(g / 1000).toFixed(g >= 10000 ? 1 : 2)} kg`;
   return `${Math.round(g)} g`;
+}
+
+/** 裝備櫃是 user 層級的，跨旅程共用；沒有 trip_id 與打勾狀態 */
+interface ClosetItem {
+  id: string;
+  name: string;
+  notes?: string | null;
+  image_url?: string | null;
+  tags?: string[] | null;
+  weight_g?: number | null;
+  qty: number;
+  weight_role: WeightRole;
+}
+
+/** /api/gear/import 只負責解析，回傳這個形狀讓使用者先看過再決定寫進哪裡 */
+interface ParsedRow {
+  name: string;
+  notes: string | null;
+  tags: string[] | null;
+  weight_g: number | null;
+  qty: number;
+  weight_role: WeightRole;
 }
 
 interface GearItem {
@@ -104,6 +126,15 @@ export default function GearTab({
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("card");
   const [uploading, setUploading] = useState(false);
+  const [alsoSaveToCloset, setAlsoSaveToCloset] = useState(false);
+  const [closetOpen, setClosetOpen] = useState(false);
+  const [closetItems, setClosetItems] = useState<ClosetItem[]>([]);
+  const [closetLoading, setClosetLoading] = useState(false);
+  const [selectedClosetIds, setSelectedClosetIds] = useState<Set<string>>(new Set());
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [parsed, setParsed] = useState<{ rows: ParsedRow[]; skipped: number; totalWeight: number } | null>(null);
+  const [busy, setBusy] = useState(false);
   const { message, modal } = App.useApp();
 
   async function handleImageUpload(file: File) {
@@ -196,6 +227,7 @@ export default function GearTab({
     setNewQty("1");
     setNewRole("base");
     setNewAssignedTo(undefined);
+    setAlsoSaveToCloset(false);
   }
 
   function openAdd() {
@@ -268,13 +300,24 @@ export default function GearTab({
       });
     }
 
-    setSaving(false);
-    if (res.ok) {
-      closeModal();
-      load();
-    } else {
+    if (!res.ok) {
+      setSaving(false);
       message.error(editingItem ? "儲存失敗" : "新增失敗");
+      return;
     }
+
+    // 存入裝備櫃失敗不該讓這次新增看起來像沒成功，所以只提示、不中斷
+    if (alsoSaveToCloset) {
+      const closetRes = await fetch(`/api/gear/closet`, {
+        method: "POST",
+        body: JSON.stringify({ name: newName, notes: newNotes, image_url: newImageUrl, tags: newTags, weight_g, qty, weight_role: newRole }),
+      });
+      if (!closetRes.ok) message.warning("已加入清單，但存入裝備櫃失敗");
+    }
+
+    setSaving(false);
+    closeModal();
+    load();
   }
 
   async function handleToggle(item: GearItem) {
@@ -309,6 +352,121 @@ export default function GearTab({
           body: JSON.stringify({ id }),
         });
       }
+    });
+  }
+
+  async function loadCloset() {
+    setClosetLoading(true);
+    const res = await fetch("/api/gear/closet");
+    if (res.ok) {
+      const data = await res.json();
+      setClosetItems(data.items);
+    } else {
+      message.error("裝備櫃讀取失敗");
+    }
+    setClosetLoading(false);
+  }
+
+  function openCloset() {
+    if (readOnly) return;
+    setClosetOpen(true);
+    setSelectedClosetIds(new Set());
+    setParsed(null);
+    setImportUrl("");
+    loadCloset();
+  }
+
+  /** 裝備櫃套用與 CSV 匯入共用同一條批次新增路徑 */
+  async function addRowsToTrip(rows: ParsedRow[] | Omit<ClosetItem, "id">[]) {
+    if (rows.length === 0) return;
+    setBusy(true);
+    const res = await fetch(`/api/gear`, {
+      method: "POST",
+      body: JSON.stringify({ tripId, items: rows }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      message.error("加入清單失敗");
+      return;
+    }
+    const data = await res.json();
+    message.success(`已加入 ${data.inserted} 件裝備`);
+    setClosetOpen(false);
+    setParsed(null);
+    load();
+  }
+
+  async function saveRowsToCloset(rows: ParsedRow[]) {
+    if (rows.length === 0) return;
+    setBusy(true);
+    const res = await fetch(`/api/gear/closet`, {
+      method: "POST",
+      body: JSON.stringify({ items: rows }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      message.error("存入裝備櫃失敗");
+      return;
+    }
+    const data = await res.json();
+    message.success(
+      data.duplicates
+        ? `已存入 ${data.inserted} 件，${data.duplicates} 件已經在櫃子裡`
+        : `已存入 ${data.inserted} 件`
+    );
+    setParsed(null);
+    loadCloset();
+  }
+
+  async function handleImportUrl() {
+    if (!importUrl.trim()) {
+      message.error("請貼上 LighterPack 清單連結");
+      return;
+    }
+    setImporting(true);
+    const res = await fetch(`/api/gear/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: importUrl }),
+    });
+    setImporting(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      message.error(err.error === "Unrecognised LighterPack link" ? "看不出這是 LighterPack 連結" : "匯入失敗，請改用匯出的 CSV 檔");
+      return;
+    }
+    setParsed(await res.json());
+  }
+
+  async function handleImportFile(file: File) {
+    setImporting(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/gear/import`, { method: "POST", body: fd });
+    setImporting(false);
+    if (!res.ok) {
+      message.error("這個 CSV 解析不出裝備資料");
+      return;
+    }
+    setParsed(await res.json());
+  }
+
+  function handleDeleteClosetItem(item: ClosetItem) {
+    modal.confirm({
+      title: `從裝備櫃移除「${item.name}」？`,
+      content: "已經加進旅程清單的那一份不會被刪除",
+      okText: "移除",
+      okType: "danger",
+      cancelText: "取消",
+      onOk: async () => {
+        setClosetItems((prev) => prev.filter(i => i.id !== item.id));
+        setSelectedClosetIds((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+        await fetch(`/api/gear/closet`, { method: "DELETE", body: JSON.stringify({ id: item.id }) });
+      },
     });
   }
 
@@ -374,6 +532,12 @@ export default function GearTab({
               </button>
             ))}
           </div>
+          {!readOnly && (
+            <PillButton onClick={openCloset} aria-label="我的裝備櫃" className="px-3! sm:px-4!">
+              <ArchiveIcon size={13} />
+              <span className="hidden sm:inline">裝備櫃</span>
+            </PillButton>
+          )}
           {!readOnly && (
             <PillButton onClick={openAdd}>
               <PlusIcon size={13} />
@@ -651,6 +815,14 @@ export default function GearTab({
             />
           </div>
 
+          <Checkbox
+            checked={alsoSaveToCloset}
+            onChange={(e) => setAlsoSaveToCloset(e.target.checked)}
+            className="mt-1"
+          >
+            <span className="text-zinc-400 text-[13px]">同時存入我的裝備櫃（下趟可直接套用）</span>
+          </Checkbox>
+
           <Button
             type="primary"
             onClick={handleSave}
@@ -659,6 +831,159 @@ export default function GearTab({
           >
             {editingItem ? "儲存" : "加入清單"}
           </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        title="我的裝備櫃"
+        open={closetOpen}
+        onCancel={() => setClosetOpen(false)}
+        footer={null}
+        destroyOnHidden
+        width={560}
+      >
+        <div className="flex flex-col gap-4 mt-6">
+          {/* LighterPack 沒有公開 API，兩條路都留：官方匯出的 CSV 檔（穩），或分享連結（方便） */}
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-zinc-300 text-[13px] font-medium">從 LighterPack 匯入</span>
+              <Upload
+                accept=".csv,text/csv"
+                showUploadList={false}
+                disabled={importing}
+                beforeUpload={(file) => { handleImportFile(file); return false; }}
+              >
+                <button
+                  type="button"
+                  className="h-7 px-3 rounded-full text-xs font-medium bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                >
+                  {importing ? "解析中" : "上傳 CSV"}
+                </button>
+              </Upload>
+            </div>
+            <div className="flex gap-1.5">
+              <Input
+                placeholder="貼上 lighterpack.com/r/xxxxxx"
+                value={importUrl}
+                onChange={e => setImportUrl(e.target.value)}
+                onPressEnter={handleImportUrl}
+                className="rounded-xl! border-white/10! hover:border-white/30! focus:border-violet-500! bg-white/5! text-white! h-9!"
+              />
+              <PillButton onClick={handleImportUrl} disabled={importing} className="h-9! shrink-0">解析</PillButton>
+            </div>
+            <span className="text-zinc-600 text-[11px] leading-relaxed">
+              LighterPack 沒有公開 API，連結是靠它的 CSV 匯出網址讀取的。讀不到時請在 LighterPack 用 Share → Export to CSV 匯出檔案再上傳。
+            </span>
+          </div>
+
+          {/* 先看過解析結果再決定寫進哪裡：欄位對不上時不會直接灌一堆垃圾進清單 */}
+          {parsed && (
+            <div className="rounded-2xl border border-violet-500/25 bg-violet-500/[0.08] p-3.5 flex flex-col gap-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-zinc-100 text-[13px] font-medium">解析到 {parsed.rows.length} 件</span>
+                <span className="text-zinc-200 text-[13px] font-semibold tabular-nums">{fmtWeight(parsed.totalWeight)}</span>
+              </div>
+              <div className="text-zinc-400 text-[12px] leading-relaxed">
+                {parsed.rows.slice(0, 5).map(r => r.name).join("、")}
+                {parsed.rows.length > 5 ? ` …等 ${parsed.rows.length} 件` : ""}
+              </div>
+              {parsed.skipped > 0 && (
+                <span className="text-zinc-500 text-[11px]">有 {parsed.skipped} 列沒有名稱，已略過</span>
+              )}
+              <div className="flex gap-2 mt-1">
+                <PillButton variant="primary" disabled={busy} onClick={() => addRowsToTrip(parsed.rows)}>加入這趟清單</PillButton>
+                <PillButton disabled={busy} onClick={() => saveRowsToCloset(parsed.rows)}>存入裝備櫃</PillButton>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-500 text-xs">裝備櫃（{closetItems.length} 件）</span>
+              {closetItems.length > 0 && (
+                <button
+                  onClick={() => setSelectedClosetIds(
+                    selectedClosetIds.size === closetItems.length
+                      ? new Set()
+                      : new Set(closetItems.map(i => i.id))
+                  )}
+                  className="text-violet-300 text-xs hover:text-violet-200 transition-colors cursor-pointer"
+                >
+                  {selectedClosetIds.size === closetItems.length ? "取消全選" : "全選"}
+                </button>
+              )}
+            </div>
+
+            {closetLoading ? (
+              <Skeleton active paragraph={{ rows: 3 }} title={false} />
+            ) : closetItems.length === 0 ? (
+              <div className="py-8 px-6 rounded-xl border border-dashed border-white/10 text-center text-zinc-500 text-[13px] leading-relaxed">
+                櫃子還是空的。新增裝備時勾「同時存入我的裝備櫃」，或從上面匯入 LighterPack 清單。
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1 max-h-[280px] overflow-y-auto pr-1">
+                {closetItems.map(item => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2"
+                  >
+                    <Checkbox
+                      checked={selectedClosetIds.has(item.id)}
+                      onChange={() => setSelectedClosetIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                        return next;
+                      })}
+                    />
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <span className="text-[13px] text-zinc-100 truncate">{item.name}</span>
+                      {item.qty > 1 && <span className="text-[11px] text-zinc-500 tabular-nums shrink-0">×{item.qty}</span>}
+                      {(item.tags || []).slice(0, 2).map(tag => (
+                        <span
+                          key={tag}
+                          className="text-[10px] px-1.5 py-0.5 rounded-md border shrink-0"
+                          style={{ color: tagColor(tag), borderColor: `${tagColor(tag)}40`, background: `${tagColor(tag)}1a` }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                    <span className="text-[12px] text-zinc-400 tabular-nums shrink-0">
+                      {item.weight_g == null ? "—" : fmtWeight(Number(item.weight_g))}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteClosetItem(item)}
+                      aria-label="從裝備櫃移除"
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0"
+                    >
+                      <TrashIcon size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <PillButton
+              variant="primary"
+              disabled={selectedClosetIds.size === 0 || busy}
+              onClick={() => addRowsToTrip(
+                closetItems
+                  .filter(i => selectedClosetIds.has(i.id))
+                  .map(i => ({
+                    name: i.name,
+                    notes: i.notes ?? null,
+                    image_url: i.image_url ?? null,
+                    tags: i.tags ?? null,
+                    weight_g: i.weight_g ?? null,
+                    qty: i.qty,
+                    weight_role: i.weight_role,
+                  }))
+              )}
+              className="w-full h-10! mt-1"
+            >
+              加入這趟清單{selectedClosetIds.size > 0 ? `（${selectedClosetIds.size}）` : ""}
+            </PillButton>
+          </div>
         </div>
       </Modal>
 
