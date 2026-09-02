@@ -3,7 +3,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 
 import { useState, useEffect, useRef } from "react";
 import { Modal, Form, Input, DatePicker, Button, Row, Col, Select } from "antd";
-import { PlaneIcon, PhotoIcon, CalendarIcon, CoinIcon, NotepadIcon, LocationIcon, GiftIcon } from "@/app/components/Icons";
+import { PlaneIcon, PhotoIcon, CalendarIcon, CoinIcon, NotepadIcon, LocationIcon, GiftIcon, BackpackIcon } from "@/app/components/Icons";
 
 import dayjs from "dayjs";
 
@@ -16,6 +16,7 @@ const ALL_TABS = [
   { key: "photos", label: "照片", icon: <PhotoIcon size={14} /> },
   { key: "notes", label: "筆記", icon: <NotepadIcon size={14} /> },
   { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={14} /> },
+  { key: "gear", label: "裝備", icon: <BackpackIcon size={14} /> },
 ];
 
 interface Destination {

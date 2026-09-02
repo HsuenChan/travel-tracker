@@ -1,0 +1,26 @@
+-- Gear / packing list (per trip)
+-- Run in Supabase SQL Editor after 01_schema.sql (safe to re-run)
+
+create table if not exists gear_items (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references trips(id) on delete cascade,
+  name text not null,
+  notes text,
+  tags text[],                      -- free-form categories, same idea as souvenirs.tags
+  weight_g numeric,                 -- weight of a single unit in grams; null = not weighed yet
+  qty integer not null default 1,
+  -- Drives the base-weight formula: base = total - worn - consumable
+  weight_role text not null default 'base'
+    check (weight_role in ('base', 'worn', 'consumable')),
+  assigned_to text,                 -- who carries it (matches a name in trips.people)
+  image_url text,
+  is_checked boolean not null default false,
+  order_index integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists gear_items_trip_idx on gear_items(trip_id);
+
+-- Same posture as souvenirs / itinerary_items: no RLS on trip content tables, so the
+-- read-only share page can load the list with an anonymous session. Writes are gated in
+-- the API route (authenticated user required).

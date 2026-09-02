@@ -17,13 +17,14 @@ import ItineraryTab from "@/app/components/ItineraryTab";
 import ExpensesTab from "@/app/components/ExpensesTab";
 import NotesTab from "@/app/components/NotesTab";
 import SouvenirsTab from "@/app/components/SouvenirsTab";
+import GearTab from "@/app/components/GearTab";
 import LineBotTripModal from "@/app/components/LineBotTripModal";
 import SegmentCard from "@/app/components/SegmentCard";
 import TripHero from "@/app/components/TripHero";
 import TripRecapCard from "@/app/components/TripRecapCard";
 import MobileNav from "@/app/components/MobileNav";
 import {
-  PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon,
+  PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon, BackpackIcon,
   CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
 } from "@/app/components/Icons";
 import dayjs from "dayjs";
@@ -125,7 +126,7 @@ export default function TripPage() {
   const showAddSegment = urlModal === "addSegment";
   const showLineBotModal = urlModal === "lineBot";
   const [tabDirection, setTabDirection] = useState(1);
-  const ALL_TABS = ["transport", "itinerary", "expenses", "photos", "notes", "souvenirs"];
+  const ALL_TABS = ["transport", "itinerary", "expenses", "photos", "notes", "souvenirs", "gear"];
 
   // Update ref whenever trip loads so animation direction matches user's custom sort order
   const tabOrderRef = useRef(ALL_TABS);
@@ -914,6 +915,7 @@ export default function TripPage() {
                   { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
                   { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
                   { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
+                  { key: "gear", label: "裝備", icon: <BackpackIcon size={18} /> },
                 ]
                   .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
                   .sort((a, b) => {
@@ -958,6 +960,7 @@ export default function TripPage() {
                 )}
                 {activeTab === "notes" && <NotesTab tripId={id} />}
                 {activeTab === "souvenirs" && <SouvenirsTab tripId={id} />}
+                {activeTab === "gear" && <GearTab tripId={id} people={people} />}
                 {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} tripEndDate={trip.end_date} />}
                 {activeTab === "photos" && (
                   trip.photo_album_id ? (
@@ -1002,6 +1005,7 @@ export default function TripPage() {
             { key: "photos", icon: <PhotoIcon size={20} />, label: "照片" },
             { key: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
             { key: "souvenirs", icon: <GiftIcon size={20} />, label: "伴手禮" },
+            { key: "gear", icon: <BackpackIcon size={20} />, label: "裝備" },
           ]
             .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
             .sort((a, b) => {

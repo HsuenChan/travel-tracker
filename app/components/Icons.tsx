@@ -465,3 +465,14 @@ export function CoinIcon({ size = 13, className, stroke = "currentColor", stroke
     </svg>
   );
 }
+
+export function BackpackIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M5 10a7 7 0 0 1 14 0v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-9Z" />
+      <path d="M9.5 6.2V4.5a2.5 2.5 0 0 1 5 0v1.7" />
+      <path d="M9 21v-5.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V21" />
+      <path d="M9.5 11.5h5" />
+    </svg>
+  );
+}

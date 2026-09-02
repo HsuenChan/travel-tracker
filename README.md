@@ -28,9 +28,24 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 - **Trip Recap & Celebrations** — When a trip ends, a recap card (days · itinerary items · unique places) appears under the hero with a one-time confetti burst. Marking the last outstanding settlement as paid also celebrates with confetti.
 - **Sharing & Collaboration** — Generate shareable read-only links (with active tab preserved in URL). Shared links preview as “Trip name - Travel Tracker” with the trip's own hero photo as the thumbnail. Trip members with edit access are automatically redirected to the full editor when opening a share link. Member avatars sit at the end of the hero pill row (with loading skeletons); owners can remove members, members can leave trips, and split-name ↔ account binding opens as a modal — from the action row on desktop, from the trip menu on mobile.
 - **Claim Your Identity After Joining** — When joining a trip, pick which existing split-bill member name represents you. Owners can manage member-name ↔ account bindings from the trip page. (Groundwork for upcoming expense-to-account integration.)
+- **Gear & Packing List** — Build the pack item by item with a per-unit weight and quantity, and read the three numbers that decide whether the bag is carryable: base weight, worn, and consumables, with the total on top. Categories are free-form tags, so the list can be organised any way you like; the grid underneath shows the item count and weight sitting in each category, and the nine classic hiking categories stay in the grid even when empty — the one you forgot to pack is the one drawn with a dashed border. Tap a category to filter, tick items off as they go into the bag, and hand group gear to a specific travel companion. Weight takes grams or kilograms and can be left blank until something has actually been weighed. The tab is off by default and turned on per trip, and it works just as well as a suitcase list checked against an airline weight limit.
 - **Souvenirs & Shopping List** — Switch between a card grid and a compact list, with the choice remembered for next time. Custom tags, image upload, and quick check-off throughout; items without a photo simply skip the image area instead of showing a placeholder. Shows a completion progress bar; checked items slide down to the bottom so it stays obvious which one was just ticked off.
 - **PWA & Offline Caching** — Local storage caching across all tabs with skeleton screens for fast perceived load.
 - **Responsive UI** — Sidebar layout on desktop; on mobile a gooey bottom nav with a sliding indicator ball. Shared design components (TripHero, SegmentCard, MobileNav, PillButton) keep the app and public share pages visually in sync. LINE Seed TC display font for headline moments. Built with Tailwind CSS 4 and Ant Design 6.
+
+### Roadmap
+
+Planned, in rough priority order:
+
+- A trip plan sheet for the person staying behind — emergency contacts, agreed check-in times, retreat plan — built on the read-only share link, printable for permit applications
+- Turnaround time per itinerary item, marked on the timeline
+- Richer daily weather: sunrise and sunset, feels-like temperature, chance of rain, wind, corrected for altitude
+- A pre-trip training plan counted back from the departure date, generated from the route's own distance, ascent, and pack weight
+- A food and supplement trial log that carries across trips
+- GPX import for distance and ascent statistics and globe tracks
+- Trip templates that only preset which tabs and categories a new trip starts with
+
+Deliberately out of scope: offline maps, GPX navigation, and live track recording.
 
 ### Tech Stack
 
@@ -102,6 +117,7 @@ Run the SQL files in `supabase/` in order via the [Supabase SQL Editor](https://
 | `04_itinerary_images.sql` | Itinerary item photos (`image_urls` array + storage bucket; safe to re-run) |
 | `05_settlement_paid.sql` | Persistent settlement paid marks (incl. RLS policies; safe to re-run) |
 | `06_expense_itinerary_link.sql` | Links expenses to itinerary items (`itinerary_item_id`; safe to re-run) |
+| `07_gear.sql` | Gear / packing list per trip (weights, categories, carrier; safe to re-run) |
 
 ### LINE Bot Setup
 
@@ -153,8 +169,23 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 - **分享與共同編輯** — 可生成唯讀分享連結（URL 保留當前分頁狀態），連結貼到通訊軟體會顯示「旅程名稱 - Travel Tracker」與該趟旅程的封面照縮圖。具編輯權限的成員開啟分享連結時自動跳轉至完整編輯介面。成員頭像顯示於 hero pill 列尾端（載入時有骨架佔位）；旅程擁有者可移除成員，成員可自行離開旅程，「分帳綁定」以彈窗設定，桌機版從動作列進入、手機版從旅程選單進入。
 - **加入旅程後認領身份** — 加入旅程時可認領你對應的既有分帳成員名稱，旅程擁有者可在旅程頁查看與管理「成員名稱 ↔ 帳號」綁定。（為日後支出自動歸戶功能鋪路）
 - **伴手禮與購物清單** — 可切換「卡片」與「列表」兩種檢視，選擇會記住下次沿用。支援自訂標籤篩選、圖片上傳與快速打勾；沒有照片的項目不會顯示佔位圖。顯示完成進度條，已購買項目會以滑動動畫沉到底部，看得出剛剛勾掉的是哪一項。
+- **裝備清單與重量** — 逐件記下裝備、單件重量與數量，頂部直接看到總重，以及決定背包揹不揹得動的三個數字：基準重量、穿著、消耗。分類使用自由標籤，想怎麼分就怎麼分；下方分類格顯示每個分類的件數與重量，登山裝備九宮格的九個分類即使一件都沒帶也會留在格子裡——漏掉的那一格會以虛線框浮出來。點分類可篩選，裝進背包就打勾，團體裝備可以指定由哪位隊友揹。重量可用公克或公斤輸入，還沒秤的先留空。分頁預設關閉、每趟旅程自行開啟；一般旅遊當成行李清單、對照航空公司重量限制也一樣好用。
 - **PWA 與快取** — LocalStorage 暫存機制搭配骨架圖，確保網路不佳時操作依然流暢。
 - **響應式介面** — 桌機側欄佈局；手機底部為 gooey 果凍導覽列（小球滑動指示）。共用設計元件（TripHero、SegmentCard、MobileNav、PillButton）讓 App 與公開分享頁視覺一致，標題時刻使用 LINE Seed TC 字型。Tailwind CSS 4 + Ant Design 6。
+
+### 未來規劃
+
+依優先順序排列：
+
+- 留守人頁面 —— 緊急聯絡人、約定的回報時間、撤退計畫 —— 建在唯讀分享連結上，可列印給入園申請使用
+- 每筆行程的撤退／關門時間，並在時間軸上標記
+- 更完整的每日天氣：日出日落、體感溫度、降雨機率、風速，並依海拔校正
+- 依出發日回推的行前訓練計畫，以該條路線的里程、爬升與背包重量生成
+- 跨旅程累積的補給與行動糧試用紀錄
+- GPX 匯入，取里程與爬升統計並在 3D 地球上畫出軌跡
+- 建立旅程時的範本，只決定新旅程預設開啟哪些分頁與分類
+
+明確不做：離線地圖、GPX 導航、即時軌跡記錄。
 
 ### 技術架構
 
@@ -219,6 +250,7 @@ npm run dev
 | `04_itinerary_images.sql` | 行程照片（`image_urls` 陣列＋Storage bucket，可重複執行） |
 | `05_settlement_paid.sql` | 結算繳清標記（含 RLS policy，可重複執行） |
 | `06_expense_itinerary_link.sql` | 費用與行程的關聯欄位（`itinerary_item_id`，可重複執行） |
+| `07_gear.sql` | 每趟旅程的裝備清單（重量、分類、揹負者，可重複執行） |
 
 ### LINE Bot 設定
 
