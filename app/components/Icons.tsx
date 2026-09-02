@@ -467,12 +467,18 @@ export function CoinIcon({ size = 13, className, stroke = "currentColor", stroke
   );
 }
 
-/** 攀岩 D 扣：細長框留出左上開口，短斜棒是閘門 —— 14px 起就看得出「可以打開的環」 */
+/**
+ * 攀岩 D 扣：細長主體斜 28 度，內部短棒是閘門（兩端留空才讀得出是獨立元件）。
+ * 刻意畫成閉合造型 —— 真實 D 扣的開口在 18px 下沒辦法同時做到好看又看得懂，
+ * 而閉合形狀才跟這套 icon 其他成員（飛機、日曆、行李）的語言一致。
+ */
 export function CarabinerIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M13 3.2c3.2 1 5.4 4.7 5.4 9 0 4.8-2.8 8.8-6.4 9.2-2.8.3-5.2-1.8-5.2-4.8V10" />
-      <path d="M6.8 10 10.4 6.2" />
+      <g transform="rotate(-28 12 12)">
+        <rect x="7.5" y="2.2" width="9" height="19.6" rx="4.5" />
+        <path d="M10.6 7V17" />
+      </g>
     </svg>
   );
 }
