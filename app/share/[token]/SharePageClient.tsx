@@ -6,7 +6,7 @@ import { Layout, Typography, Tag, Timeline, Spin, ConfigProvider, theme } from "
 import SegmentCard from "@/app/components/SegmentCard";
 import TripHero from "@/app/components/TripHero";
 import MobileNav from "@/app/components/MobileNav";
-import { PlaneIcon, PhotoIcon, CalendarIcon, CoinIcon, NotepadIcon, GiftIcon, BackpackIcon } from "@/app/components/Icons";
+import { PlaneIcon, PhotoIcon, CalendarIcon, CoinIcon, NotepadIcon, GiftIcon, CarabinerIcon } from "@/app/components/Icons";
 import PhotoWall from "@/app/components/PhotoWall";
 import ItineraryTab from "@/app/components/ItineraryTab";
 import ExpensesTab from "@/app/components/ExpensesTab";
@@ -149,7 +149,7 @@ export default function SharePageClient() {
     { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
     { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
     { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
-    { key: "gear", label: "裝備", icon: <BackpackIcon size={18} /> },
+    { key: "gear", label: "裝備", icon: <CarabinerIcon size={18} /> },
   ]
     .filter(tab => {
       return !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key);

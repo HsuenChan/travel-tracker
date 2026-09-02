@@ -24,7 +24,7 @@ import TripHero from "@/app/components/TripHero";
 import TripRecapCard from "@/app/components/TripRecapCard";
 import MobileNav from "@/app/components/MobileNav";
 import {
-  PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon, BackpackIcon,
+  PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon, CarabinerIcon,
   CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
 } from "@/app/components/Icons";
 import dayjs from "dayjs";
@@ -915,7 +915,7 @@ export default function TripPage() {
                   { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
                   { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
                   { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
-                  { key: "gear", label: "裝備", icon: <BackpackIcon size={18} /> },
+                  { key: "gear", label: "裝備", icon: <CarabinerIcon size={18} /> },
                 ]
                   .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
                   .sort((a, b) => {
@@ -1005,7 +1005,7 @@ export default function TripPage() {
             { key: "photos", icon: <PhotoIcon size={20} />, label: "照片" },
             { key: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
             { key: "souvenirs", icon: <GiftIcon size={20} />, label: "伴手禮" },
-            { key: "gear", icon: <BackpackIcon size={20} />, label: "裝備" },
+            { key: "gear", icon: <CarabinerIcon size={20} />, label: "裝備" },
           ]
             .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
             .sort((a, b) => {

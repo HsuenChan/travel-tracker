@@ -467,13 +467,12 @@ export function CoinIcon({ size = 13, className, stroke = "currentColor", stroke
   );
 }
 
-export function BackpackIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+/** 攀岩 D 扣：細長框留出左上開口，短斜棒是閘門 —— 14px 起就看得出「可以打開的環」 */
+export function CarabinerIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M5 10a7 7 0 0 1 14 0v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-9Z" />
-      <path d="M9.5 6.2V4.5a2.5 2.5 0 0 1 5 0v1.7" />
-      <path d="M9 21v-5.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V21" />
-      <path d="M9.5 11.5h5" />
+      <path d="M13 3.2c3.2 1 5.4 4.7 5.4 9 0 4.8-2.8 8.8-6.4 9.2-2.8.3-5.2-1.8-5.2-4.8V10" />
+      <path d="M6.8 10 10.4 6.2" />
     </svg>
   );
 }

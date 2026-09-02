@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Typography, Checkbox, Input, Button, App, Modal, Select, Skeleton, Upload } from "antd";
+import { Typography, Checkbox, Input, InputNumber, Button, App, Modal, Select, Skeleton, Upload } from "antd";
 import PillButton from "./PillButton";
 import { motion } from "framer-motion";
 import { DeleteOutlined, EditOutlined, PictureOutlined, CloseOutlined, LoadingOutlined } from "@ant-design/icons";
-import { PlusIcon, BackpackIcon, GridIcon, MenuListIcon, ArchiveIcon, TrashIcon } from "@/app/components/Icons";
+import { PlusIcon, CarabinerIcon, GridIcon, MenuListIcon, ArchiveIcon, TrashIcon } from "@/app/components/Icons";
 
 type ViewMode = "card" | "list";
 type WeightRole = "base" | "worn" | "consumable";
@@ -106,9 +106,9 @@ export default function GearTab({
   const [newNotes, setNewNotes] = useState("");
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newTags, setNewTags] = useState<string[]>([]);
-  const [newWeight, setNewWeight] = useState("");
+  const [newWeight, setNewWeight] = useState<number | null>(null);
   const [newUnit, setNewUnit] = useState<"g" | "kg">("g");
-  const [newQty, setNewQty] = useState("1");
+  const [newQty, setNewQty] = useState<number>(1);
   const [newRole, setNewRole] = useState<WeightRole>("base");
   const [newAssignedTo, setNewAssignedTo] = useState<string | undefined>(undefined);
   const router = useRouter();
@@ -205,10 +205,10 @@ export default function GearTab({
       setNewTags(editingItem.tags || []);
       const w = Number(editingItem.weight_g ?? 0);
       // 1kg 以上用 kg 顯示，免得看到一長串公克
-      if (editingItem.weight_g == null) { setNewWeight(""); setNewUnit("g"); }
-      else if (w >= 1000) { setNewWeight(String(w / 1000)); setNewUnit("kg"); }
-      else { setNewWeight(String(w)); setNewUnit("g"); }
-      setNewQty(String(editingItem.qty ?? 1));
+      if (editingItem.weight_g == null) { setNewWeight(null); setNewUnit("g"); }
+      else if (w >= 1000) { setNewWeight(w / 1000); setNewUnit("kg"); }
+      else { setNewWeight(w); setNewUnit("g"); }
+      setNewQty(editingItem.qty ?? 1);
       setNewRole(editingItem.weight_role ?? "base");
       setNewAssignedTo(editingItem.assigned_to || undefined);
     } else if (urlModal === "addGear") {
@@ -222,9 +222,9 @@ export default function GearTab({
     setNewNotes("");
     setNewImageUrl("");
     setNewTags([]);
-    setNewWeight("");
+    setNewWeight(null);
     setNewUnit("g");
-    setNewQty("1");
+    setNewQty(1);
     setNewRole("base");
     setNewAssignedTo(undefined);
     setAlsoSaveToCloset(false);
@@ -266,14 +266,9 @@ export default function GearTab({
       message.error("請輸入裝備名稱");
       return;
     }
-    // 留空＝還沒秤，存 null；填了就換算成公克統一存
-    const parsed = newWeight.trim() === "" ? null : Number(newWeight);
-    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) {
-      message.error("重量請輸入 0 或正數");
-      return;
-    }
-    const weight_g = parsed === null ? null : (newUnit === "kg" ? parsed * 1000 : parsed);
-    const qty = Math.max(1, Math.round(Number(newQty) || 1));
+    // InputNumber 已經擋掉負數與非數字，這裡只要處理「留空＝還沒秤」與單位換算
+    const weight_g = newWeight === null ? null : (newUnit === "kg" ? newWeight * 1000 : newWeight);
+    const qty = Math.max(1, Math.round(newQty || 1));
 
     setSaving(true);
     const payload = {
@@ -684,15 +679,13 @@ export default function GearTab({
             <div className="flex flex-col gap-1.5 flex-1">
               <Typography.Text className="text-zinc-400 text-sm">單件重量 (可選)</Typography.Text>
               <div className="flex gap-1.5">
-                <Input
-                  type="number"
+                <InputNumber
                   min={0}
-                  step="any"
-                  inputMode="decimal"
+                  step={newUnit === "kg" ? 0.1 : 1}
                   placeholder="留空＝還沒秤"
                   value={newWeight}
-                  onChange={e => setNewWeight(e.target.value)}
-                  className="rounded-xl! border-white/10! hover:border-white/30! focus:border-violet-500! bg-white/5! text-white! h-10!"
+                  onChange={v => setNewWeight(v)}
+                  className="rounded-xl! border-white/10! hover:border-white/30! focus:border-violet-500! bg-white/5! h-10!"
                 />
                 <div className="flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.08] rounded-xl p-0.5 shrink-0">
                   {(["g", "kg"] as const).map(u => (
@@ -711,14 +704,13 @@ export default function GearTab({
             </div>
             <div className="flex flex-col gap-1.5 w-20">
               <Typography.Text className="text-zinc-400 text-sm">數量</Typography.Text>
-              <Input
-                type="number"
+              <InputNumber
                 min={1}
                 step={1}
-                inputMode="numeric"
+                precision={0}
                 value={newQty}
-                onChange={e => setNewQty(e.target.value)}
-                className="rounded-xl! border-white/10! hover:border-white/30! focus:border-violet-500! bg-white/5! text-white! h-10!"
+                onChange={v => setNewQty(v ?? 1)}
+                className="rounded-xl! border-white/10! hover:border-white/30! focus:border-violet-500! bg-white/5! h-10!"
               />
             </div>
           </div>
@@ -1006,7 +998,7 @@ export default function GearTab({
           style={{ background: 'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.05) 0%, transparent 70%)' }}
         >
           <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
-            <BackpackIcon size={32} stroke="#8b5cf6" strokeWidth={1.5} />
+            <CarabinerIcon size={32} stroke="#8b5cf6" strokeWidth={1.5} />
           </div>
           <div className="text-center">
             <div className="text-zinc-200 font-medium mb-1">還沒有裝備清單</div>

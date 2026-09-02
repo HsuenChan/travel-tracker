@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Input, Select, App, Skeleton } from "antd";
+import { Modal, Input, InputNumber, Select, App, Skeleton } from "antd";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceArea, ResponsiveContainer,
   Tooltip as ChartTooltip,
@@ -144,12 +144,6 @@ export default function RouteProfileModal({
     setDraft(prev => prev.map((w, i) => i === index ? { ...w, ...patch } : w));
   }
 
-  function numOrNull(value: string): number | null {
-    if (value.trim() === "") return null;
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-  }
-
   async function handleSave() {
     const rows = draft.filter(w => w.name.trim() !== "");
     setSaving(true);
@@ -207,33 +201,29 @@ export default function RouteProfileModal({
                   </button>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pl-6">
-                  <Input
-                    type="number" step="any" inputMode="decimal" addonAfter="m"
+                  <InputNumber
+                    min={0} step={10} precision={0} addonAfter="m"
                     placeholder="海拔"
-                    value={w.elevation_m ?? ""}
-                    onChange={e => updateDraft(i, { elevation_m: numOrNull(e.target.value) })}
-                    className="cute-number"
+                    value={w.elevation_m}
+                    onChange={v => updateDraft(i, { elevation_m: v })}
                   />
-                  <Input
-                    type="number" step="any" inputMode="decimal" addonAfter="km"
+                  <InputNumber
+                    min={0} step={0.1} addonAfter="km"
                     placeholder="累積距離"
-                    value={w.distance_km ?? ""}
-                    onChange={e => updateDraft(i, { distance_km: numOrNull(e.target.value) })}
-                    className="cute-number"
+                    value={w.distance_km}
+                    onChange={v => updateDraft(i, { distance_km: v })}
                   />
-                  <Input
-                    type="number" step={1} inputMode="numeric" addonAfter="分"
+                  <InputNumber
+                    min={0} step={5} precision={0} addonAfter="分"
                     placeholder="去程"
-                    value={w.duration_out_min ?? ""}
-                    onChange={e => updateDraft(i, { duration_out_min: numOrNull(e.target.value) })}
-                    className="cute-number"
+                    value={w.duration_out_min}
+                    onChange={v => updateDraft(i, { duration_out_min: v })}
                   />
-                  <Input
-                    type="number" step={1} inputMode="numeric" addonAfter="分"
+                  <InputNumber
+                    min={0} step={5} precision={0} addonAfter="分"
                     placeholder="返程"
-                    value={w.duration_back_min ?? ""}
-                    onChange={e => updateDraft(i, { duration_back_min: numOrNull(e.target.value) })}
-                    className="cute-number"
+                    value={w.duration_back_min}
+                    onChange={v => updateDraft(i, { duration_back_min: v })}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2 pl-6">

@@ -4,7 +4,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider } from "antd";
+import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, InputNumber, Skeleton, Timeline, App, Upload, Image, Slider } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon } from "@/app/components/Icons";
 import RouteProfileModal from "@/app/components/RouteProfileModal";
@@ -1239,13 +1239,13 @@ export default function ItineraryTab({
               <div className="flex flex-col gap-1.5 mb-6">
                 <div className="flex gap-2">
                   <Form.Item name="distanceKm" label="里程 (km)" className="flex-1 !mb-0">
-                    <Input type="number" step="any" inputMode="decimal" placeholder="8.5" />
+                    <InputNumber min={0} step={0.1} placeholder="8.5" />
                   </Form.Item>
                   <Form.Item name="ascentM" label="爬升 (m)" className="flex-1 !mb-0">
-                    <Input type="number" step="any" inputMode="decimal" placeholder="1010" />
+                    <InputNumber min={0} step={10} precision={0} placeholder="1010" />
                   </Form.Item>
                   <Form.Item name="descentM" label="下降 (m)" className="flex-1 !mb-0">
-                    <Input type="number" step="any" inputMode="decimal" placeholder="320" />
+                    <InputNumber min={0} step={10} precision={0} placeholder="320" />
                   </Form.Item>
                 </div>
                 <span className="text-zinc-600 text-[11px]">填了途經點之後，這三個數字會改由途經點自動計算</span>
