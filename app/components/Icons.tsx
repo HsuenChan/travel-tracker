@@ -468,17 +468,16 @@ export function CoinIcon({ size = 13, className, stroke = "currentColor", stroke
 }
 
 /**
- * 攀岩 D 扣：細長主體斜 28 度，內部短棒是閘門（兩端留空才讀得出是獨立元件）。
- * 刻意畫成閉合造型 —— 真實 D 扣的開口在 18px 下沒辦法同時做到好看又看得懂，
- * 而閉合形狀才跟這套 icon 其他成員（飛機、日曆、行李）的語言一致。
+ * 攀岩 D 扣（旋鎖式）。實心造型，路徑由參考圖的黑色連通區域邊界追蹤 + Douglas-Peucker
+ * 簡化而來（4 個區域：主體、旋鎖套環、上下兩個環帶），所以 18px 下三塊套環還分得出來。
+ *
+ * 與這套其他 icon 不同，這顆是 fill 而非 stroke：把 stroke prop 接到 fill，
+ * 呼叫端沿用  這種寫法就不用改。strokeWidth 對實心造型無意義，會被忽略。
  */
-export function CarabinerIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+export function CarabinerIcon({ size = 13, className, stroke = "currentColor" }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <g transform="rotate(-28 12 12)">
-        <rect x="7.5" y="2.2" width="9" height="19.6" rx="4.5" />
-        <path d="M10.6 7V17" />
-      </g>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={stroke} className={className}>
+      <path d="M11.75 1.5L13.09 1.5L14.28 1.75L15.52 2.29L16.67 3.14L17.56 4.18L18.26 5.52L18.6 6.86L18.65 8.15L18.16 10.19L13.99 18.33L13.84 19.62L13.44 20.61L12.5 21.71L11.7 22.2L10.66 22.5L9.42 22.5L7.93 21.95L6.74 20.76L6.19 19.27L6.19 17.49L8.82 17.44L8.82 18.93L9.02 19.37L9.47 19.77L9.82 19.87L10.71 19.72L11.26 19.02L11.55 17.24L15.72 9.1L15.97 8.25L15.87 6.76L15.23 5.52L14.04 4.53L12.65 4.13L11.5 4.23L10.26 4.83L9.17 6.12L8.82 7.66L6.19 7.66L6.19 6.91L6.54 5.52L7.58 3.73L8.62 2.74L9.67 2.1L11.75 1.5ZM5.99 10.19L8.97 10.19L9.52 10.54L9.62 14.36L9.32 14.8L5.89 14.9L5.55 14.71L5.35 14.31L5.35 10.78L5.65 10.34L5.99 10.19ZM6.54 8.25L8.67 8.3L9.07 8.7L9.12 9.54L5.89 9.59L5.89 8.7L6.14 8.4L6.54 8.25ZM5.84 15.55L9.12 15.55L9.12 16.29L8.62 16.84L6.34 16.84L5.89 16.39L5.84 15.55Z" />
     </svg>
   );
 }
