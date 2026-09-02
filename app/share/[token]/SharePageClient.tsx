@@ -12,7 +12,8 @@ import ItineraryTab from "@/app/components/ItineraryTab";
 import ExpensesTab from "@/app/components/ExpensesTab";
 import NotesTab from "@/app/components/NotesTab";
 import SouvenirsTab from "@/app/components/SouvenirsTab";
-import GearTab from "@/app/components/GearTab";
+import GearTab, { type GearItem } from "@/app/components/GearTab";
+import { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
 import { motion, AnimatePresence } from "framer-motion";
 
 
@@ -53,6 +54,8 @@ export default function SharePageClient() {
   const [itinerary, setItinerary] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [note, setNote] = useState<any>(null);
+  const [gear, setGear] = useState<GearItem[]>([]);
+  const [waypoints, setWaypoints] = useState<Record<string, RouteWaypoint[]>>({});
 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -94,6 +97,8 @@ export default function SharePageClient() {
         setItinerary(data.itinerary || []);
         setExpenses(data.expenses || []);
         setNote(data.note);
+        setGear(data.gear || []);
+        setWaypoints(data.waypoints || {});
 
         if ((data.itinerary || []).length === 0 && data.segments.length > 0 && !searchParams.get("tab")) {
           setActiveTab("transport");
@@ -232,6 +237,7 @@ export default function SharePageClient() {
                   currency={primaryCurrency}
                   currencies={currencies}
                   initialExpenses={expenses}
+                  initialWaypoints={waypoints}
                 />
               )}
               {visibleTab === "transport" && (
@@ -275,6 +281,7 @@ export default function SharePageClient() {
                   tripId={trip.id}
                   people={trip.people || []}
                   readOnly={true}
+                  initialItems={gear}
                 />
               )}
               {visibleTab === "photos" && (

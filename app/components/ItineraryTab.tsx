@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, InputNumber, Skeleton, Timeline, App, Upload, Image, Slider } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon } from "@/app/components/Icons";
-import RouteProfileModal from "@/app/components/RouteProfileModal";
+import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
@@ -105,6 +105,8 @@ interface Props {
   currency?: string;
   currencies?: string[];
   initialExpenses?: LinkedExpense[];
+  /** 唯讀分享頁用：以 itinerary item id 分組的途經點 */
+  initialWaypoints?: Record<string, RouteWaypoint[]>;
 }
 
 /** 同幣別合併，跨幣別並列（行程卡上不換匯，避免多打一支匯率 API） */
@@ -180,7 +182,7 @@ const CONTINUE_LABEL: Record<string, string> = {
 
 export default function ItineraryTab({
   tripId, isActive, destination, readOnly, initialItems,
-  people = [], currency = "TWD", currencies = ["TWD"], initialExpenses,
+  people = [], currency = "TWD", currencies = ["TWD"], initialExpenses, initialWaypoints,
 }: Props) {
   const [items, setItems] = useState<ItineraryItem[]>(initialItems || []);
   const [form] = Form.useForm();
@@ -1616,6 +1618,8 @@ export default function ItineraryTab({
           readOnly={readOnly}
           onClose={() => setRouteItem(null)}
           onSaved={(stats) => setItems((prev) => prev.map((i) => i.id === routeItem.id ? { ...i, ...stats } : i))}
+          // 有這份 map 就代表是分享頁：沒有這一段的途經點也要給空陣列，否則會回頭去打被 RLS 擋掉的 API
+          initialWaypoints={initialWaypoints ? (initialWaypoints[routeItem.id] ?? []) : undefined}
         />
       )}
     </>

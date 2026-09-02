@@ -77,7 +77,7 @@ interface ParsedRow {
   weight_role: WeightRole;
 }
 
-interface GearItem {
+export interface GearItem {
   id: string;
   name: string;
   notes?: string;
@@ -94,13 +94,16 @@ export default function GearTab({
   tripId,
   people = [],
   readOnly = false,
+  initialItems,
 }: {
   tripId: string;
   people?: string[];
   readOnly?: boolean;
+  /** 唯讀分享頁用：RLS 只放行旅程成員，資料由 /api/share/[token] 帶進來 */
+  initialItems?: GearItem[];
 }) {
-  const [items, setItems] = useState<GearItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<GearItem[]>(initialItems || []);
+  const [loading, setLoading] = useState(!initialItems);
   const [saving, setSaving] = useState(false);
   const [newName, setNewName] = useState("");
   const [newNotes, setNewNotes] = useState("");
@@ -192,7 +195,16 @@ export default function GearTab({
     localStorage.setItem(VIEW_KEY, mode);
   }
 
-  useEffect(() => { restoreViewMode(); load(false); }, [tripId]);
+  useEffect(() => {
+    restoreViewMode();
+    if (initialItems) {
+      setItems(initialItems);
+      setLoading(false);
+    } else {
+      load(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripId, initialItems]);
 
   // Modal 狀態進 URL：手機返回鍵可關閉，行為與行程/費用一致
   useEffect(() => {

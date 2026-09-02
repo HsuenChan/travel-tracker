@@ -24,8 +24,11 @@ export async function GET(request: NextRequest) {
   if (!tripId) return NextResponse.json({ error: "Missing tripId" }, { status: 400 });
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  // RLS 只放行旅程成員，匿名讀取會靜靜回空陣列而不是報錯；明確擋掉比較好debug。
+  // 唯讀分享頁不走這裡，資料由 /api/share/[token] 以 service client 提供。
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  // 唯讀分享頁以匿名 session 讀取，這裡不強制登入（與 souvenirs 一致）
   const { data, error } = await supabase
     .from("gear_items")
     .select("*")

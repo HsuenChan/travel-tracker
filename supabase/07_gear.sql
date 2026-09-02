@@ -21,6 +21,19 @@ create table if not exists gear_items (
 
 create index if not exists gear_items_trip_idx on gear_items(trip_id);
 
--- Same posture as souvenirs / itinerary_items: no RLS on trip content tables, so the
--- read-only share page can load the list with an anonymous session. Writes are gated in
--- the API route (authenticated user required).
+-- Trip owner or member only. The read-only share page does not read this table directly:
+-- it gets its copy from /api/share/[token], which runs on the service client, so no
+-- anonymous access is needed here.
+alter table gear_items enable row level security;
+
+drop policy if exists "trip members manage gear items" on gear_items;
+create policy "trip members manage gear items" on gear_items
+  for all
+  using (
+    exists (select 1 from trips t where t.id = gear_items.trip_id and t.user_id = auth.uid())
+    or exists (select 1 from trip_members m where m.trip_id = gear_items.trip_id and m.user_id = auth.uid())
+  )
+  with check (
+    exists (select 1 from trips t where t.id = gear_items.trip_id and t.user_id = auth.uid())
+    or exists (select 1 from trip_members m where m.trip_id = gear_items.trip_id and m.user_id = auth.uid())
+  );

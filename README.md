@@ -119,9 +119,9 @@ Run the SQL files in `supabase/` in order via the [Supabase SQL Editor](https://
 | `04_itinerary_images.sql` | Itinerary item photos (`image_urls` array + storage bucket; safe to re-run) |
 | `05_settlement_paid.sql` | Persistent settlement paid marks (incl. RLS policies; safe to re-run) |
 | `06_expense_itinerary_link.sql` | Links expenses to itinerary items (`itinerary_item_id`; safe to re-run) |
-| `07_gear.sql` | Gear / packing list per trip (weights, categories, carrier; safe to re-run) |
+| `07_gear.sql` | Gear / packing list per trip (weights, categories, carrier; incl. RLS policy; safe to re-run) |
 | `08_gear_closet.sql` | Personal gear closet reused across trips (incl. RLS policy; safe to re-run) |
-| `09_itinerary_outdoor.sql` | Outdoor leg distance / ascent / descent + route waypoints (safe to re-run) |
+| `09_itinerary_outdoor.sql` | Outdoor leg distance / ascent / descent + route waypoints (incl. RLS policy; safe to re-run) |
 
 ### LINE Bot Setup
 
@@ -256,9 +256,9 @@ npm run dev
 | `04_itinerary_images.sql` | 行程照片（`image_urls` 陣列＋Storage bucket，可重複執行） |
 | `05_settlement_paid.sql` | 結算繳清標記（含 RLS policy，可重複執行） |
 | `06_expense_itinerary_link.sql` | 費用與行程的關聯欄位（`itinerary_item_id`，可重複執行） |
-| `07_gear.sql` | 每趟旅程的裝備清單（重量、分類、揹負者，可重複執行） |
+| `07_gear.sql` | 每趟旅程的裝備清單（重量、分類、揹負者，含 RLS policy，可重複執行） |
 | `08_gear_closet.sql` | 跨旅程共用的個人裝備櫃（含 RLS policy，可重複執行） |
-| `09_itinerary_outdoor.sql` | 戶外路段的里程／爬升／下降欄位與途經點資料表（可重複執行） |
+| `09_itinerary_outdoor.sql` | 戶外路段的里程／爬升／下降欄位與途經點資料表（含 RLS policy，可重複執行） |
 
 ### LINE Bot 設定
 

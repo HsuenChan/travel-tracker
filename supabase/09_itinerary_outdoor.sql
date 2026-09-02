@@ -28,4 +28,32 @@ create table if not exists route_waypoints (
 create index if not exists route_waypoints_item_idx
   on route_waypoints(itinerary_item_id, order_index);
 
--- Same posture as itinerary_items: no RLS, so the read-only share page can draw the profile.
+-- Trip owner or member only, resolved through the parent itinerary item. The read-only
+-- share page gets waypoints from /api/share/[token] (service client) instead.
+alter table route_waypoints enable row level security;
+
+drop policy if exists "trip members manage route waypoints" on route_waypoints;
+create policy "trip members manage route waypoints" on route_waypoints
+  for all
+  using (
+    exists (
+      select 1 from itinerary_items i
+      join trips t on t.id = i.trip_id
+      where i.id = route_waypoints.itinerary_item_id
+        and (
+          t.user_id = auth.uid()
+          or exists (select 1 from trip_members m where m.trip_id = t.id and m.user_id = auth.uid())
+        )
+    )
+  )
+  with check (
+    exists (
+      select 1 from itinerary_items i
+      join trips t on t.id = i.trip_id
+      where i.id = route_waypoints.itinerary_item_id
+        and (
+          t.user_id = auth.uid()
+          or exists (select 1 from trip_members m where m.trip_id = t.id and m.user_id = auth.uid())
+        )
+    )
+  );

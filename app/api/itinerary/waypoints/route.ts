@@ -19,8 +19,11 @@ export async function GET(request: NextRequest) {
   if (!itemId) return NextResponse.json({ error: "Missing itineraryItemId" }, { status: 400 });
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  // 同 /api/gear：RLS 擋掉的匿名讀取會回空陣列，這裡直接擋成 401。
+  // 分享頁的高度圖資料由 /api/share/[token] 提供。
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  // 唯讀分享頁要畫得出高度圖，所以這裡不強制登入（與 itinerary 內容一致）
   const { data, error } = await supabase
     .from("route_waypoints")
     .select("*")

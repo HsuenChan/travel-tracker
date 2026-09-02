@@ -57,6 +57,7 @@ export default function RouteProfileModal({
   onClose,
   onSaved,
   readOnly = false,
+  initialWaypoints,
 }: {
   itemId: string;
   itemTitle: string;
@@ -64,9 +65,11 @@ export default function RouteProfileModal({
   onClose: () => void;
   onSaved?: (stats: { distance_km: number | null; ascent_m: number | null; descent_m: number | null }) => void;
   readOnly?: boolean;
+  /** 唯讀分享頁用：RLS 只放行旅程成員，資料由 /api/share/[token] 帶進來 */
+  initialWaypoints?: Waypoint[];
 }) {
-  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [waypoints, setWaypoints] = useState<Waypoint[]>(initialWaypoints ?? []);
+  const [loading, setLoading] = useState(!initialWaypoints);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Waypoint[]>([]);
   const [saving, setSaving] = useState(false);
@@ -84,9 +87,14 @@ export default function RouteProfileModal({
 
   // 這個 Modal 由父層條件掛載（關閉時整個卸載），所以每次打開都是全新的 state，不用手動重設
   useEffect(() => {
+    if (initialWaypoints) {
+      setWaypoints(initialWaypoints);
+      setLoading(false);
+      return;
+    }
     if (open) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, itemId]);
+  }, [open, itemId, initialWaypoints]);
 
   const stats = useMemo(() => {
     const withElevation = waypoints.filter(w => w.elevation_m !== null);
