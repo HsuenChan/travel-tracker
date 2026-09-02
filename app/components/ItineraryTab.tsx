@@ -477,6 +477,10 @@ export default function ItineraryTab({
           location: item.location,
           notes: item.notes,
           image_urls: item.image_urls ?? [],
+          // 途經點隨原本那筆一起被連帶刪掉了，復原不回來；至少把這三個數字帶回去
+          distance_km: item.distance_km,
+          ascent_m: item.ascent_m,
+          descent_m: item.descent_m,
         }),
       });
       if (!res.ok) throw new Error();
