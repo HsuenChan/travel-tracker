@@ -6,7 +6,8 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
-import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon } from "@/app/components/Icons";
+import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon } from "@/app/components/Icons";
+import RouteProfileModal from "@/app/components/RouteProfileModal";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
@@ -42,6 +43,9 @@ interface ItineraryItem {
   location: string | null;
   notes: string | null;
   image_urls: string[] | null;
+  distance_km: number | null;
+  ascent_m: number | null;
+  descent_m: number | null;
 }
 
 interface WeatherDay {
@@ -121,6 +125,7 @@ const CATEGORIES = [
   { value: "attraction", label: "景點" },
   { value: "shopping", label: "購物" },
   { value: "activity", label: "活動" },
+  { value: "outdoor", label: "戶外" },
   { value: "other", label: "其他" },
 ];
 
@@ -133,6 +138,7 @@ const CATEGORY_ACCENT: Record<string, { from: string; to: string }> = {
   attraction: { from: '#34d399', to: '#059669' },   // emerald — badge #34d399
   shopping: { from: '#f472b6', to: '#db2777' },   // pink   — badge #f472b6
   activity: { from: '#fb923c', to: '#ea580c' },   // orange — badge #fb923c
+  outdoor: { from: '#34d399', to: '#047857' },   // emerald — badge #34d399
   other: { from: '#a1a1aa', to: '#71717a' },   // zinc   — badge #a1a1aa
 };
 
@@ -143,6 +149,7 @@ const CATEGORY_DOT_ICONS: Record<string, ReactNode> = {
   attraction: <CatAttractionIcon size={11} />,
   shopping: <CatShoppingIcon size={11} />,
   activity: <CatActivityIcon size={11} />,
+  outdoor: <MountainIcon size={11} />,
   other: <CatOtherIcon size={11} />,
 };
 
@@ -203,6 +210,7 @@ export default function ItineraryTab({
   // 行程內記帳
   const [expenses, setExpenses] = useState<LinkedExpense[]>(initialExpenses ?? []);
   const [quickItem, setQuickItem] = useState<ItineraryItem | null>(null);
+  const [routeItem, setRouteItem] = useState<ItineraryItem | null>(null);
   const [quickSaving, setQuickSaving] = useState(false);
 
   // Health check
@@ -382,6 +390,10 @@ export default function ItineraryTab({
       location: values.location ?? null,
       notes: (values.notes && values.notes !== "<p><br></p>") ? values.notes as string : null,
       image_urls: imageUrls,
+      // 只有戶外路段才填這三個；其他類型留空，卡片上就不會多出一列
+      distance_km: values.category === "outdoor" ? (values.distanceKm ?? null) : null,
+      ascent_m: values.category === "outdoor" ? (values.ascentM ?? null) : null,
+      descent_m: values.category === "outdoor" ? (values.descentM ?? null) : null,
     };
 
     try {
@@ -489,6 +501,9 @@ export default function ItineraryTab({
         category: editingItem.category,
         location: editingItem.location,
         notes: editingItem.notes,
+        distanceKm: editingItem.distance_km,
+        ascentM: editingItem.ascent_m,
+        descentM: editingItem.descent_m,
       });
       setImageUrls(editingItem.image_urls ?? []);
     } else if (urlModal === "addItinerary") {
@@ -868,6 +883,19 @@ export default function ItineraryTab({
                   {amountInner}
                 </button>
               );
+            // 戶外路段才有的入口：有數據就直接顯示里程／爬升，沒有也點得進去建途經點
+            const routeChip = item.category === "outdoor" ? (
+              <button
+                type="button"
+                onClick={() => setRouteItem(item)}
+                aria-label={`查看「${item.title}」的路線高度圖`}
+                className="inline-flex items-center gap-1 text-[11px] text-emerald-300/90 hover:text-emerald-200 transition-colors cursor-pointer tabular-nums shrink-0"
+              >
+                <MountainIcon size={11} />
+                {item.distance_km != null ? `${item.distance_km} km` : "路線"}
+                {item.ascent_m != null ? ` · +${item.ascent_m} m` : ""}
+              </button>
+            ) : null;
       return {
         key: item.id,
         className: walked ? "rail-done" : undefined,
@@ -950,11 +978,12 @@ export default function ItineraryTab({
                   {actionButtons && <div className="-mt-1">{actionButtons}</div>}
                 </div>
               )}
-              {(timeLabel || item.category || locationInner || expenseChip) && (
+              {(timeLabel || item.category || locationInner || routeChip || expenseChip) && (
                 <div className="md:hidden flex items-center gap-2 flex-wrap mb-1 text-zinc-500 text-xs">
                   {timeLabel && <span className="text-zinc-500">{timeLabel}</span>}
                   {item.category && <CategoryBadge category={item.category} />}
                   {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
+                  {routeChip}
                   {expenseChip}
                 </div>
               )}
@@ -966,9 +995,10 @@ export default function ItineraryTab({
                 </div>
                 {actionButtons}
               </div>
-              {(locationInner || expenseChip) && (
+              {(locationInner || routeChip || expenseChip) && (
                 <div className="hidden md:flex text-zinc-500 text-xs mb-0.5 items-center gap-2 flex-wrap">
                   {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
+                  {routeChip}
                   {expenseChip}
                 </div>
               )}
@@ -987,6 +1017,20 @@ export default function ItineraryTab({
 
     return [dateNode, ...continuingNodes, ...itemNodes];
   });
+
+  // 一趟旅程可以有好幾段互不相連的戶外行程，所以總計是把每一段加起來，而不是首尾相減
+  const outdoorTotals = (() => {
+    const legs = items.filter((i) => i.category === "outdoor");
+    if (legs.length === 0) return null;
+    const sum = (pick: (i: ItineraryItem) => number | null) =>
+      legs.reduce((acc, i) => acc + (Number(pick(i)) || 0), 0);
+    return {
+      legs: legs.length,
+      distance: sum((i) => i.distance_km),
+      ascent: sum((i) => i.ascent_m),
+      descent: sum((i) => i.descent_m),
+    };
+  })();
 
   return (
     <>
@@ -1023,6 +1067,31 @@ export default function ItineraryTab({
           )}
         </div>
       </div>
+
+      {/* 戶外路段總計：只有這趟有戶外行程時才出現 */}
+      {outdoorTotals && (
+        <div className="mb-4 flex items-center gap-3 flex-wrap rounded-[18px] border border-emerald-500/15 bg-emerald-500/[0.05] px-4 py-2.5">
+          <MountainIcon size={14} stroke="#34d399" />
+          <span className="text-zinc-400 text-[12px]">
+            戶外路段 <span className="text-zinc-100 font-semibold tabular-nums">{outdoorTotals.legs}</span> 段
+          </span>
+          {outdoorTotals.distance > 0 && (
+            <span className="text-zinc-400 text-[12px]">
+              里程 <span className="text-zinc-100 font-semibold tabular-nums">{Math.round(outdoorTotals.distance * 10) / 10}</span> km
+            </span>
+          )}
+          {outdoorTotals.ascent > 0 && (
+            <span className="text-zinc-400 text-[12px]">
+              總爬升 <span className="text-zinc-100 font-semibold tabular-nums">+{Math.round(outdoorTotals.ascent)}</span> m
+            </span>
+          )}
+          {outdoorTotals.descent > 0 && (
+            <span className="text-zinc-400 text-[12px]">
+              總下降 <span className="text-zinc-100 font-semibold tabular-nums">−{Math.round(outdoorTotals.descent)}</span> m
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Health report card */}
       {healthOpen && (
@@ -1160,6 +1229,24 @@ export default function ItineraryTab({
           </Form.Item>
           <Form.Item name="category" label="類型">
             <Select placeholder="選擇類型" allowClear options={CATEGORIES} />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.category !== cur.category}>
+            {({ getFieldValue }) => getFieldValue("category") !== "outdoor" ? null : (
+              <div className="flex flex-col gap-1.5 mb-6">
+                <div className="flex gap-2">
+                  <Form.Item name="distanceKm" label="里程 (km)" className="flex-1 !mb-0">
+                    <Input type="number" step="any" inputMode="decimal" placeholder="8.5" />
+                  </Form.Item>
+                  <Form.Item name="ascentM" label="爬升 (m)" className="flex-1 !mb-0">
+                    <Input type="number" step="any" inputMode="decimal" placeholder="1010" />
+                  </Form.Item>
+                  <Form.Item name="descentM" label="下降 (m)" className="flex-1 !mb-0">
+                    <Input type="number" step="any" inputMode="decimal" placeholder="320" />
+                  </Form.Item>
+                </div>
+                <span className="text-zinc-600 text-[11px]">填了途經點之後，這三個數字會改由途經點自動計算</span>
+              </div>
+            )}
           </Form.Item>
           <Form.Item name="location" label="地點">
             <Input placeholder="地點名稱，或貼上 Google Maps 連結" />
@@ -1516,6 +1603,17 @@ export default function ItineraryTab({
         onClose={() => setQuickItem(null)}
         onSubmit={handleQuickExpense}
       />
+
+      {routeItem && (
+        <RouteProfileModal
+          itemId={routeItem.id}
+          itemTitle={routeItem.title}
+          open
+          readOnly={readOnly}
+          onClose={() => setRouteItem(null)}
+          onSaved={(stats) => setItems((prev) => prev.map((i) => i.id === routeItem.id ? { ...i, ...stats } : i))}
+        />
+      )}
     </>
   );
 }

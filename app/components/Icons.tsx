@@ -264,6 +264,7 @@ const CATEGORY_BADGE_CONFIG: Record<string, {
   attraction: { label: "景點", icon: CatAttractionIcon, color: "#34d399", bg: "rgba(16,185,129,0.12)" },
   shopping:   { label: "購物", icon: CatShoppingIcon,   color: "#f472b6", bg: "rgba(236,72,153,0.12)" },
   activity:   { label: "活動", icon: CatActivityIcon,   color: "#fb923c", bg: "rgba(249,115,22,0.12)" },
+  outdoor:    { label: "戶外", icon: MountainIcon,      color: "#34d399", bg: "rgba(16,185,129,0.12)" },
   other:      { label: "其他", icon: CatOtherIcon,      color: "#a1a1aa", bg: "rgba(113,113,122,0.12)" },
 };
 
@@ -483,6 +484,15 @@ export function ArchiveIcon({ size = 13, className, stroke = "currentColor", str
       <rect x="3" y="3.5" width="18" height="5" rx="1.5" />
       <path d="M5 8.5v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-10" />
       <path d="M10 13h4" />
+    </svg>
+  );
+}
+
+export function MountainIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 20h20L14.5 6.5 11 13l-2-3z" />
+      <path d="M12.6 9.2 14.5 6.5l3 5.4" />
     </svg>
   );
 }
