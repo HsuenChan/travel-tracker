@@ -6,7 +6,7 @@ import { Typography, Checkbox, Input, InputNumber, Button, App, Modal, Select, S
 import PillButton from "./PillButton";
 import { motion } from "framer-motion";
 import { DeleteOutlined, EditOutlined, PictureOutlined, CloseOutlined, LoadingOutlined } from "@ant-design/icons";
-import { PlusIcon, CarabinerIcon, GridIcon, MenuListIcon, ArchiveIcon, TrashIcon } from "@/app/components/Icons";
+import { PlusIcon, CarabinerIcon, GridIcon, MenuListIcon, ArchiveIcon, TrashIcon, UploadIcon } from "@/app/components/Icons";
 
 type ViewMode = "card" | "list";
 type WeightRole = "base" | "worn" | "consumable";
@@ -845,10 +845,12 @@ export default function GearTab({
         footer={null}
         destroyOnHidden
         width={560}
+        // globals.css 讓 .ant-modal-body 自己捲；這個彈窗要「只有清單捲」，所以關掉外層捲動
+        styles={{ body: { maxHeight: "none", overflow: "visible" } }}
       >
-        <div className="flex flex-col gap-4 mt-6">
+        <div className="flex flex-col gap-4 mt-6 max-h-[70vh]">
           {/* LighterPack 沒有公開 API，兩條路都留：官方匯出的 CSV 檔（穩），或分享連結（方便） */}
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 flex flex-col gap-2.5">
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 flex flex-col gap-2.5 shrink-0">
             <div className="flex items-center justify-between gap-2">
               <span className="text-zinc-300 text-[13px] font-medium">從 LighterPack 匯入</span>
               <Upload
@@ -859,8 +861,10 @@ export default function GearTab({
               >
                 <button
                   type="button"
-                  className="h-7 px-3 rounded-full text-xs font-medium bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                  disabled={importing}
+                  className="inline-flex items-center gap-1.5 text-[12px] text-violet-300 hover:text-violet-200 hover:underline underline-offset-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
                 >
+                  <UploadIcon size={12} />
                   {importing ? "解析中" : "上傳 CSV"}
                 </button>
               </Upload>
@@ -882,7 +886,7 @@ export default function GearTab({
 
           {/* 先看過解析結果再決定寫進哪裡：欄位對不上時不會直接灌一堆垃圾進清單 */}
           {parsed && (
-            <div className="rounded-2xl border border-violet-500/25 bg-violet-500/[0.08] p-3.5 flex flex-col gap-2">
+            <div className="rounded-2xl border border-violet-500/25 bg-violet-500/[0.08] p-3.5 flex flex-col gap-2 shrink-0">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-zinc-100 text-[13px] font-medium">解析到 {parsed.rows.length} 件</span>
                 <span className="text-zinc-200 text-[13px] font-semibold tabular-nums">{fmtWeight(parsed.totalWeight)}</span>
@@ -901,8 +905,8 @@ export default function GearTab({
             </div>
           )}
 
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 flex-1 min-h-0">
+            <div className="flex items-center justify-between shrink-0">
               <span className="text-zinc-500 text-xs">裝備櫃（{closetItems.length} 件）</span>
               {closetItems.length > 0 && (
                 <button
@@ -925,7 +929,7 @@ export default function GearTab({
                 櫃子還是空的。新增裝備時勾「同時存入我的裝備櫃」，或從上面匯入 LighterPack 清單。
               </div>
             ) : (
-              <div className="flex flex-col gap-1 max-h-[280px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-1 flex-1 min-h-[120px] overflow-y-auto pr-1">
                 {closetItems.map(item => (
                   <div
                     key={item.id}
@@ -983,7 +987,7 @@ export default function GearTab({
                     weight_role: i.weight_role,
                   }))
               )}
-              className="w-full h-10! mt-1"
+              className="w-full h-10! mt-1 shrink-0"
             >
               加入這趟清單{selectedClosetIds.size > 0 ? `（${selectedClosetIds.size}）` : ""}
             </PillButton>
