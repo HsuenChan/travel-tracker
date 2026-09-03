@@ -675,6 +675,7 @@ export default function GearTab({
         afterClose={resetForm}
         footer={null}
         destroyOnHidden
+        centered
       >
         <div className="flex flex-col gap-4 mt-6">
           <div className="flex flex-col gap-1.5">
@@ -844,11 +845,14 @@ export default function GearTab({
         onCancel={() => setClosetOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={560}
-        // globals.css 讓 .ant-modal-body 自己捲；這個彈窗要「只有清單捲」，所以關掉外層捲動
-        styles={{ body: { maxHeight: "none", overflow: "visible" } }}
+        // globals.css 讓 .ant-modal-body 自己捲；這個彈窗要「只有清單捲」，所以關掉外層捲動。
+        // paddingBottom 要自己帶上：這裡的 styles.body 會蓋掉 providers 的全域設定。
+        styles={{ body: { maxHeight: "none", overflow: "visible", paddingBottom: 16 } }}
       >
-        <div className="flex flex-col gap-4 mt-6 max-h-[70vh]">
+        {/* 扣掉標題列與上下內距後的可用高度，讓彈窗上下都留得下空白，不會頂到視窗邊緣 */}
+        <div className="flex flex-col gap-4 mt-6 max-h-[calc(100vh-200px)]">
           {/* LighterPack 沒有公開 API，兩條路都留：官方匯出的 CSV 檔（穩），或分享連結（方便） */}
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 flex flex-col gap-2.5 shrink-0">
             <div className="flex items-center justify-between gap-2">

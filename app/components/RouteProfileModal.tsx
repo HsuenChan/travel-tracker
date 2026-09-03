@@ -179,6 +179,7 @@ export default function RouteProfileModal({
       onCancel={onClose}
       footer={null}
       destroyOnHidden
+      centered
       width={720}
     >
       {loading ? (
