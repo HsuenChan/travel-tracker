@@ -52,10 +52,13 @@ export async function GET(
 
   // 裝備與途經點的 RLS 只放行旅程成員，所以唯讀分享頁一律由這裡（service client）供資料，
    // 前端不再自己打 /api/gear 與 /api/itinerary/waypoints
+  // service client 繞過 RLS，所以這裡必須自己排除個人裝備 ——
+  // 否則貼出去的唯讀連結會把所有人的個人打包清單一起露出去。
   const { data: gear } = await supabase
     .from("gear_items")
     .select("*")
     .eq("trip_id", trip.id)
+    .eq("scope", "group")
     .order("order_index", { ascending: true })
     .order("created_at", { ascending: true });
 

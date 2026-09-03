@@ -16,8 +16,7 @@ create table if not exists route_waypoints (
   elevation_m numeric,
   distance_km numeric,                  -- cumulative from the start of the leg
   day_offset integer not null default 0, -- 0 = the item's start date, 1 = the next day, ...
-  duration_out_min integer,             -- outbound: time from the previous waypoint to this one
-  duration_back_min integer,            -- return leg, which is rarely the same
+  duration_min integer,                 -- time from the previous waypoint to this one
   type text,                            -- trailhead / peak / hut / camp / water / junction / other
   lat numeric,                          -- reserved for GPX import; unused by the editor
   lng numeric,

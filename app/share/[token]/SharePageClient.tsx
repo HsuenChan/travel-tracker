@@ -13,6 +13,7 @@ import ExpensesTab from "@/app/components/ExpensesTab";
 import NotesTab from "@/app/components/NotesTab";
 import SouvenirsTab from "@/app/components/SouvenirsTab";
 import GearTab, { type GearItem } from "@/app/components/GearTab";
+import { computeOutdoorTotals } from "@/lib/outdoorTotals";
 import { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -195,6 +196,7 @@ export default function SharePageClient() {
             endDate={trip.end_date}
             countries={trip.countries}
             notes={trip.notes}
+            outdoor={computeOutdoorTotals(itinerary)}
           />
 
           {/* Desktop Tabs (Segmented-like) */}

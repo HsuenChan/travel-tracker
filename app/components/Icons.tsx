@@ -482,6 +482,32 @@ export function CarabinerIcon({ size = 13, className, stroke = "currentColor" }:
   );
 }
 
+export function ArrowUpIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2.2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 19V5" /><path d="M6 11l6-6 6 6" />
+    </svg>
+  );
+}
+
+export function ArrowDownIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2.2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 5v14" /><path d="M18 13l-6 6-6-6" />
+    </svg>
+  );
+}
+
+export function InfoIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 16v-4.5" />
+      <path d="M12 8.2h.01" />
+    </svg>
+  );
+}
+
 export function UploadIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>

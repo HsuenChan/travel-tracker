@@ -19,7 +19,7 @@ export default function PillButton({
   return (
     <button
       {...rest}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-4 transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 rounded-full text-[13px] font-medium h-8 px-4 transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${className}`}
     />
   );
 }

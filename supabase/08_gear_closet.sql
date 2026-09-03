@@ -6,7 +6,7 @@ create table if not exists gear_closet (
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   notes text,
-  tags text[],
+  category text,
   weight_g numeric,
   qty integer not null default 1,
   weight_role text not null default 'base'

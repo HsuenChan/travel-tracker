@@ -8,6 +8,9 @@ import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input,
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon } from "@/app/components/Icons";
 import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
+import ElevationSparkline from "@/app/components/ElevationSparkline";
+import { decideElevationDisplay } from "@/lib/elevationDisplay";
+import { computeOutdoorTotals, type OutdoorTotals } from "@/lib/outdoorTotals";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
@@ -46,6 +49,8 @@ interface ItineraryItem {
   distance_km: number | null;
   ascent_m: number | null;
   descent_m: number | null;
+  /** null = 依海拔覆蓋率自動判斷；true/false = 使用者明確設定 */
+  show_elevation: boolean | null;
 }
 
 interface WeatherDay {
@@ -107,6 +112,8 @@ interface Props {
   initialExpenses?: LinkedExpense[];
   /** 唯讀分享頁用：以 itinerary item id 分組的途經點 */
   initialWaypoints?: Record<string, RouteWaypoint[]>;
+  /** 戶外路段總計顯示在 hero，改動後要讓上層跟著更新 */
+  onOutdoorTotalsChange?: (totals: OutdoorTotals | null) => void;
 }
 
 /** 同幣別合併，跨幣別並列（行程卡上不換匯，避免多打一支匯率 API） */
@@ -183,6 +190,7 @@ const CONTINUE_LABEL: Record<string, string> = {
 export default function ItineraryTab({
   tripId, isActive, destination, readOnly, initialItems,
   people = [], currency = "TWD", currencies = ["TWD"], initialExpenses, initialWaypoints,
+  onOutdoorTotalsChange,
 }: Props) {
   const [items, setItems] = useState<ItineraryItem[]>(initialItems || []);
   const [form] = Form.useForm();
@@ -213,6 +221,12 @@ export default function ItineraryTab({
   const [expenses, setExpenses] = useState<LinkedExpense[]>(initialExpenses ?? []);
   const [quickItem, setQuickItem] = useState<ItineraryItem | null>(null);
   const [routeItem, setRouteItem] = useState<ItineraryItem | null>(null);
+  // 整趟旅程的途經點（以 item id 分組）。卡片的 sparkline 與路線彈窗共用同一份，
+  // 所以只發一次請求，而且打開彈窗不需要再載入。
+  const [waypointMap, setWaypointMap] = useState<Record<string, RouteWaypoint[]>>(initialWaypoints ?? {});
+  // map 還沒載回來時不能把空陣列餵給彈窗 —— 那會讓有途經點的路線顯示成「還沒有途經點」。
+  // 未載入就傳 undefined，彈窗自己去撈。
+  const [waypointsLoaded, setWaypointsLoaded] = useState(!!initialWaypoints);
   const [quickSaving, setQuickSaving] = useState(false);
 
   // Health check
@@ -272,6 +286,29 @@ export default function ItineraryTab({
       fetchItems(false);
     }
   }, [tripId, isActive, initialItems]);
+
+  // 分享頁由上層直接餵資料；登入版有戶外行程時才去撈一次
+  useEffect(() => {
+    if (initialWaypoints) { setWaypointMap(initialWaypoints); setWaypointsLoaded(true); return; }
+    if (readOnly) return;
+    if (!items.some(i => i.category === "outdoor")) return;
+    let cancelled = false;
+    (async () => {
+      const res = await fetchWithAuth(`/api/itinerary/waypoints?tripId=${tripId}`);
+      if (!res.ok || cancelled) return;
+      const data = await res.json();
+      setWaypointMap(data.waypoints ?? {});
+      setWaypointsLoaded(true);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripId, readOnly, initialWaypoints, items.some(i => i.category === "outdoor")]);
+
+  // 戶外總計顯示在 hero：這裡的 items 是最新的（存完途經點也會即時反映），回報給上層
+  useEffect(() => {
+    onOutdoorTotalsChange?.(computeOutdoorTotals(items));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   // 與費用分頁共用同一份快取，切過來通常能直接畫出金額
   async function fetchExpenses() {
@@ -890,6 +927,20 @@ export default function ItineraryTab({
                 </button>
               );
             // 戶外路段才有的入口：有數據就直接顯示里程／爬升，沒有也點得進去建途經點
+            const routeWaypoints = waypointMap[item.id];
+            // 與路線彈窗共用同一個判斷，兩邊不會出現一邊畫一邊不畫
+            const sparkDecision = decideElevationDisplay(routeWaypoints, item.show_elevation);
+            const routeSpark = item.category === "outdoor" && sparkDecision.show && routeWaypoints ? (
+              <button
+                type="button"
+                onClick={() => setRouteItem(item)}
+                aria-label={`查看「${item.title}」的路線高度圖`}
+                className="w-full mt-1.5 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/35 transition-colors cursor-pointer overflow-hidden"
+              >
+                <ElevationSparkline waypoints={routeWaypoints} />
+              </button>
+            ) : null;
+
             const routeChip = item.category === "outdoor" ? (
               <button
                 type="button"
@@ -1008,6 +1059,7 @@ export default function ItineraryTab({
                   {expenseChip}
                 </div>
               )}
+              {routeSpark}
               {item.notes && (
                 <div
                   className="notes-content text-zinc-500 text-xs mt-1"
@@ -1023,20 +1075,6 @@ export default function ItineraryTab({
 
     return [dateNode, ...continuingNodes, ...itemNodes];
   });
-
-  // 一趟旅程可以有好幾段互不相連的戶外行程，所以總計是把每一段加起來，而不是首尾相減
-  const outdoorTotals = (() => {
-    const legs = items.filter((i) => i.category === "outdoor");
-    if (legs.length === 0) return null;
-    const sum = (pick: (i: ItineraryItem) => number | null) =>
-      legs.reduce((acc, i) => acc + (Number(pick(i)) || 0), 0);
-    return {
-      legs: legs.length,
-      distance: sum((i) => i.distance_km),
-      ascent: sum((i) => i.ascent_m),
-      descent: sum((i) => i.descent_m),
-    };
-  })();
 
   return (
     <>
@@ -1073,31 +1111,6 @@ export default function ItineraryTab({
           )}
         </div>
       </div>
-
-      {/* 戶外路段總計：只有這趟有戶外行程時才出現 */}
-      {outdoorTotals && (
-        <div className="mb-4 flex items-center gap-3 flex-wrap rounded-[18px] border border-emerald-500/15 bg-emerald-500/[0.05] px-4 py-2.5">
-          <MountainIcon size={14} stroke="#34d399" />
-          <span className="text-zinc-400 text-[12px]">
-            戶外路段 <span className="text-zinc-100 font-semibold tabular-nums">{outdoorTotals.legs}</span> 段
-          </span>
-          {outdoorTotals.distance > 0 && (
-            <span className="text-zinc-400 text-[12px]">
-              里程 <span className="text-zinc-100 font-semibold tabular-nums">{Math.round(outdoorTotals.distance * 10) / 10}</span> km
-            </span>
-          )}
-          {outdoorTotals.ascent > 0 && (
-            <span className="text-zinc-400 text-[12px]">
-              總爬升 <span className="text-zinc-100 font-semibold tabular-nums">+{Math.round(outdoorTotals.ascent)}</span> m
-            </span>
-          )}
-          {outdoorTotals.descent > 0 && (
-            <span className="text-zinc-400 text-[12px]">
-              總下降 <span className="text-zinc-100 font-semibold tabular-nums">−{Math.round(outdoorTotals.descent)}</span> m
-            </span>
-          )}
-        </div>
-      )}
 
       {/* Health report card */}
       {healthOpen && (
@@ -1610,18 +1623,34 @@ export default function ItineraryTab({
         onSubmit={handleQuickExpense}
       />
 
-      {routeItem && (
-        <RouteProfileModal
-          itemId={routeItem.id}
-          itemTitle={routeItem.title}
-          open
-          readOnly={readOnly}
-          onClose={() => setRouteItem(null)}
-          onSaved={(stats) => setItems((prev) => prev.map((i) => i.id === routeItem.id ? { ...i, ...stats } : i))}
-          // 有這份 map 就代表是分享頁：沒有這一段的途經點也要給空陣列，否則會回頭去打被 RLS 擋掉的 API
-          initialWaypoints={initialWaypoints ? (initialWaypoints[routeItem.id] ?? []) : undefined}
-        />
-      )}
+      {routeItem && (() => {
+        /*
+          routeItem 只當「開了哪一筆」的指標，顯示用的值一律從 items 取最新的。
+          直接讀 routeItem 會停在開啟那一刻的快照 —— 在彈窗內改 show_elevation 時，
+          行程卡會更新但彈窗自己不會，因為它讀的是另一份資料。
+        */
+        const live = items.find((i) => i.id === routeItem.id) ?? routeItem;
+        return (
+          <RouteProfileModal
+            itemId={live.id}
+            itemTitle={live.title}
+            open
+            readOnly={readOnly}
+            onClose={() => setRouteItem(null)}
+            showElevation={live.show_elevation}
+            onShowElevationChange={(value) => {
+              setItems((prev) => prev.map((i) => i.id === live.id ? { ...i, show_elevation: value } : i));
+            }}
+            onSaved={(stats, saved) => {
+              setItems((prev) => prev.map((i) => i.id === live.id ? { ...i, ...stats } : i));
+              // 卡片的 sparkline 讀的是這份 map，存完要跟著更新
+              setWaypointMap((prev) => ({ ...prev, [live.id]: saved }));
+            }}
+            // 父層已經有整趟的途經點，直接餵給彈窗：省一次載入，也讓分享頁不必打被 RLS 擋掉的 API
+            initialWaypoints={waypointsLoaded ? (waypointMap[live.id] ?? []) : undefined}
+          />
+        );
+      })()}
     </>
   );
 }
