@@ -54,8 +54,9 @@ body {
 
 /*
   antd InputNumber 內建 width: 90px，放進 flex / grid 版面會縮成一小格。
-  一律撐滿容器，實際寬度交給外層的 flex-1 / grid 決定；
-  帶 addonAfter 時 className 會落在 group wrapper 上，所以兩個選擇器都要蓋。
+  一律撐滿容器，實際寬度交給外層的 flex-1 / grid 決定。
+  group wrapper 那條是防禦性的：日後若有人用 Space.Compact 包 addon，className 會落在
+  wrapper 上而不是 .ant-input-number 本身。
 */
 .ant-input-number,
 .ant-input-number-group-wrapper,

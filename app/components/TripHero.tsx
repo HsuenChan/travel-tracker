@@ -3,7 +3,7 @@
 import { forwardRef, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Typography } from "antd";
-import { CalendarIcon, LocationIcon } from "./Icons";
+import { CalendarIcon, LocationIcon, MountainIcon } from "./Icons";
 import dayjs from "dayjs";
 import { parseCoverPos } from "@/lib/coverPos";
 
@@ -32,6 +32,8 @@ interface TripHeroProps {
   notes?: string | null;
   /** 行程第一張照片：有值時 hero 以照片為背景 */
   coverUrl?: string | null;
+  /** 這趟旅程的戶外路段總計；沒有戶外行程時傳 null，pill 不會出現 */
+  outdoor?: { legs: number; distance: number; ascent: number } | null;
   /** pills 列尾端靠右的內容（成員頭像） */
   pillsEnd?: ReactNode;
   /** 登入版專屬的互動區，插在 pills 之後（分帳綁定已改為獨立 Modal，目前沒有呼叫端使用） */
@@ -40,7 +42,7 @@ interface TripHeroProps {
 
 /** 旅程 hero 卡：trips 頁與分享頁共用的視覺（權限差異由呼叫端決定要不要塞 children） */
 const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
-  { name, startDate, endDate, countries, notes, coverUrl, pillsEnd, children },
+  { name, startDate, endDate, countries, notes, coverUrl, outdoor, pillsEnd, children },
   ref,
 ) {
   const accent = getDestinationAccent(countries ?? "");
@@ -147,6 +149,17 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
                 {c}
               </span>
             ))}
+            {outdoor && outdoor.legs > 0 && (
+              <span
+                className="bg-zinc-800/80 border border-zinc-700/50 text-zinc-300 rounded-full px-3.5 py-1 text-[13px] font-medium flex items-center gap-1.5 tabular-nums"
+                style={pillGlass ?? undefined}
+              >
+                <MountainIcon size={11} />
+                戶外 {outdoor.legs} 段
+                {outdoor.distance > 0 && ` · ${Math.round(outdoor.distance * 10) / 10} km`}
+                {outdoor.ascent > 0 && ` · ↑${Math.round(outdoor.ascent)} m`}
+              </span>
+            )}
             {dayIndex !== null && duration !== null && (
               <span
                 className="font-display rounded-full px-3.5 py-1 text-[13px] font-bold flex items-center gap-1.5"

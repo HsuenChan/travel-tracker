@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Typography, Checkbox, Input, InputNumber, Button, App, Modal, Select, Skeleton, Upload } from "antd";
+import { Typography, Checkbox, Input, InputNumber, Button, App, Modal, Select, Skeleton, Upload, Tooltip } from "antd";
 import PillButton from "./PillButton";
 import { motion } from "framer-motion";
 import { DeleteOutlined, EditOutlined, PictureOutlined, CloseOutlined, LoadingOutlined } from "@ant-design/icons";
-import { PlusIcon, CarabinerIcon, GridIcon, MenuListIcon, ArchiveIcon, TrashIcon, UploadIcon } from "@/app/components/Icons";
+import { PlusIcon, CarabinerIcon, GridIcon, MenuListIcon, ArchiveIcon, TrashIcon, UploadIcon, InfoIcon, EditIcon } from "@/app/components/Icons";
+import type { GearScope } from "@/lib/gear";
 
 type ViewMode = "card" | "list";
 type WeightRole = "base" | "worn" | "consumable";
@@ -23,6 +24,12 @@ const UNTAGGED = "未分類";
  * 重量身份：固定三態，不可自訂。
  * 基準重量的定義就是「總重 − 穿著 − 消耗」，開放自訂命名的話這個算式就沒有依據。
  */
+/** 打包的兩種大種類（DB 值仍是 personal / group，只有顯示文案用「公裝」）。個人裝備只有自己看得到 —— 打包清單裡可能有不想給別人看的私人用品。 */
+const SCOPES: { value: GearScope; label: string; hint: string }[] = [
+  { value: "personal", label: "個人", hint: "只有你看得到，別的隊友不會看到這件" },
+  { value: "group", label: "公裝", hint: "全隊共用，所有旅伴都看得到，可以分配攜帶者" },
+];
+
 const ROLES: { value: WeightRole; label: string; hint: string }[] = [
   { value: "base", label: "基準", hint: "揹在背包裡、不會變少的裝備" },
   { value: "worn", label: "穿著", hint: "穿在身上、不算進背包重量" },
@@ -52,7 +59,7 @@ interface ClosetItem {
   name: string;
   notes?: string | null;
   image_url?: string | null;
-  tags?: string[] | null;
+  category?: string | null;
   weight_g?: number | null;
   qty: number;
   weight_role: WeightRole;
@@ -62,7 +69,7 @@ interface ClosetItem {
 interface ParsedRow {
   name: string;
   notes: string | null;
-  tags: string[] | null;
+  category: string | null;
   weight_g: number | null;
   qty: number;
   weight_role: WeightRole;
@@ -73,7 +80,9 @@ export interface GearItem {
   name: string;
   notes?: string;
   image_url?: string;
-  tags?: string[];
+  category?: string | null;
+  /** personal 只有 owner 看得到（RLS 擋）；group 全隊共用 */
+  scope: GearScope;
   weight_g?: number | null;
   qty: number;
   weight_role: WeightRole;
@@ -99,9 +108,11 @@ export default function GearTab({
   const [newName, setNewName] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [newImageUrl, setNewImageUrl] = useState("");
-  const [newTags, setNewTags] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState<string | null>(null);
+  const [newScope, setNewScope] = useState<GearScope>("personal");
   const [newWeight, setNewWeight] = useState<number | null>(null);
   const [newUnit, setNewUnit] = useState<"g" | "kg">("g");
+  const [categorySearch, setCategorySearch] = useState("");
   const [newQty, setNewQty] = useState<number>(1);
   const [newRole, setNewRole] = useState<WeightRole>("base");
   const [newAssignedTo, setNewAssignedTo] = useState<string | undefined>(undefined);
@@ -131,6 +142,8 @@ export default function GearTab({
   const [busy, setBusy] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [deletingTag, setDeletingTag] = useState<string | null>(null);
+  const [renamingTag, setRenamingTag] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const { message, modal } = App.useApp();
 
   async function handleImageUpload(file: File) {
@@ -207,7 +220,8 @@ export default function GearTab({
       setNewName(editingItem.name);
       setNewNotes(editingItem.notes || "");
       setNewImageUrl(editingItem.image_url || "");
-      setNewTags(editingItem.tags || []);
+      setNewCategory(editingItem.category ?? null);
+      setNewScope(editingItem.scope ?? "personal");
       const w = Number(editingItem.weight_g ?? 0);
       // 1kg 以上用 kg 顯示，免得看到一長串公克
       if (editingItem.weight_g == null) { setNewWeight(null); setNewUnit("g"); }
@@ -226,7 +240,8 @@ export default function GearTab({
     setNewName("");
     setNewNotes("");
     setNewImageUrl("");
-    setNewTags([]);
+    setNewCategory(null);
+    setNewScope("personal");
     setNewWeight(null);
     setNewUnit("g");
     setNewQty(1);
@@ -280,11 +295,13 @@ export default function GearTab({
       name: newName,
       notes: newNotes,
       image_url: newImageUrl,
-      tags: newTags,
+      category: newCategory,
+      scope: newScope,
+      // 個人裝備一律不帶攜帶者，即使 state 因為某個路徑殘留也不會寫進資料庫
+      assigned_to: newScope === "group" ? (newAssignedTo ?? null) : null,
       weight_g,
       qty,
       weight_role: newRole,
-      assigned_to: newAssignedTo ?? null,
     };
 
     let res;
@@ -310,7 +327,7 @@ export default function GearTab({
     if (alsoSaveToCloset) {
       const closetRes = await fetch(`/api/gear/closet`, {
         method: "POST",
-        body: JSON.stringify({ name: newName, notes: newNotes, image_url: newImageUrl, tags: newTags, weight_g, qty, weight_role: newRole }),
+        body: JSON.stringify({ name: newName, notes: newNotes, image_url: newImageUrl, category: newCategory, weight_g, qty, weight_role: newRole }),
       });
       if (!closetRes.ok) message.warning("已加入清單，但存入裝備櫃失敗");
     }
@@ -484,10 +501,10 @@ export default function GearTab({
       onOk: async () => {
         setDeletingTag(tag);
         try {
-          const res = await fetch(`/api/gear/tags`, {
+          const res = await fetch(`/api/gear/categories`, {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tripId, tag }),
+            body: JSON.stringify({ tripId, category: tag }),
           });
           if (!res.ok) throw new Error();
           const data = await res.json();
@@ -503,9 +520,33 @@ export default function GearTab({
     });
   }
 
-  /** 一件裝備只算進第一個 tag，否則多 tag 會重複計重、占比條加起來超過 100% */
+  /** 改名：把該分類底下所有裝備的 category 一起換掉 */
+  async function handleRenameTag(tag: string) {
+    const next = renameDraft.trim();
+    if (!next || next === tag) { setRenamingTag(null); return; }
+    setRenamingTag(tag);
+    try {
+      const res = await fetch(`/api/gear/categories`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tripId, category: tag, renameTo: next }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (tagFilter === tag) setTagFilter(next);
+      await load();
+      message.success(`已改名為「${next}」（影響 ${data.updated} 件）`);
+    } catch {
+      message.error("改名失敗，請再試一次");
+    } finally {
+      setRenamingTag(null);
+      setRenameDraft("");
+    }
+  }
+
+  /** 一件裝備一個分類 —— 重量帳上不能重複計算，所以分類是單選而不是自由標籤陣列 */
   function primaryTag(item: GearItem): string {
-    return item.tags?.[0] || UNTAGGED;
+    return item.category || UNTAGGED;
   }
 
   const stats = useMemo(() => {
@@ -539,7 +580,7 @@ export default function GearTab({
 
   return (
     <div className="flex flex-col gap-4 mx-auto pb-10">
-      <div className="flex items-center justify-between px-1 gap-2">
+      <div className="flex items-center justify-between px-1 gap-2 flex-wrap">
         <Typography.Text strong className="text-zinc-100 text-[15px] shrink-0">裝備清單</Typography.Text>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.08] rounded-full p-0.5">
@@ -576,61 +617,38 @@ export default function GearTab({
         </div>
       </div>
 
-      {/* 重量總覽：總重為主，三態為輔；占比條依主分類切段 */}
-      {items.length > 0 && (
-        <div
-          className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4"
-          style={{ background: 'radial-gradient(ellipse at 12% 0%, rgba(139,92,246,0.10) 0%, transparent 62%), rgba(255,255,255,0.03)' }}
-        >
-          <div className="flex items-end justify-between gap-3 flex-wrap">
-            <div>
-              <div className="text-zinc-500 text-[11px] mb-0.5">總重</div>
-              <div className="text-zinc-50 text-[26px] leading-none font-bold tabular-nums">{fmtWeight(stats.total)}</div>
-            </div>
-            <div className="flex items-center gap-4">
-              {([
-                { label: "基準", value: stats.base },
-                { label: "穿著", value: stats.worn },
-                { label: "消耗", value: stats.consumable },
-              ]).map(({ label, value }) => (
-                <div key={label} className="text-right">
-                  <div className="text-zinc-500 text-[11px] mb-0.5">{label}</div>
-                  <div className="text-zinc-200 text-[15px] leading-none font-semibold tabular-nums">{fmtWeight(value)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {stats.total > 0 && (
-            <div className="mt-3.5 h-2 rounded-full bg-white/[0.06] overflow-hidden flex">
-              {Array.from(stats.byTag.entries())
-                .filter(([, v]) => v.weight > 0)
-                .sort((a, b) => b[1].weight - a[1].weight)
-                .map(([tag, v]) => (
-                  <div
-                    key={tag}
-                    title={`${tag} ${fmtWeight(v.weight)}`}
-                    style={{ width: `${(v.weight / stats.total) * 100}%`, background: tagColor(tag) }}
-                  />
-                ))}
-            </div>
-          )}
-
-          {stats.unweighed > 0 && (
-            <div className="mt-2.5 text-zinc-500 text-[11px]">
-              還有 {stats.unweighed} 件沒填重量，沒算進上面的數字
-            </div>
-          )}
-        </div>
-      )}
-
+      {/* 狀態列：重量與打包進度合併成一塊。
+          原本的分類占比條拿掉了 —— 它的資訊重複在下面的分類 chip 上，而且與打包進度條
+          外觀相似、語意無關，兩條相鄰容易誤讀。 */}
       {items.length > 0 && (() => {
         const pct = Math.round((packed / items.length) * 100);
         return (
-          <div className="px-1">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-zinc-500 text-xs">已打包 {packed} / {items.length}</span>
-              <span className="text-zinc-600 text-xs">{pct}%</span>
+          <div
+            className="rounded-2xl border border-white/[0.08] p-3.5 flex flex-col gap-2.5"
+            style={{ background: 'radial-gradient(ellipse at 12% 0%, rgba(139,92,246,0.10) 0%, transparent 62%), rgba(255,255,255,0.03)' }}
+          >
+            <div className="flex items-baseline justify-between gap-x-4 gap-y-1.5 flex-wrap">
+              <div className="flex items-baseline gap-2.5 flex-wrap">
+                <span className="text-zinc-50 text-[20px] leading-none font-bold tabular-nums">{fmtWeight(stats.total)}</span>
+                <span className="text-zinc-500 text-[11px]">總重</span>
+                <span className="flex items-baseline gap-2.5 text-[12px] tabular-nums">
+                  {ROLES.map(r => (
+                    <Tooltip key={r.value} title={r.hint} trigger={["hover", "click"]}>
+                      <span className="text-zinc-400 cursor-help">
+                        {r.label}
+                        <InfoIcon size={9} className="inline-block ml-0.5 -translate-y-px opacity-60" />
+                        <span className="text-zinc-200 font-semibold ml-1">
+                          {fmtWeight(r.value === "base" ? stats.base : r.value === "worn" ? stats.worn : stats.consumable)}
+                        </span>
+                      </span>
+                    </Tooltip>
+                  ))}
+                </span>
+                {stats.unweighed > 0 && (
+                  <span className="text-zinc-600 text-[11px]">· {stats.unweighed} 件未秤</span>
+                )}
+              </div>
+              <span className="text-zinc-500 text-xs tabular-nums shrink-0">已打包 {packed} / {items.length}　{pct}%</span>
             </div>
             <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
               <div
@@ -642,31 +660,18 @@ export default function GearTab({
         );
       })()}
 
-      {/* 分類格：點一下篩選，右上角可進管理 */}
+      {/* 分類：一行可橫向捲動的 chip（32px 高，符合觸控下限），點一下篩選 */}
       {items.length > 0 && (
-        <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-center justify-between">
-            <span className="text-zinc-500 text-xs">分類（點一下篩選）</span>
-            <div className="flex items-center gap-3">
-              {tagFilter && (
-                <button
-                  onClick={() => setTagFilter(null)}
-                  className="text-violet-300 text-xs hover:text-violet-200 transition-colors cursor-pointer"
-                >
-                  顯示全部
-                </button>
-              )}
-              {!readOnly && gridCells.some(([tag]) => tag !== UNTAGGED) && (
-                <button
-                  onClick={() => setManageOpen(true)}
-                  className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors cursor-pointer"
-                >
-                  管理
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
+        <div className="flex items-center gap-2 px-1">
+          <div className="flex-1 min-w-0 flex gap-1.5 overflow-x-auto pb-1 -mb-1">
+            {tagFilter && (
+              <button
+                onClick={() => setTagFilter(null)}
+                className="h-8 px-3 rounded-full text-xs font-medium shrink-0 border border-violet-500/40 bg-violet-500/[0.12] text-violet-300 hover:text-violet-200 transition-colors cursor-pointer"
+              >
+                顯示全部
+              </button>
+            )}
             {gridCells.map(([tag, v]) => {
               const active = tagFilter === tag;
               return (
@@ -674,22 +679,26 @@ export default function GearTab({
                   key={tag}
                   onClick={() => setTagFilter(active ? null : tag)}
                   aria-pressed={active}
-                  className={`flex flex-col items-start gap-1 rounded-xl px-2.5 py-2 text-left transition-all cursor-pointer ${active
-                    ? "border border-violet-500/40 bg-violet-500/[0.12]"
-                    : "border border-white/[0.08] bg-white/[0.04] hover:border-white/20"
+                  className={`h-8 px-3 rounded-full text-xs font-medium shrink-0 flex items-center gap-1.5 transition-colors cursor-pointer border ${active
+                    ? "border-violet-500/40 bg-violet-500/[0.12] text-zinc-100"
+                    : "border-white/[0.08] bg-white/[0.04] text-zinc-300 hover:border-white/20"
                     }`}
                 >
-                  <div className="flex items-center gap-1.5 min-w-0 w-full">
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tagColor(tag) }} />
-                    <span className="text-[12px] font-medium truncate text-zinc-200">{tag}</span>
-                  </div>
-                  <div className="text-[11px] tabular-nums text-zinc-500">
-                    {v.count} 件 · {fmtWeight(v.weight)}
-                  </div>
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tagColor(tag) }} />
+                  {tag}
+                  <span className="text-zinc-500 tabular-nums">{fmtWeight(v.weight)}</span>
                 </button>
               );
             })}
           </div>
+          {!readOnly && gridCells.some(([tag]) => tag !== UNTAGGED) && (
+            <button
+              onClick={() => setManageOpen(true)}
+              className="h-8 px-3 rounded-full text-xs shrink-0 border border-white/[0.08] bg-white/[0.04] text-zinc-500 hover:text-zinc-200 hover:border-white/20 transition-colors cursor-pointer"
+            >
+              管理
+            </button>
+          )}
         </div>
       )}
 
@@ -772,29 +781,67 @@ export default function GearTab({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Typography.Text className="text-zinc-400 text-sm">分類標籤 (Tags)</Typography.Text>
-            <Select
-              mode="tags"
-              placeholder="輸入標籤後按 Enter (例如：背包、醫藥)"
-              value={newTags}
-              onChange={setNewTags}
-              className="cute-select custom-tags-select"
-              options={
-                Array.from(new Set(items.flatMap(i => i.tags || []))).map(tag => ({
-                  value: tag,
-                  label: tag
-                }))
-              }
-            />
-            <span className="text-zinc-600 text-[11px]">第一個標籤會用來算分類占比</span>
+            <Typography.Text className="text-zinc-400 text-sm">個人 / 公裝</Typography.Text>
+            <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] rounded-xl p-1">
+              {SCOPES.map(sc => (
+                <button
+                  key={sc.value}
+                  type="button"
+                  onClick={() => {
+                    setNewScope(sc.value);
+                    // 個人裝備沒有「分配給誰」這回事，切過去就清掉
+                    if (sc.value === "personal") setNewAssignedTo(undefined);
+                  }}
+                  aria-pressed={newScope === sc.value}
+                  className={`flex-1 h-8 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${newScope === sc.value ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
+                >
+                  {sc.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-zinc-600 text-[11px]">{SCOPES.find(sc => sc.value === newScope)?.hint}</span>
           </div>
 
-          {people.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <Typography.Text className="text-zinc-400 text-sm">分類</Typography.Text>
+            {/* 單選：一件裝備一個分類，重量帳上才不會重複計算。仍可自由輸入新分類。 */}
+            <Select
+              allowClear
+              showSearch
+              placeholder="選擇或輸入分類（例如：技術裝備）"
+              value={newCategory ?? undefined}
+              onChange={(v) => setNewCategory(v ?? null)}
+              className="cute-select"
+              options={
+                Array.from(new Set(items.map(i => i.category).filter(Boolean) as string[]))
+                  .map(c => ({ value: c, label: c }))
+              }
+              // 輸入不存在的分類時直接建立
+              filterOption={(input, option) => (option?.value ?? "").toLowerCase().includes(input.toLowerCase())}
+              onSearch={(v) => setCategorySearch(v)}
+              notFoundContent={
+                categorySearch.trim()
+                  ? <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setNewCategory(categorySearch.trim())}
+                      className="text-violet-300 text-[13px] hover:text-violet-200 cursor-pointer px-1 py-0.5"
+                    >
+                      建立「{categorySearch.trim()}」
+                    </button>
+                  : <span className="text-zinc-600 text-[12px]">還沒有分類</span>
+              }
+            />
+          </div>
+
+          {/* 只有公裝需要分配攜帶者；個人裝備本來就是自己揹 */}
+          {newScope === "group" && people.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <Typography.Text className="text-zinc-400 text-sm">由誰揹 (可選)</Typography.Text>
+              <Typography.Text className="text-zinc-400 text-sm">攜帶者 (可選)</Typography.Text>
               <Select
                 allowClear
-                placeholder="團體裝備可指定隊友"
+                showSearch
+                placeholder="選擇由哪位隊友攜帶"
                 value={newAssignedTo}
                 onChange={(v) => setNewAssignedTo(v ?? undefined)}
                 className="cute-select"
@@ -975,7 +1022,7 @@ export default function GearTab({
                     <div className="flex-1 min-w-0 flex items-center gap-2">
                       <span className="text-[13px] text-zinc-100 truncate">{item.name}</span>
                       {item.qty > 1 && <span className="text-[11px] text-zinc-500 tabular-nums shrink-0">×{item.qty}</span>}
-                      {(item.tags || []).slice(0, 2).map(tag => (
+                      {item.category && [item.category].map(tag => (
                         <span
                           key={tag}
                           className="text-[10px] px-1.5 py-0.5 rounded-md border shrink-0"
@@ -1010,7 +1057,7 @@ export default function GearTab({
                     name: i.name,
                     notes: i.notes ?? null,
                     image_url: i.image_url ?? null,
-                    tags: i.tags ?? null,
+                    category: i.category ?? null,
                     weight_g: i.weight_g ?? null,
                     qty: i.qty,
                     weight_role: i.weight_role,
@@ -1035,7 +1082,7 @@ export default function GearTab({
       >
         <div className="flex flex-col gap-2 mt-6">
           <div className="text-zinc-500 text-[12px] leading-relaxed">
-            刪除分類只會把標籤從裝備上移除，裝備本身會留著。
+改名會把該分類底下所有裝備一起改掉；刪除只是把分類清空，裝備本身會留著。
           </div>
           <div className="flex flex-col gap-1 max-h-[50vh] overflow-y-auto pr-1">
             {gridCells.map(([tag, v]) => {
@@ -1046,22 +1093,44 @@ export default function GearTab({
                   className="flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2"
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ background: tagColor(tag) }} />
-                  <span className={`text-[13px] truncate flex-1 min-w-0 ${untagged ? "text-zinc-500" : "text-zinc-100"}`}>
-                    {tag}
-                  </span>
+                  {renamingTag === tag && deletingTag === null ? (
+                    <Input
+                      autoFocus
+                      value={renameDraft}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onPressEnter={() => handleRenameTag(tag)}
+                      onBlur={() => { setRenamingTag(null); setRenameDraft(""); }}
+                      className="rounded-lg! border-white/10! focus:border-violet-500! bg-white/5! text-white! h-7! flex-1"
+                    />
+                  ) : (
+                    <span className={`text-[13px] truncate flex-1 min-w-0 ${untagged ? "text-zinc-500" : "text-zinc-100"}`}>
+                      {tag}
+                    </span>
+                  )}
                   <span className="text-[12px] text-zinc-500 tabular-nums shrink-0">{v.count} 件</span>
                   {untagged ? (
-                    // 「未分類」是沒有標籤的裝備被歸出來的，不是真的分類，沒有東西可刪
-                    <span className="text-[11px] text-zinc-600 shrink-0 w-7 text-center">—</span>
+                    // 「未分類」是沒有分類的裝備被歸出來的，不是真的分類，沒有東西可改可刪
+                    <span className="text-[11px] text-zinc-600 shrink-0 w-14 text-center">—</span>
                   ) : (
-                    <button
-                      onClick={() => handleDeleteTag(tag, v.count)}
-                      disabled={deletingTag !== null}
-                      aria-label={`刪除分類 ${tag}`}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {deletingTag === tag ? <LoadingOutlined style={{ fontSize: 12 }} /> : <TrashIcon size={13} />}
-                    </button>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => { setRenamingTag(tag); setRenameDraft(tag); }}
+                        disabled={deletingTag !== null}
+                        aria-label={`重新命名分類 ${tag}`}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.06] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <EditIcon size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTag(tag, v.count)}
+                        disabled={deletingTag !== null}
+                        aria-label={`刪除分類 ${tag}`}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {deletingTag === tag ? <LoadingOutlined style={{ fontSize: 12 }} /> : <TrashIcon size={13} />}
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -1241,13 +1310,18 @@ export default function GearTab({
   );
 }
 
-/** 標籤 / 重量身份 / 揹負者：卡片與列表共用，兩邊顯示規則不會走鐘 */
+/** 分類 / 公裝標記 / 重量身份 / 揹負者：卡片與列表共用，兩邊顯示規則不會走鐘 */
 function GearMeta({ item }: { item: GearItem }) {
   const dim = item.is_checked;
   const role = ROLES.find(r => r.value === item.weight_role);
   return (
     <div className="flex items-center gap-1 flex-wrap min-w-0">
-      {(item.tags || []).map(tag => (
+      {item.scope === "group" && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-md border shrink-0 ${dim ? 'text-zinc-600 border-zinc-700/50' : 'text-amber-300 border-amber-500/25 bg-amber-500/10'}`}>
+          公裝
+        </span>
+      )}
+      {item.category && [item.category].map(tag => (
         <span
           key={tag}
           className="text-[10px] px-1.5 py-0.5 rounded-md border shrink-0"

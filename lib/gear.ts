@@ -3,6 +3,14 @@
 export const GEAR_ROLES = ["base", "worn", "consumable"] as const;
 export type GearRole = (typeof GEAR_ROLES)[number];
 
+export const GEAR_SCOPES = ["personal", "group"] as const;
+export type GearScope = (typeof GEAR_SCOPES)[number];
+
+/** 只信任白名單。scope 決定 RLS 走哪條 policy，寫壞就會讓裝備對所有人隱形。 */
+export function normalizeScope(scope: unknown): GearScope {
+  return GEAR_SCOPES.includes(scope as GearScope) ? (scope as GearScope) : "personal";
+}
+
 /** Only trust the whitelist — an unknown role would corrupt the base-weight formula. */
 export function normalizeRole(role: unknown): GearRole {
   return GEAR_ROLES.includes(role as GearRole) ? (role as GearRole) : "base";
@@ -86,7 +94,7 @@ export function parseCsv(text: string): string[][] {
 export interface ParsedGearRow {
   name: string;
   notes: string | null;
-  tags: string[] | null;
+  category: string | null;
   weight_g: number | null;
   qty: number;
   weight_role: GearRole;
@@ -145,7 +153,7 @@ export function parseLighterPackCsv(text: string): { rows: ParsedGearRow[]; skip
     rows.push({
       name,
       notes: desc || null,
-      tags: category ? [category] : null,
+      category: category || null,
       weight_g: toGrams(at(r, idx.weight), at(r, idx.unit) || "oz"),
       qty: normalizeQty(at(r, idx.qty) || 1),
       weight_role: role,

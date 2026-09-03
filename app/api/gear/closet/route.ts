@@ -9,7 +9,7 @@ function toInsertRow(userId: string, raw: Record<string, unknown>) {
     name: String(raw.name ?? "").trim(),
     notes: (raw.notes as string) ?? null,
     image_url: (raw.image_url as string) ?? null,
-    tags: (raw.tags as string[]) ?? null,
+    category: (raw.category as string) || null,
     weight_g: normalizeWeight(raw.weight_g),
     qty: normalizeQty(raw.qty),
     weight_role: normalizeRole(raw.weight_role),

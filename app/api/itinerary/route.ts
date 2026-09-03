@@ -54,6 +54,33 @@ export async function PUT(request: NextRequest) {
   return NextResponse.json({ success: true });
 }
 
+/**
+ * Partial update for display-only flags.
+ *
+ * Separate from PUT on purpose: PUT writes the whole row, so calling it with a single field
+ * would blank the rest. Only the whitelisted keys below can be set here.
+ */
+export async function PATCH(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const { id, show_elevation } = await request.json();
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  const patch: Record<string, unknown> = {};
+  if (show_elevation === null || typeof show_elevation === "boolean") {
+    patch.show_elevation = show_elevation;
+  }
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+  }
+
+  const { error } = await supabase.from("itinerary_items").update(patch).eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
+
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

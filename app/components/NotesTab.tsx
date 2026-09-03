@@ -194,19 +194,24 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-4 mt-3">
-        <div className="flex gap-2 flex-wrap">
-          {SECTION_DEFS.map((_, i) => (
-            <div key={i} className="flex items-stretch h-7 animate-pulse">
-              <div className="w-24 rounded-l-full bg-white/[0.06]" />
-              <div className="w-7 rounded-r-full bg-white/[0.05] ml-[1px]" />
-            </div>
-          ))}
+      // contextHolder 必須一直掛著：fetchNotes 在 loading 仍為 true 時就可能發訊息，
+      // 沒掛載的話通知會排進佇列、等下一次 render 才沖出來 → antd 會警告 "calling notice in render"
+      <>
+        {contextHolder}
+        <div className="flex flex-col gap-4 mt-3">
+          <div className="flex gap-2 flex-wrap">
+            {SECTION_DEFS.map((_, i) => (
+              <div key={i} className="flex items-stretch h-7 animate-pulse">
+                <div className="w-24 rounded-l-full bg-white/[0.06]" />
+                <div className="w-7 rounded-r-full bg-white/[0.05] ml-[1px]" />
+              </div>
+            ))}
+          </div>
+          <div className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] p-4">
+            <Skeleton active paragraph={{ rows: 6 }} title={false} />
+          </div>
         </div>
-        <div className="bg-white/[0.03] border border-white/[0.07] rounded-[18px] p-4">
-          <Skeleton active paragraph={{ rows: 6 }} title={false} />
-        </div>
-      </div>
+      </>
     );
   }
 

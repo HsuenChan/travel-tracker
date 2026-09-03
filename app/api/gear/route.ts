@@ -1,19 +1,29 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { normalizeQty, normalizeRole, normalizeWeight } from "@/lib/gear";
+import { normalizeQty, normalizeRole, normalizeScope, normalizeWeight } from "@/lib/gear";
 
-/** Row shape accepted from the client for both single and bulk inserts. */
-function toInsertRow(tripId: string, raw: Record<string, unknown>) {
+/**
+ * Row shape accepted from the client for both single and bulk inserts.
+ *
+ * owner_user_id is taken from the session, never from the request: the RLS policy for personal
+ * gear checks owner_user_id = auth.uid(), so letting the client name an owner would just make
+ * the insert fail — and trusting it would be the wrong shape of trust anyway.
+ */
+function toInsertRow(tripId: string, userId: string, raw: Record<string, unknown>) {
+  const scope = normalizeScope(raw.scope);
   return {
     trip_id: tripId,
     name: String(raw.name ?? "").trim(),
     notes: (raw.notes as string) ?? null,
     image_url: (raw.image_url as string) ?? null,
-    tags: (raw.tags as string[]) ?? null,
+    category: (raw.category as string) || null,
+    scope,
+    owner_user_id: scope === "personal" ? userId : null,
     weight_g: normalizeWeight(raw.weight_g),
     qty: normalizeQty(raw.qty),
     weight_role: normalizeRole(raw.weight_role),
-    assigned_to: (raw.assigned_to as string) || null,
+    // 個人裝備不該有攜帶者；即使前端送了也在這裡歸零
+    assigned_to: scope === "group" ? ((raw.assigned_to as string) || null) : null,
     is_checked: false,
     order_index: 0,
   };
@@ -51,7 +61,7 @@ export async function POST(request: NextRequest) {
 
   // 裝備櫃套用與 CSV 匯入走 items 陣列，手動新增走單筆
   const raws: Record<string, unknown>[] = Array.isArray(body.items) ? body.items : [body];
-  const rows = raws.map((r) => toInsertRow(tripId, r)).filter((r) => r.name !== "");
+  const rows = raws.map((r) => toInsertRow(tripId, user.id, r)).filter((r) => r.name !== "");
   if (rows.length === 0) return NextResponse.json({ error: "Missing name" }, { status: 400 });
 
   const { data, error } = await supabase
@@ -69,7 +79,7 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, is_checked, name, notes, image_url, tags, weight_g, qty, weight_role, assigned_to, order_index } = body;
+  const { id, is_checked, name, notes, image_url, category, scope, weight_g, qty, weight_role, assigned_to, order_index } = body;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   // 打勾只送 is_checked，其他欄位不該被覆寫成 undefined
@@ -78,7 +88,13 @@ export async function PUT(request: NextRequest) {
   if (name !== undefined) patch.name = name;
   if (notes !== undefined) patch.notes = notes;
   if (image_url !== undefined) patch.image_url = image_url;
-  if (tags !== undefined) patch.tags = tags;
+  if (category !== undefined) patch.category = category || null;
+  if (scope !== undefined) {
+    const next = normalizeScope(scope);
+    patch.scope = next;
+    // 切成個人時要把 owner 補上，否則 RLS 會讓它對所有人隱形（含自己）
+    patch.owner_user_id = next === "personal" ? user.id : null;
+  }
   if (weight_g !== undefined) patch.weight_g = normalizeWeight(weight_g);
   if (qty !== undefined) patch.qty = normalizeQty(qty);
   if (weight_role !== undefined) patch.weight_role = normalizeRole(weight_role);

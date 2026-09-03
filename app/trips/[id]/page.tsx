@@ -27,6 +27,7 @@ import {
   PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon, CarabinerIcon,
   CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
 } from "@/app/components/Icons";
+import { computeOutdoorTotals, type OutdoorTotals } from "@/lib/outdoorTotals";
 import dayjs from "dayjs";
 
 interface Trip {
@@ -102,6 +103,8 @@ export default function TripPage() {
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [itineraryStats, setItineraryStats] = useState<{ items: number; locations: number } | null>(null);
+  // hero 的戶外 pill：初值來自 fetchCover，之後由行程分頁即時回報
+  const [outdoorTotals, setOutdoorTotals] = useState<OutdoorTotals | null>(null);
   const [membersLoaded, setMembersLoaded] = useState(false);
 
   // Esc 關閉 bottom sheet
@@ -375,13 +378,21 @@ export default function TripPage() {
       const res = await fetchWithAuth(`/api/itinerary?tripId=${id}`);
       if (res.ok) {
         const data = await res.json();
-        const items: { image_urls?: string[] | null; location?: string | null }[] = data.items ?? [];
+        const items: {
+          image_urls?: string[] | null;
+          location?: string | null;
+          category?: string | null;
+          distance_km?: number | null;
+          ascent_m?: number | null;
+          descent_m?: number | null;
+        }[] = data.items ?? [];
         const withImg = items.find((i) => i.image_urls && i.image_urls.length > 0);
         setCoverUrl(withImg?.image_urls?.[0] ?? null);
         setItineraryStats({
           items: items.length,
           locations: new Set(items.map((i) => i.location?.trim()).filter(Boolean)).size,
         });
+        setOutdoorTotals(computeOutdoorTotals(items));
       }
     } catch { }
   }
@@ -756,6 +767,7 @@ export default function TripPage() {
           countries={trip?.countries}
           notes={trip?.notes}
           coverUrl={coverUrl}
+          outdoor={outdoorTotals}
           pillsEnd={
             !membersLoaded ? (
               <span className="flex items-center">
@@ -956,6 +968,7 @@ export default function TripPage() {
                     people={people}
                     currency={primaryCurrency}
                     currencies={currencies}
+                    onOutdoorTotalsChange={setOutdoorTotals}
                   />
                 )}
                 {activeTab === "notes" && <NotesTab tripId={id} />}

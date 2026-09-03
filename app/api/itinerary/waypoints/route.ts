@@ -1,7 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const TYPES = ["trailhead", "peak", "hut", "camp", "water", "junction", "other"];
+// 與 RouteProfileModal 的 WAYPOINT_TYPE_GROUPS 同步；漏掉的值會被下面清成 null
+const TYPES = [
+  // 通用
+  "junction", "hut", "camp", "water", "other",
+  // 登山
+  "trailhead", "peak", "pass",
+  // 溪降（對應 CanyonTopo 圖例）
+  "put_in", "take_out", "rappel", "anchor", "pool", "jump", "slide", "swim",
+  "downclimb", "upclimb", "hazard", "exit", "gauge",
+];
 
 function num(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -14,9 +23,20 @@ function int(value: unknown, fallback: number | null = null): number | null {
   return n === null ? fallback : Math.round(n);
 }
 
+/**
+ * Two modes:
+ *   ?itineraryItemId=  one leg's waypoints, as a flat array
+ *   ?tripId=           every leg's waypoints in the trip, grouped by item id
+ *
+ * The trip mode exists so the timeline can draw the card sparklines from one request instead
+ * of one per leg, and so opening the route modal needs no further fetch.
+ */
 export async function GET(request: NextRequest) {
   const itemId = request.nextUrl.searchParams.get("itineraryItemId");
-  if (!itemId) return NextResponse.json({ error: "Missing itineraryItemId" }, { status: 400 });
+  const tripId = request.nextUrl.searchParams.get("tripId");
+  if (!itemId && !tripId) {
+    return NextResponse.json({ error: "Missing itineraryItemId or tripId" }, { status: 400 });
+  }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -24,10 +44,34 @@ export async function GET(request: NextRequest) {
   // 分享頁的高度圖資料由 /api/share/[token] 提供。
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
+  if (tripId) {
+    const { data: items, error: itemsError } = await supabase
+      .from("itinerary_items")
+      .select("id")
+      .eq("trip_id", tripId);
+    if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 });
+
+    const ids = (items ?? []).map((i) => i.id);
+    if (ids.length === 0) return NextResponse.json({ waypoints: {} });
+
+    const { data, error } = await supabase
+      .from("route_waypoints")
+      .select("*")
+      .in("itinerary_item_id", ids)
+      .order("order_index", { ascending: true });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const grouped: Record<string, unknown[]> = {};
+    for (const row of data ?? []) {
+      (grouped[row.itinerary_item_id] ??= []).push(row);
+    }
+    return NextResponse.json({ waypoints: grouped });
+  }
+
   const { data, error } = await supabase
     .from("route_waypoints")
     .select("*")
-    .eq("itinerary_item_id", itemId)
+    .eq("itinerary_item_id", itemId!)
     .order("order_index", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -59,8 +103,7 @@ export async function PUT(request: NextRequest) {
       elevation_m: num(w.elevation_m),
       distance_km: num(w.distance_km),
       day_offset: Math.max(0, int(w.day_offset, 0) ?? 0),
-      duration_out_min: int(w.duration_out_min),
-      duration_back_min: int(w.duration_back_min),
+      duration_min: int(w.duration_min),
       type: TYPES.includes(String(w.type)) ? String(w.type) : null,
       lat: num(w.lat),
       lng: num(w.lng),
