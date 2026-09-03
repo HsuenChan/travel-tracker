@@ -17,13 +17,6 @@ const VIEW_KEY = "travel_gear_view";
 /** 勾掉後項目會沉到底部，用位移動畫讓使用者看得到它跑去哪 */
 const LAYOUT_TRANSITION = { type: "tween" as const, duration: 0.6, ease: [0.2, 0, 0, 1] as const };
 
-/**
- * 登山裝備九宮格（來自登山安全講座的分類法）。
- * 只是預設值：tag 本身完全自由，這九項的作用是「一件都沒帶的分類也會出現在分類格」，
- * 讓漏帶的那一格自己浮出來。
- */
-const PRESET_TAGS = ["背包", "飲水", "食物", "雨具", "電子", "醫藥", "衣著", "鞋襪", "緊急避難"];
-
 const UNTAGGED = "未分類";
 
 /**
@@ -39,11 +32,9 @@ const ROLES: { value: WeightRole; label: string; hint: string }[] = [
 const TAG_PALETTE = ["#a78bfa", "#60a5fa", "#34d399", "#fbbf24", "#f472b6", "#fb923c", "#22d3ee", "#c084fc", "#a3e635"];
 const UNTAGGED_COLOR = "#71717a";
 
-/** 預設分類用固定色，自訂 tag 用名稱雜湊取色：同一個 tag 每次進來顏色一致 */
+/** 由名稱雜湊取色：同一個分類每次進來顏色一致，不需要維護任何對照表 */
 function tagColor(tag: string): string {
   if (tag === UNTAGGED) return UNTAGGED_COLOR;
-  const preset = PRESET_TAGS.indexOf(tag);
-  if (preset >= 0) return TAG_PALETTE[preset % TAG_PALETTE.length];
   let h = 0;
   for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) % 9973;
   return TAG_PALETTE[h % TAG_PALETTE.length];
@@ -138,6 +129,8 @@ export default function GearTab({
   const [importing, setImporting] = useState(false);
   const [parsed, setParsed] = useState<{ rows: ParsedRow[]; skipped: number; totalWeight: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [deletingTag, setDeletingTag] = useState<string | null>(null);
   const { message, modal } = App.useApp();
 
   async function handleImageUpload(file: File) {
@@ -477,6 +470,39 @@ export default function GearTab({
     });
   }
 
+  /**
+   * 刪整個分類：把該標籤從所有裝備上移除，裝備本身保留。
+   * 若那是某件裝備唯一的標籤，它會落到「未分類」。
+   */
+  function handleDeleteTag(tag: string, count: number) {
+    modal.confirm({
+      title: `刪除分類「${tag}」？`,
+      content: `${count} 件裝備會移除這個標籤，裝備本身不會被刪除；只掛這一個標籤的會變成「未分類」。`,
+      okText: "刪除分類",
+      okType: "danger",
+      cancelText: "取消",
+      onOk: async () => {
+        setDeletingTag(tag);
+        try {
+          const res = await fetch(`/api/gear/tags`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tripId, tag }),
+          });
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          if (tagFilter === tag) setTagFilter(null);
+          await load();
+          message.success(`已刪除分類「${tag}」（影響 ${data.updated} 件）`);
+        } catch {
+          message.error("刪除分類失敗，請再試一次");
+        } finally {
+          setDeletingTag(null);
+        }
+      },
+    });
+  }
+
   /** 一件裝備只算進第一個 tag，否則多 tag 會重複計重、占比條加起來超過 100% */
   function primaryTag(item: GearItem): string {
     return item.tags?.[0] || UNTAGGED;
@@ -499,15 +525,11 @@ export default function GearTab({
     return { total, worn, consumable, base: total - worn - consumable, unweighed, byTag };
   }, [items]);
 
-  /** 分類格：有東西的照重量排前面，沒東西的預設分類排後面（虛線提示漏帶） */
-  const gridCells = useMemo(() => {
-    const used = Array.from(stats.byTag.entries())
-      .sort((a, b) => b[1].weight - a[1].weight || b[1].count - a[1].count);
-    const unused = PRESET_TAGS
-      .filter(t => !stats.byTag.has(t))
-      .map(t => [t, { weight: 0, count: 0 }] as [string, { weight: number; count: number }]);
-    return [...used, ...unused];
-  }, [stats]);
+  /** 分類格：只列實際用到的分類，照重量由多到少 */
+  const gridCells = useMemo(() =>
+    Array.from(stats.byTag.entries())
+      .sort((a, b) => b[1].weight - a[1].weight || b[1].count - a[1].count),
+  [stats]);
 
   const visibleItems = items
     .filter(item => !tagFilter || primaryTag(item) === tagFilter)
@@ -620,46 +642,49 @@ export default function GearTab({
         );
       })()}
 
-      {/* 分類格（九宮格）：點一下篩選；空的預設分類用虛線提示還沒帶東西 */}
+      {/* 分類格：點一下篩選，右上角可進管理 */}
       {items.length > 0 && (
         <div className="flex flex-col gap-2 px-1">
           <div className="flex items-center justify-between">
             <span className="text-zinc-500 text-xs">分類（點一下篩選）</span>
-            {tagFilter && (
-              <button
-                onClick={() => setTagFilter(null)}
-                className="text-violet-300 text-xs hover:text-violet-200 transition-colors cursor-pointer"
-              >
-                顯示全部
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {tagFilter && (
+                <button
+                  onClick={() => setTagFilter(null)}
+                  className="text-violet-300 text-xs hover:text-violet-200 transition-colors cursor-pointer"
+                >
+                  顯示全部
+                </button>
+              )}
+              {!readOnly && gridCells.some(([tag]) => tag !== UNTAGGED) && (
+                <button
+                  onClick={() => setManageOpen(true)}
+                  className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors cursor-pointer"
+                >
+                  管理
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
             {gridCells.map(([tag, v]) => {
-              const empty = v.count === 0;
               const active = tagFilter === tag;
               return (
                 <button
                   key={tag}
-                  onClick={() => { if (!empty) setTagFilter(active ? null : tag); }}
-                  disabled={empty}
+                  onClick={() => setTagFilter(active ? null : tag)}
                   aria-pressed={active}
-                  className={`flex flex-col items-start gap-1 rounded-xl px-2.5 py-2 text-left transition-all ${empty
-                    ? "border border-dashed border-white/[0.12] bg-transparent cursor-default"
-                    : active
-                      ? "border border-violet-500/40 bg-violet-500/[0.12] cursor-pointer"
-                      : "border border-white/[0.08] bg-white/[0.04] hover:border-white/20 cursor-pointer"
+                  className={`flex flex-col items-start gap-1 rounded-xl px-2.5 py-2 text-left transition-all cursor-pointer ${active
+                    ? "border border-violet-500/40 bg-violet-500/[0.12]"
+                    : "border border-white/[0.08] bg-white/[0.04] hover:border-white/20"
                     }`}
                 >
                   <div className="flex items-center gap-1.5 min-w-0 w-full">
-                    <span
-                      className="w-1.5 h-1.5 rounded-full shrink-0"
-                      style={{ background: empty ? "transparent" : tagColor(tag), border: empty ? `1px dashed ${tagColor(tag)}80` : undefined }}
-                    />
-                    <span className={`text-[12px] font-medium truncate ${empty ? "text-zinc-600" : "text-zinc-200"}`}>{tag}</span>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tagColor(tag) }} />
+                    <span className="text-[12px] font-medium truncate text-zinc-200">{tag}</span>
                   </div>
-                  <div className={`text-[11px] tabular-nums ${empty ? "text-zinc-700" : "text-zinc-500"}`}>
-                    {empty ? "還沒帶" : `${v.count} 件 · ${fmtWeight(v.weight)}`}
+                  <div className="text-[11px] tabular-nums text-zinc-500">
+                    {v.count} 件 · {fmtWeight(v.weight)}
                   </div>
                 </button>
               );
@@ -755,7 +780,7 @@ export default function GearTab({
               onChange={setNewTags}
               className="cute-select custom-tags-select"
               options={
-                Array.from(new Set([...items.flatMap(i => i.tags || []), ...PRESET_TAGS])).map(tag => ({
+                Array.from(new Set(items.flatMap(i => i.tags || []))).map(tag => ({
                   value: tag,
                   label: tag
                 }))
@@ -995,6 +1020,52 @@ export default function GearTab({
             >
               加入這趟清單{selectedClosetIds.size > 0 ? `（${selectedClosetIds.size}）` : ""}
             </PillButton>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        title="管理分類"
+        open={manageOpen}
+        onCancel={() => setManageOpen(false)}
+        footer={null}
+        destroyOnHidden
+        centered
+        width={420}
+      >
+        <div className="flex flex-col gap-2 mt-6">
+          <div className="text-zinc-500 text-[12px] leading-relaxed">
+            刪除分類只會把標籤從裝備上移除，裝備本身會留著。
+          </div>
+          <div className="flex flex-col gap-1 max-h-[50vh] overflow-y-auto pr-1">
+            {gridCells.map(([tag, v]) => {
+              const untagged = tag === UNTAGGED;
+              return (
+                <div
+                  key={tag}
+                  className="flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2"
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: tagColor(tag) }} />
+                  <span className={`text-[13px] truncate flex-1 min-w-0 ${untagged ? "text-zinc-500" : "text-zinc-100"}`}>
+                    {tag}
+                  </span>
+                  <span className="text-[12px] text-zinc-500 tabular-nums shrink-0">{v.count} 件</span>
+                  {untagged ? (
+                    // 「未分類」是沒有標籤的裝備被歸出來的，不是真的分類，沒有東西可刪
+                    <span className="text-[11px] text-zinc-600 shrink-0 w-7 text-center">—</span>
+                  ) : (
+                    <button
+                      onClick={() => handleDeleteTag(tag, v.count)}
+                      disabled={deletingTag !== null}
+                      aria-label={`刪除分類 ${tag}`}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-500 hover:text-red-400 hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {deletingTag === tag ? <LoadingOutlined style={{ fontSize: 12 }} /> : <TrashIcon size={13} />}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </Modal>
