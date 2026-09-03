@@ -264,6 +264,7 @@ const CATEGORY_BADGE_CONFIG: Record<string, {
   attraction: { label: "景點", icon: CatAttractionIcon, color: "#34d399", bg: "rgba(16,185,129,0.12)" },
   shopping:   { label: "購物", icon: CatShoppingIcon,   color: "#f472b6", bg: "rgba(236,72,153,0.12)" },
   activity:   { label: "活動", icon: CatActivityIcon,   color: "#fb923c", bg: "rgba(249,115,22,0.12)" },
+  outdoor:    { label: "戶外", icon: MountainIcon,      color: "#34d399", bg: "rgba(16,185,129,0.12)" },
   other:      { label: "其他", icon: CatOtherIcon,      color: "#a1a1aa", bg: "rgba(113,113,122,0.12)" },
 };
 
@@ -462,6 +463,50 @@ export function CoinIcon({ size = 13, className, stroke = "currentColor", stroke
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 6.5v11M14.8 9.2c-.5-.9-1.6-1.4-2.8-1.4-1.7 0-3 .9-3 2.1s1.3 2.1 3 2.1 3 .9 3 2.1-1.3 2.1-3 2.1c-1.2 0-2.3-.5-2.8-1.4" />
+    </svg>
+  );
+}
+
+/**
+ * 攀岩 D 扣（旋鎖式）。實心造型，路徑由參考圖的黑色連通區域邊界追蹤 + Douglas-Peucker
+ * 簡化而來（4 個區域：主體、旋鎖套環、上下兩個環帶），所以 18px 下三塊套環還分得出來。
+ *
+ * 與這套其他 icon 不同，這顆是 fill 而非 stroke：把 stroke prop 接到 fill，
+ * 呼叫端沿用  這種寫法就不用改。strokeWidth 對實心造型無意義，會被忽略。
+ */
+export function CarabinerIcon({ size = 13, className, stroke = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={stroke} className={className}>
+      <path d="M11.75 1.5L13.09 1.5L14.28 1.75L15.52 2.29L16.67 3.14L17.56 4.18L18.26 5.52L18.6 6.86L18.65 8.15L18.16 10.19L13.99 18.33L13.84 19.62L13.44 20.61L12.5 21.71L11.7 22.2L10.66 22.5L9.42 22.5L7.93 21.95L6.74 20.76L6.19 19.27L6.19 17.49L8.82 17.44L8.82 18.93L9.02 19.37L9.47 19.77L9.82 19.87L10.71 19.72L11.26 19.02L11.55 17.24L15.72 9.1L15.97 8.25L15.87 6.76L15.23 5.52L14.04 4.53L12.65 4.13L11.5 4.23L10.26 4.83L9.17 6.12L8.82 7.66L6.19 7.66L6.19 6.91L6.54 5.52L7.58 3.73L8.62 2.74L9.67 2.1L11.75 1.5ZM5.99 10.19L8.97 10.19L9.52 10.54L9.62 14.36L9.32 14.8L5.89 14.9L5.55 14.71L5.35 14.31L5.35 10.78L5.65 10.34L5.99 10.19ZM6.54 8.25L8.67 8.3L9.07 8.7L9.12 9.54L5.89 9.59L5.89 8.7L6.14 8.4L6.54 8.25ZM5.84 15.55L9.12 15.55L9.12 16.29L8.62 16.84L6.34 16.84L5.89 16.39L5.84 15.55Z" />
+    </svg>
+  );
+}
+
+export function UploadIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+export function ArchiveIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="3.5" width="18" height="5" rx="1.5" />
+      <path d="M5 8.5v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-10" />
+      <path d="M10 13h4" />
+    </svg>
+  );
+}
+
+export function MountainIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 20h20L14.5 6.5 11 13l-2-3z" />
+      <path d="M12.6 9.2 14.5 6.5l3 5.4" />
     </svg>
   );
 }

@@ -50,11 +50,35 @@ export async function GET(
     return { ...rest, itinerary_title: itinerary_items?.title ?? null };
   });
 
+  // 裝備與途經點的 RLS 只放行旅程成員，所以唯讀分享頁一律由這裡（service client）供資料，
+   // 前端不再自己打 /api/gear 與 /api/itinerary/waypoints
+  const { data: gear } = await supabase
+    .from("gear_items")
+    .select("*")
+    .eq("trip_id", trip.id)
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  const itemIds = (itinerary ?? []).map((i) => i.id);
+  const waypoints: Record<string, unknown[]> = {};
+  if (itemIds.length > 0) {
+    const { data: rows } = await supabase
+      .from("route_waypoints")
+      .select("*")
+      .in("itinerary_item_id", itemIds)
+      .order("order_index", { ascending: true });
+    for (const row of rows ?? []) {
+      (waypoints[row.itinerary_item_id] ??= []).push(row);
+    }
+  }
+
   return NextResponse.json({
     trip,
     segments: segments ?? [],
     itinerary: itinerary ?? [],
     expenses,
     note: note ?? null,
+    gear: gear ?? [],
+    waypoints,
   });
 }

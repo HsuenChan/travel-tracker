@@ -27,11 +27,11 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { tripId, date, title, category, time, end_date, end_time, location, notes, image_urls } = body;
+  const { tripId, date, title, category, time, end_date, end_time, location, notes, image_urls, distance_km, ascent_m, descent_m } = body;
 
   const { error } = await supabase
     .from("itinerary_items")
-    .insert({ trip_id: tripId, user_id: user.id, date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [] });
+    .insert({ trip_id: tripId, user_id: user.id, date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [], distance_km: distance_km ?? null, ascent_m: ascent_m ?? null, descent_m: descent_m ?? null });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
@@ -43,11 +43,11 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, date, title, category, time, end_date, end_time, location, notes, image_urls } = body;
+  const { id, date, title, category, time, end_date, end_time, location, notes, image_urls, distance_km, ascent_m, descent_m } = body;
 
   const { error } = await supabase
     .from("itinerary_items")
-    .update({ date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [] })
+    .update({ date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [], distance_km: distance_km ?? null, ascent_m: ascent_m ?? null, descent_m: descent_m ?? null })
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
