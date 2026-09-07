@@ -1,16 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-// 與 RouteProfileModal 的 WAYPOINT_TYPE_GROUPS 同步；漏掉的值會被下面清成 null
-const TYPES = [
-  // 通用
-  "junction", "hut", "camp", "water", "other",
-  // 登山
-  "trailhead", "peak", "pass",
-  // 溪降（對應 CanyonTopo 圖例）
-  "put_in", "take_out", "rappel", "anchor", "pool", "jump", "slide", "swim",
-  "downclimb", "upclimb", "hazard", "exit", "gauge",
-];
+import { WAYPOINT_TYPES } from "@/lib/waypointTypes";
 
 function num(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -104,7 +94,8 @@ export async function PUT(request: NextRequest) {
       distance_km: num(w.distance_km),
       day_offset: Math.max(0, int(w.day_offset, 0) ?? 0),
       duration_min: int(w.duration_min),
-      type: TYPES.includes(String(w.type)) ? String(w.type) : null,
+      drop_m: num(w.drop_m),
+      type: WAYPOINT_TYPES.includes(String(w.type)) ? String(w.type) : null,
       lat: num(w.lat),
       lng: num(w.lng),
       notes: (w.notes as string) ?? null,

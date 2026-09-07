@@ -1,23 +1,10 @@
 @AGENTS.md
 
-// 請讀取 CLAUDE.md 裡的 Pending Tasks，我們從費用頁面的日期預設值開始做
+# Travel Tracker
 
-# Project Status & Pending Tasks (April 22 Update)
+旅程記錄應用：行程規劃、多幣別分帳、照片牆、AI 筆記、3D 地球航跡，以及戶外／溪降的裝備清單與路線途經點。
 
-## Current Context
-正在優化費用（Expenses）頁面與行程（Itinerary）分頁。
-
-## Pending Tasks (待處理需求)
-
-### 1. 費用頁面 (Expenses Page)
-- [ ] **排序邏輯**：
-    - 列表需按照「新增時間」排序，最新的顯示在最上方（DESC）。
-    - 需新增 UI 讓使用者可以選擇「排序欄位」與「升冪/降冪 (ASC/DESC)」切換。
-- [ ] **結算功能**：在結算列表新增一個「已繳清」的確認勾選或狀態標記。
-
-### 2. 行程頁面 (Itinerary Tab)
-- [ ] **UX 優化 (Mobile)**：手機版容易誤觸地址觸發 Tooltips。
-    - *思考方向*：調整觸發方式（例如：長按、點擊 icon 才顯示，或調整觸發區域），避免影響滾動體驗。
+產品定位與使用情境見 `PRODUCT.md`；完整功能清單見 `README.md`（中英雙語）；資料庫 migration 在 `supabase/`，依編號順序執行。
 
 ## Development Guidelines
 - 保持 Next.js / React / Tailwind 的代碼風格一致性。

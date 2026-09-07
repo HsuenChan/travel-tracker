@@ -56,6 +56,7 @@ export default function SharePageClient() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [note, setNote] = useState<any>(null);
   const [gear, setGear] = useState<GearItem[]>([]);
+  const [souvenirs, setSouvenirs] = useState<any[]>([]);
   const [waypoints, setWaypoints] = useState<Record<string, RouteWaypoint[]>>({});
 
   const [loading, setLoading] = useState(true);
@@ -99,6 +100,7 @@ export default function SharePageClient() {
         setExpenses(data.expenses || []);
         setNote(data.note);
         setGear(data.gear || []);
+        setSouvenirs(data.souvenirs || []);
         setWaypoints(data.waypoints || {});
 
         if ((data.itinerary || []).length === 0 && data.segments.length > 0 && !searchParams.get("tab")) {
@@ -276,6 +278,7 @@ export default function SharePageClient() {
                 <SouvenirsTab
                   tripId={trip.id}
                   readOnly={true}
+                  initialItems={souvenirs}
                 />
               )}
               {visibleTab === "gear" && (

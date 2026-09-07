@@ -7,11 +7,10 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  // souvenirs 開了 RLS 之後，匿名讀取會靜靜回空陣列而不是報錯，明確擋成 401 比較好 debug。
+  // 唯讀分享頁不走這裡，資料由 /api/share/[token] 以 service client 提供。
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  // If a valid user is not logged in, we should check if they are requesting via a public share token.
-  // We skip strict user check here because the `/share/[token]` page needs read-only access.
-  // Typically, the frontend provides a share token or relies on RLS, but for now we fetch it.
-  
   const { data, error } = await supabase
     .from("souvenirs")
     .select("*")

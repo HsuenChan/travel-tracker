@@ -94,11 +94,14 @@ export default function GearTab({
   tripId,
   people = [],
   readOnly = false,
+  myName = null,
   initialItems,
 }: {
   tripId: string;
   people?: string[];
   readOnly?: boolean;
+  /** 分帳成員名單中對應到目前登入者的那個名字；沒綁定帳號時是 null，狀態列會退回全隊總重 */
+  myName?: string | null;
   /** 唯讀分享頁用：RLS 只放行旅程成員，資料由 /api/share/[token] 帶進來 */
   initialItems?: GearItem[];
 }) {
@@ -549,8 +552,13 @@ export default function GearTab({
     return item.category || UNTAGGED;
   }
 
+  /**
+   * 全隊總重對任何一個人都沒有意義 —— 真正決定要不要少帶一件的是自己揹的那袋。
+   * 個人裝備必定在自己身上（RLS 保證看得到的都是自己的），公裝只有分配給我的才算。
+   */
   const stats = useMemo(() => {
     let total = 0, worn = 0, consumable = 0, unweighed = 0;
+    let myTotal = 0, myWorn = 0, myConsumable = 0, myUnweighed = 0, unassigned = 0;
     const byTag = new Map<string, { weight: number; count: number }>();
     for (const item of items) {
       const qty = item.qty || 1;
@@ -559,12 +567,23 @@ export default function GearTab({
       total += w;
       if (item.weight_role === "worn") worn += w;
       else if (item.weight_role === "consumable") consumable += w;
+      if (item.scope === "personal" || (myName != null && item.assigned_to === myName)) {
+        if (item.weight_g == null) myUnweighed += 1;
+        myTotal += w;
+        if (item.weight_role === "worn") myWorn += w;
+        else if (item.weight_role === "consumable") myConsumable += w;
+      } else if (item.scope === "group" && !item.assigned_to) {
+        unassigned += w;
+      }
       const tag = primaryTag(item);
       const cur = byTag.get(tag) ?? { weight: 0, count: 0 };
       byTag.set(tag, { weight: cur.weight + w, count: cur.count + qty });
     }
-    return { total, worn, consumable, base: total - worn - consumable, unweighed, byTag };
-  }, [items]);
+    return {
+      total, worn, consumable, base: total - worn - consumable, unweighed, byTag, unassigned,
+      mine: { total: myTotal, worn: myWorn, consumable: myConsumable, base: myTotal - myWorn - myConsumable, unweighed: myUnweighed },
+    };
+  }, [items, myName]);
 
   /** 分類格：只列實際用到的分類，照重量由多到少 */
   const gridCells = useMemo(() =>
@@ -622,6 +641,8 @@ export default function GearTab({
           外觀相似、語意無關，兩條相鄰容易誤讀。 */}
       {items.length > 0 && (() => {
         const pct = Math.round((packed / items.length) * 100);
+        // 認得出我是誰才講「我的負重」；認不出來（沒綁定、分享頁）就只能講全隊
+        const shown = myName ? stats.mine : stats;
         return (
           <div
             className="rounded-2xl border border-white/[0.08] p-3.5 flex flex-col gap-2.5"
@@ -629,8 +650,8 @@ export default function GearTab({
           >
             <div className="flex items-baseline justify-between gap-x-4 gap-y-1.5 flex-wrap">
               <div className="flex items-baseline gap-2.5 flex-wrap">
-                <span className="text-zinc-50 text-[20px] leading-none font-bold tabular-nums">{fmtWeight(stats.total)}</span>
-                <span className="text-zinc-500 text-[11px]">總重</span>
+                <span className="text-zinc-50 text-[20px] leading-none font-bold tabular-nums">{fmtWeight(shown.total)}</span>
+                <span className="text-zinc-500 text-[11px]">{myName ? "我的負重" : "總重"}</span>
                 <span className="flex items-baseline gap-2.5 text-[12px] tabular-nums">
                   {ROLES.map(r => (
                     <Tooltip key={r.value} title={r.hint} trigger={["hover", "click"]}>
@@ -638,17 +659,28 @@ export default function GearTab({
                         {r.label}
                         <InfoIcon size={9} className="inline-block ml-0.5 -translate-y-px opacity-60" />
                         <span className="text-zinc-200 font-semibold ml-1">
-                          {fmtWeight(r.value === "base" ? stats.base : r.value === "worn" ? stats.worn : stats.consumable)}
+                          {fmtWeight(r.value === "base" ? shown.base : r.value === "worn" ? shown.worn : shown.consumable)}
                         </span>
                       </span>
                     </Tooltip>
                   ))}
                 </span>
-                {stats.unweighed > 0 && (
-                  <span className="text-zinc-600 text-[11px]">· {stats.unweighed} 件未秤</span>
+                {/* 一個人的旅程（或所有裝備都在自己身上）時全隊等於我的，重複講一次只是雜訊 */}
+                {myName && stats.total !== stats.mine.total && (
+                  <span className="text-zinc-600 text-[11px]">· 全隊 {fmtWeight(stats.total)}</span>
+                )}
+                {myName && stats.unassigned > 0 && (
+                  <span className="text-zinc-600 text-[11px]">· 公裝未分配 {fmtWeight(stats.unassigned)}</span>
+                )}
+                {shown.unweighed > 0 && (
+                  <span className="text-zinc-600 text-[11px]">· {shown.unweighed} 件未秤</span>
                 )}
               </div>
-              <span className="text-zinc-500 text-xs tabular-nums shrink-0">已打包 {packed} / {items.length}　{pct}%</span>
+              <span className="text-zinc-500 text-xs tabular-nums shrink-0">
+                {/* 大字是「我的負重」時要標明進度算的是螢幕上這份清單（我的個人裝備＋全部公裝）。
+                    不能寫「全隊」—— 別人的個人裝備被 RLS 擋著，根本不在這份清單裡 */}
+                {myName ? "清單已打包" : "已打包"} {packed} / {items.length}　{pct}%
+              </span>
             </div>
             <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
               <div
@@ -811,7 +843,7 @@ export default function GearTab({
               placeholder="選擇或輸入分類（例如：技術裝備）"
               value={newCategory ?? undefined}
               onChange={(v) => setNewCategory(v ?? null)}
-              className="cute-select"
+             
               options={
                 Array.from(new Set(items.map(i => i.category).filter(Boolean) as string[]))
                   .map(c => ({ value: c, label: c }))
@@ -844,7 +876,7 @@ export default function GearTab({
                 placeholder="選擇由哪位隊友攜帶"
                 value={newAssignedTo}
                 onChange={(v) => setNewAssignedTo(v ?? undefined)}
-                className="cute-select"
+               
                 options={people.map(p => ({ value: p, label: p }))}
               />
             </div>

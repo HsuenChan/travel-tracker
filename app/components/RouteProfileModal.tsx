@@ -12,6 +12,7 @@ import { PlusIcon, TrashIcon, MountainIcon, InfoIcon, ArrowUpIcon, ArrowDownIcon
 import { parseCoordPair } from "@/lib/coords";
 import GpxImportModal, { type ImportedWaypoint } from "@/app/components/GpxImportModal";
 import { decideElevationDisplay } from "@/lib/elevationDisplay";
+import { WAYPOINT_TYPE_GROUPS, WAYPOINT_TYPE_LABEL } from "@/lib/waypointTypes";
 
 export interface Waypoint {
   id?: string;
@@ -20,6 +21,8 @@ export interface Waypoint {
   distance_km: number | null;
   day_offset: number;
   duration_min: number | null;
+  /** 垂降／下攀／跳水／滑降的落差；其他類型留空 */
+  drop_m: number | null;
   type: string | null;
   notes: string | null;
   lat: number | null;
@@ -36,58 +39,24 @@ export interface Waypoint {
   uid?: string;
 }
 
-/**
- * 點位類型。溪降那組對應紐西蘭 CanyonTopo 的圖例（R 垂降編號、J 跳水、S 滑降、SW 泳渡、
- * UC/DC 上下攀、dangerous hydraulic / undercut / sieve 等危險標記、Exits、flow gauge）。
- * 分組是因為攤平會有二十幾個選項，難找。
- *
- * 刻意不收進來的：TR/TL（左右岸）、SL（安全繩）、CW（溪行）—— 那些是路段的屬性或移動方式，
- * 不是一個點位，寫在該點的備註裡（編輯器有常用註記快捷鍵）。
- */
-const WAYPOINT_TYPE_GROUPS = [
-  {
-    label: "通用",
-    options: [
-      { value: "junction", label: "岔路" },
-      { value: "hut", label: "山屋" },
-      { value: "camp", label: "營地" },
-      { value: "water", label: "水源" },
-      { value: "other", label: "其他" },
-    ],
-  },
-  {
-    label: "登山",
-    options: [
-      { value: "trailhead", label: "登山口" },
-      { value: "peak", label: "山頂" },
-      { value: "pass", label: "鞍部" },
-    ],
-  },
-  {
-    label: "溪降",
-    options: [
-      { value: "put_in", label: "入溪點" },
-      { value: "take_out", label: "出溪點" },
-      { value: "rappel", label: "垂降點" },
-      { value: "anchor", label: "固定點" },
-      { value: "pool", label: "深潭" },
-      { value: "jump", label: "跳水點" },
-      { value: "slide", label: "滑降點" },
-      { value: "swim", label: "泳渡段" },
-      { value: "downclimb", label: "下攀" },
-      { value: "upclimb", label: "上攀" },
-      { value: "hazard", label: "危險點" },
-      { value: "exit", label: "脫逃點" },
-      { value: "gauge", label: "水位計" },
-    ],
-  },
-];
-
-const TYPE_LABEL: Record<string, string> = Object.fromEntries(
-  WAYPOINT_TYPE_GROUPS.flatMap(g => g.options).map(t => [t.value, t.label])
-);
 
 /** 清單裡需要跳出來的類型：危險點與脫逃點是「絕對不能漏看」的兩類 */
+/**
+ * 有落差可填的類型。刻意不含 anchor —— CanyonTopo 的 HL（highline）標的是橫渡長度而不是落差，
+ * 混進總計會讓「這條溪掉了多少」變成假數字。
+ */
+const DROP_TYPES = new Set(["rappel", "downclimb", "jump", "slide"]);
+
+/**
+ * 落差算不算數，統計與長條共用這一個判斷。
+ *
+ * 要連類型一起看：把類型從垂降改成深潭時落差欄位會消失，但值還在資料裡（編輯器會一併清掉，
+ * 只是 API 對任何類型都收 drop_m），漏掉這個檢查就會出現「畫面上沒有落差、合計卻算進去」。
+ */
+function hasDrop(w: Waypoint): boolean {
+  return w.type != null && DROP_TYPES.has(w.type) && w.drop_m != null && Number(w.drop_m) > 0;
+}
+
 const ROW_ACCENT: Record<string, { border: string; bg: string; text: string }> = {
   hazard: { border: "rgba(248,113,113,0.35)", bg: "rgba(248,113,113,0.07)", text: "#fca5a5" },
   exit:   { border: "rgba(52,211,153,0.35)",  bg: "rgba(52,211,153,0.07)",  text: "#6ee7b7" },
@@ -126,6 +95,7 @@ function normalizeForCompare(rows: Waypoint[]): string {
     distance_km: w.distance_km ?? null,
     day_offset: w.day_offset ?? 0,
     duration_min: w.duration_min ?? null,
+    drop_m: w.drop_m ?? null,
     type: w.type ?? null,
     notes: w.notes ?? null,
     lat: w.lat ?? null,
@@ -150,7 +120,7 @@ function withUid(rows: Waypoint[]): Waypoint[] {
 }
 
 function emptyWaypoint(): Waypoint {
-  return { uid: newUid(), name: "", elevation_m: null, distance_km: null, day_offset: 0, duration_min: null, type: null, notes: null, lat: null, lng: null, legKm: null };
+  return { uid: newUid(), name: "", elevation_m: null, distance_km: null, day_offset: 0, duration_min: null, drop_m: null, type: null, notes: null, lat: null, lng: null, legKm: null };
 }
 
 export default function RouteProfileModal({
@@ -271,6 +241,23 @@ export default function RouteProfileModal({
     type: w.type,
     notes: w.notes,
   })), [waypoints, hasDistances]);
+
+  /**
+   * 落差統計。最長繩距只看垂降 —— 那是決定帶幾條多長的繩的唯一數字。
+   * 落差合計是「已記錄障礙的總和」，不是實測垂直落差：同一處若同時能垂降或跳水，
+   * topo 記成一個點位就只算一次。
+   */
+  const dropStats = useMemo(() => {
+    const drops = waypoints.filter(hasDrop);
+    const rappels = drops.filter(w => w.type === "rappel");
+    return {
+      count: drops.length,
+      rappelCount: rappels.length,
+      longestRappel: rappels.length ? Math.max(...rappels.map(w => Number(w.drop_m))) : null,
+      total: drops.reduce((sum, w) => sum + Number(w.drop_m), 0),
+      max: drops.length ? Math.max(...drops.map(w => Number(w.drop_m))) : 0,
+    };
+  }, [waypoints]);
 
   /** 每一天在 X 軸上的起訖，用來畫背景色帶 */
   const dayRanges = useMemo(() => {
@@ -654,6 +641,17 @@ export default function RouteProfileModal({
                     onChange={v => updateDraft(i, { duration_min: v })}
                   />
                 </div>
+                {/* 落差只對垂降／下攀／跳水／滑降有意義；其他類型不顯示，避免填出無意義的數字 */}
+                {w.type && DROP_TYPES.has(w.type) && (
+                  <div className="grid grid-cols-3 gap-2 pl-6">
+                    <InputNumber
+                      min={0} step={1} suffix="m"
+                      placeholder="落差"
+                      value={w.drop_m}
+                      onChange={v => updateDraft(i, { drop_m: v })}
+                    />
+                  </div>
+                )}
                 {/* 累積值由系統算，填的是分段，這裡即時顯示到這個點為止的合計 */}
                 {(cumulative[i] != null || cumulativeMin[i] > 0) && (
                   <div className="pl-6 -mt-1 text-zinc-600 text-[11px] tabular-nums">
@@ -698,16 +696,20 @@ export default function RouteProfileModal({
                     allowClear
                     placeholder="點位類型"
                     value={w.type ?? undefined}
-                    onChange={v => updateDraft(i, { type: v ?? null })}
+                    onChange={v => updateDraft(i, {
+                      type: v ?? null,
+                      // 改成不會有落差的類型就把值清掉：只藏欄位的話，填過的 17m 會繼續存進資料庫
+                      ...(v && DROP_TYPES.has(v) ? {} : { drop_m: null }),
+                    })}
                     options={WAYPOINT_TYPE_GROUPS}
-                    className="cute-select"
+                   
                   />
                   <Select
                     placeholder="第幾天"
                     value={w.day_offset}
                     onChange={v => updateDraft(i, { day_offset: v })}
                     options={Array.from({ length: 8 }, (_, d) => ({ value: d, label: `第 ${d + 1} 天` }))}
-                    className="cute-select"
+                   
                   />
                   <Input
                     allowClear
@@ -899,8 +901,30 @@ export default function RouteProfileModal({
             危險點與脫逃點給邊框顏色，因為那兩類是絕對不能漏看的。
           */}
           <div className="flex flex-col gap-2 border-t border-white/[0.06] pt-3">
-            <div className="flex items-baseline justify-between gap-2">
+            <div className="flex items-baseline justify-between gap-2 flex-wrap">
               <span className="text-zinc-400 text-[12px] font-medium">途經點 {waypoints.length}</span>
+              {dropStats.count > 0 && (
+                <span className="flex items-center gap-2.5 text-[11px] tabular-nums">
+                  {dropStats.longestRappel !== null && (
+                    <span className="text-zinc-300">
+                      最長繩距 <span className="font-semibold">{dropStats.longestRappel} m</span>
+                    </span>
+                  )}
+                  {dropStats.rappelCount > 0 && (
+                    <span className="text-zinc-500">垂降 {dropStats.rappelCount} 段</span>
+                  )}
+                  <Tooltip
+                    title="已記錄障礙的落差總和，不是實測垂直落差 —— 同一處若同時能垂降或跳水，topo 記成一個點位就只算一次。"
+                    trigger={["hover", "click"]}
+                    styles={{ root: { maxWidth: 300 } }}
+                  >
+                    <span className="text-zinc-500 inline-flex items-center gap-1 cursor-help">
+                      落差合計 {Math.round(dropStats.total)} m
+                      <InfoIcon size={10} />
+                    </span>
+                  </Tooltip>
+                </span>
+              )}
               <span className="text-zinc-600 text-[11px]">
                 {stats.days > 1 ? `${stats.days} 天` : ""}
                 {!hasDistances && waypoints.length > 1 ? "　X 軸為等距排列（有點位沒填距離）" : ""}
@@ -910,7 +934,7 @@ export default function RouteProfileModal({
               {waypoints.map((w, i) => {
                 const accent = ROW_ACCENT[w.type ?? ""] ?? null;
                 const meta = [
-                  w.type ? TYPE_LABEL[w.type] ?? w.type : null,
+                  w.type ? WAYPOINT_TYPE_LABEL[w.type] ?? w.type : null,
                   w.elevation_m !== null ? `${w.elevation_m} m` : null,
                   w.distance_km !== null ? `${w.distance_km} km` : null,
                   w.duration_min ? fmtMinutes(w.duration_min) : null,
@@ -930,6 +954,25 @@ export default function RouteProfileModal({
                     {meta.length > 0 && (
                       <div className="pl-7 text-[11px] tabular-nums" style={{ color: accent?.text ?? "#71717a" }}>
                         {meta.join(" · ")}
+                      </div>
+                    )}
+                    {/* 長條寬度按落差比例 —— 一眼看出最長那段在哪，這是溪降真正需要的視覺化 */}
+                    {hasDrop(w) && dropStats.max > 0 && (
+                      <div className="pl-7 mt-1 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${(Number(w.drop_m) / dropStats.max) * 100}%`,
+                              background: Number(w.drop_m) === dropStats.longestRappel && w.type === "rappel"
+                                ? "linear-gradient(90deg,#a78bfa,#8b5cf6)"
+                                : "rgba(110,231,183,0.55)",
+                            }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-zinc-500 tabular-nums shrink-0 w-10 text-right">
+                          {w.drop_m} m
+                        </span>
                       </div>
                     )}
                     {w.notes && (
@@ -965,7 +1008,7 @@ function RouteTooltip({ active, payload }: {
     <div className="rounded-xl border border-white/10 bg-[#1c1c1f] px-2.5 py-1.5 text-[12px] shadow-lg max-w-[220px]">
       <div className="text-zinc-100 font-medium">
         {p.name}
-        {p.type ? `（${TYPE_LABEL[p.type] ?? p.type}）` : ""}
+        {p.type ? `（${WAYPOINT_TYPE_LABEL[p.type] ?? p.type}）` : ""}
       </div>
       {p.elevation != null && <div className="text-zinc-400 tabular-nums">{p.elevation} m</div>}
       {p.notes && <div className="text-zinc-500 mt-0.5 leading-relaxed">{p.notes}</div>}

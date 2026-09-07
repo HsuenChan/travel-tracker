@@ -4,9 +4,9 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, InputNumber, Skeleton, Timeline, App, Upload, Image, Slider } from "antd";
+import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, InputNumber, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
-import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon } from "@/app/components/Icons";
+import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon, SheetIcon } from "@/app/components/Icons";
 import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
 import ElevationSparkline from "@/app/components/ElevationSparkline";
 import { decideElevationDisplay } from "@/lib/elevationDisplay";
@@ -17,6 +17,7 @@ import QuillEditor from "@/app/components/QuillEditor";
 import QuickExpenseModal from "@/app/components/QuickExpenseModal";
 import { parseCoverPos, withCoverPos } from "@/lib/coverPos";
 import { compressImage } from "@/lib/compressImage";
+import { GoogleAuthError, clearGoogleAccessToken, preloadGoogleAuth, requestGoogleAccessToken } from "@/lib/googleAuth";
 
 const todayStr = dayjs().format("YYYY-MM-DD");
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -228,6 +229,13 @@ export default function ItineraryTab({
   // 未載入就傳 undefined，彈窗自己去撈。
   const [waypointsLoaded, setWaypointsLoaded] = useState(!!initialWaypoints);
   const [quickSaving, setQuickSaving] = useState(false);
+
+  // 匯出 Google Sheet
+  const [exporting, setExporting] = useState(false);
+  const loginEmailRef = useRef<string | null>(null);
+
+  // AI 選單（AI 排程 + 行程檢查，兩者打的是同一支 AI API）
+  const [aiMenuOpen, setAIMenuOpen] = useState(false);
 
   // Health check
   const [healthLoading, setHealthLoading] = useState(false);
@@ -610,6 +618,70 @@ export default function ItineraryTab({
       message.error("圖片上傳失敗，請再試一次");
     } finally {
       setUploadingCount((c) => c - 1);
+    }
+  }
+
+  // GIS 的 script 先載好，按下匯出時彈窗才算在點擊那個手勢裡、不會被瀏覽器擋掉
+  useEffect(() => {
+    if (readOnly || !isActive) return;
+    preloadGoogleAuth().catch(() => { });
+  }, [readOnly, isActive]);
+
+  /**
+   * 匯出成使用者自己 Google 帳號裡的試算表：當場向 Google 要一顆只能碰自建檔案的 token，
+   * 交給後端組表格。行程資料由後端重讀，匯出的內容一定是已存檔的版本。
+   */
+  async function handleExportSheet() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      if (loginEmailRef.current === null) {
+        try {
+          const meRes = await fetchWithAuth("/api/me");
+          if (meRes.ok) loginEmailRef.current = (await meRes.json()).email ?? "";
+        } catch { }
+      }
+      const accessToken = await requestGoogleAccessToken(loginEmailRef.current || undefined);
+      const res = await fetchWithAuth("/api/itinerary/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tripId, accessToken }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.code === "google_auth_required") {
+          clearGoogleAccessToken();
+          message.error("Google 授權已失效，請再按一次匯出重新授權");
+        } else if (data.code === "sheets_api_disabled") {
+          message.error("這個 Google 專案還沒啟用 Sheets API");
+        } else if (data.code === "empty") {
+          message.info("這趟還沒有行程可以匯出");
+        } else {
+          message.error("匯出失敗，請再試一次");
+        }
+        return;
+      }
+      window.open(data.url, "_blank", "noopener");
+      message.success(
+        <span>
+          已匯出到你的 Google 雲端硬碟 ·{" "}
+          <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline">開啟試算表</a>
+        </span>,
+        6
+      );
+    } catch (e) {
+      if (e instanceof GoogleAuthError) {
+        if (e.code === "cancelled") return;
+        message.error(
+          e.code === "popup_blocked" ? "Google 授權視窗被瀏覽器擋住了，請允許彈出視窗後再試"
+            : e.code === "no_client_id" ? "這個站台還沒設定 Google 用戶端 ID，無法匯出"
+              : "Google 授權失敗，請再試一次"
+        );
+      } else {
+        message.error("匯出失敗，請檢查網路連線");
+      }
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -1076,6 +1148,9 @@ export default function ItineraryTab({
     return [dateNode, ...continuingNodes, ...itemNodes];
   });
 
+  // 報告卡的「N 個建議」同一個算法：ok 不算問題
+  const healthSuggestions = healthReport?.filter((i) => i.level !== "ok").length ?? 0;
+
   return (
     <>
       <div className="my-3 flex items-center justify-between gap-2">
@@ -1083,22 +1158,72 @@ export default function ItineraryTab({
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
           {!readOnly && (
             <>
-              <button
-                onClick={() => { setAIModalOpen(true); setAIStep("prefs"); }}
-                className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer"
-                style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}
+              <Dropdown
+                trigger={["click"]}
+                open={aiMenuOpen}
+                onOpenChange={setAIMenuOpen}
+                popupRender={() => (
+                  <div className="bg-[#18181b] border border-white/[0.08] rounded-xl overflow-hidden shadow-2xl min-w-[212px]">
+                    <button
+                      onClick={() => { setAIModalOpen(true); setAIStep("prefs"); setAIMenuOpen(false); }}
+                      className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-white/[0.06] transition-colors cursor-pointer"
+                    >
+                      <SparkleIcon size={12} className="mt-0.5 shrink-0" stroke="#a78bfa" />
+                      <span>
+                        <span className="block text-zinc-200 text-[13px] font-medium">AI 排程</span>
+                        <span className="block text-zinc-500 text-[11px] mt-0.5">依偏好排出整趟行程</span>
+                      </span>
+                    </button>
+                    <div className="h-px bg-white/[0.06]" />
+                    <button
+                      onClick={() => { handleHealthCheck(); setAIMenuOpen(false); }}
+                      disabled={healthLoading}
+                      className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-white/[0.06] transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {healthLoading
+                        ? <LoadingOutlined style={{ fontSize: 12, marginTop: 2 }} />
+                        : <HealthIcon size={12} className="mt-0.5 shrink-0" />}
+                      <span>
+                        <span className="block text-zinc-200 text-[13px] font-medium">行程檢查</span>
+                        <span className="block text-zinc-500 text-[11px] mt-0.5">
+                          {healthLoading
+                            ? "檢查中…"
+                            : healthReport
+                              ? `已檢查 · ${healthSuggestions} 個建議`
+                              : "挑出時間衝突與空檔"}
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+                )}
               >
-                <SparkleIcon size={10} /> AI 排程
-              </button>
+                {/* 檢查過就在按鈕上留一個點：收進選單後，工具列仍看得出這趟檢查過了 */}
+                <button
+                  aria-label="AI 功能"
+                  aria-haspopup="menu"
+                  className="relative inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer"
+                  style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "#a78bfa" }}
+                >
+                  <SparkleIcon size={10} /> AI
+                  {healthReport && !healthLoading && (
+                    <span
+                      aria-hidden
+                      className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                      style={{
+                        background: healthSuggestions > 0 ? "#fbbf24" : "#4ade80",
+                        boxShadow: "0 0 0 2px #09090b",
+                      }}
+                    />
+                  )}
+                </button>
+              </Dropdown>
               <button
-                onClick={handleHealthCheck}
-                disabled={healthLoading}
-                className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
-                style={healthReport
-                  ? { background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }
-                  : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#71717a" }}
+                onClick={handleExportSheet}
+                disabled={exporting}
+                title="把每日行程匯出成 Google 試算表"
+                className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50"
               >
-                {healthLoading ? <LoadingOutlined style={{ fontSize: 10 }} /> : <HealthIcon size={11} />} 行程檢查
+                {exporting ? <LoadingOutlined style={{ fontSize: 10 }} /> : <SheetIcon size={11} />} 匯出
               </button>
               <button
                 onClick={() => openAdd()}
