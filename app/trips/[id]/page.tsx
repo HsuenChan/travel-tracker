@@ -28,6 +28,7 @@ import {
   CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
 } from "@/app/components/Icons";
 import { computeOutdoorTotals, type OutdoorTotals } from "@/lib/outdoorTotals";
+import { TRIP_TAB_KEYS, TRIP_TAB_LABEL } from "@/lib/tripTabs";
 import dayjs from "dayjs";
 
 interface Trip {
@@ -96,6 +97,12 @@ export default function TripPage() {
   const [bindingPerson, setBindingPerson] = useState<string | null>(null);
   const [showBindingPanel, setShowBindingPanel] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // 分享範圍：一趟一組設定，改完之後之前貼出去的同一條連結看到的範圍也跟著變
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareTabs, setShareTabs] = useState<string[]>([]);
+  const [shareOptions, setShareOptions] = useState<string[]>([]);
+  const [shareCopying, setShareCopying] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
@@ -482,7 +489,7 @@ export default function TripPage() {
     }
   }
 
-  async function handleShare() {
+  async function openShareModal() {
     setSharing(true);
     try {
       const res = await fetchWithAuth(`/api/trips/${id}/share`);
@@ -490,14 +497,43 @@ export default function TripPage() {
         messageApi.error("產生分享連結失敗，請再試一次");
         return;
       }
-      const { shareUrl } = await res.json();
-      const urlWithTab = `${shareUrl}${shareUrl.includes("?") ? "&" : "?"}tab=${activeTab}`;
-      await deliverLink(urlWithTab, `${trip?.name ?? "旅程"} - Travel Tracker`, "已複製分享連結");
+      const { shareUrl: url, sharedTabs, enabledTabs } = await res.json();
+      setShareUrl(url);
+      // 可選的只有這趟啟用的分頁；預設勾上次分享的範圍（沒設定過就是全部啟用的分頁）
+      setShareOptions(enabledTabs ?? TRIP_TAB_KEYS);
+      setShareTabs(sharedTabs ?? enabledTabs ?? TRIP_TAB_KEYS);
+      setShareModalOpen(true);
       setShowMoreSheet(false);
     } catch {
       messageApi.error("產生分享連結失敗，請檢查網路連線");
     } finally {
       setSharing(false);
+    }
+  }
+
+  async function handleCopyShareLink() {
+    setShareCopying(true);
+    try {
+      const res = await fetchWithAuth(`/api/trips/${id}/share`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tabs: shareTabs }),
+      });
+      if (!res.ok) {
+        messageApi.error("儲存分享範圍失敗，請再試一次");
+        return;
+      }
+      const { sharedTabs } = await res.json();
+      // 目前所在的分頁沒分享時就不帶 ?tab=，讓對方落在第一個看得到的分頁
+      const url = sharedTabs.includes(activeTab)
+        ? `${shareUrl}${shareUrl.includes("?") ? "&" : "?"}tab=${activeTab}`
+        : shareUrl;
+      await deliverLink(url, `${trip?.name ?? "旅程"} - Travel Tracker`, "已複製分享連結");
+      setShareModalOpen(false);
+    } catch {
+      messageApi.error("儲存分享範圍失敗，請檢查網路連線");
+    } finally {
+      setShareCopying(false);
     }
   }
 
@@ -566,6 +602,8 @@ export default function TripPage() {
   }
 
   const people = trip?.people ?? [];
+  // 綁定了 Google 帳號的分帳成員才認得出「我」；沒綁定時裝備頁只能顯示全隊總重
+  const myPersonName = memberLinks.find((l) => l.user_id && l.user_id === userId)?.person_name ?? null;
   const currencies = trip?.currency ? trip.currency.split(",") : ["TWD"];
   const primaryCurrency = currencies[0];
 
@@ -667,7 +705,7 @@ export default function TripPage() {
         {trip && (isMobile ? (
           <div className="flex gap-1.5 shrink-0">
             <button
-              onClick={handleShare}
+              onClick={openShareModal}
               disabled={sharing}
               aria-label="複製分享連結"
               className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
@@ -685,7 +723,7 @@ export default function TripPage() {
         ) : (
           <div className="flex gap-1.5 shrink-0">
             <button
-              onClick={handleShare}
+              onClick={openShareModal}
               disabled={sharing}
               title="分享旅程"
               className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
@@ -827,6 +865,50 @@ export default function TripPage() {
             ) : null
           }
         />
+
+        <Modal
+          open={shareModalOpen}
+          onCancel={() => setShareModalOpen(false)}
+          footer={null}
+          title="分享旅程"
+          centered
+        >
+          <div className="flex flex-col gap-3 pt-1">
+            <Typography.Text className="text-zinc-500 text-[13px]">
+              選擇這條連結要讓對方看到哪些分頁。沒勾的分頁不會出現在分享頁，資料也不會送到對方的瀏覽器。
+            </Typography.Text>
+            <div className="flex flex-wrap gap-1.5">
+              {shareOptions.map((key) => {
+                const on = shareTabs.includes(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setShareTabs((prev) => on ? prev.filter((k) => k !== key) : [...prev, key])}
+                    aria-pressed={on}
+                    className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3.5 border transition-all duration-200 cursor-pointer ${on
+                      ? "bg-white/10 border-white/20 text-white"
+                      : "bg-white/[0.03] border-white/8 text-zinc-500 hover:text-zinc-300"
+                      }`}
+                  >
+                    {TRIP_TAB_LABEL[key] ?? key}
+                  </button>
+                );
+              })}
+            </div>
+            <Typography.Text className="text-zinc-600 text-[12px]">
+              一趟旅程只有一條分享連結，改完之後之前貼出去的連結看到的範圍也會跟著變。
+            </Typography.Text>
+            <Button
+              type="primary"
+              block
+              loading={shareCopying}
+              disabled={shareTabs.length === 0}
+              onClick={handleCopyShareLink}
+            >
+              {shareTabs.length === 0 ? "至少選一個分頁" : "複製分享連結"}
+            </Button>
+          </div>
+        </Modal>
 
         <Modal
           open={showBindingPanel}
@@ -973,7 +1055,7 @@ export default function TripPage() {
                 )}
                 {activeTab === "notes" && <NotesTab tripId={id} />}
                 {activeTab === "souvenirs" && <SouvenirsTab tripId={id} />}
-                {activeTab === "gear" && <GearTab tripId={id} people={people} />}
+                {activeTab === "gear" && <GearTab tripId={id} people={people} myName={myPersonName} />}
                 {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} tripEndDate={trip.end_date} />}
                 {activeTab === "photos" && (
                   trip.photo_album_id ? (
@@ -1090,7 +1172,7 @@ export default function TripPage() {
           <div className="space-y-0.5">
             {/* Share */}
             <button
-              onClick={() => { handleShare(); }}
+              onClick={() => { openShareModal(); }}
               disabled={sharing}
               className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
             >

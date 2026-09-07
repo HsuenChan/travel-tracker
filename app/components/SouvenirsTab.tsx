@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Typography, Checkbox, Input, Button, App, Modal, Select, Skeleton, Upload } from "antd";
 import PillButton from "./PillButton";
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { motion } from "framer-motion";
 import { DeleteOutlined, EditOutlined, PictureOutlined, CloseOutlined, LoadingOutlined } from "@ant-design/icons";
 import { PlusIcon, GiftIcon, GridIcon, MenuListIcon } from "@/app/components/Icons";
@@ -25,9 +26,18 @@ interface Souvenir {
   is_checked: boolean;
 }
 
-export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: string, readOnly?: boolean }) {
-  const [items, setItems] = useState<Souvenir[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function SouvenirsTab({
+  tripId,
+  readOnly = false,
+  initialItems,
+}: {
+  tripId: string;
+  readOnly?: boolean;
+  /** 唯讀分享頁用：souvenirs 開了 RLS 之後匿名讀不到，資料由 /api/share/[token] 帶進來 */
+  initialItems?: Souvenir[];
+}) {
+  const [items, setItems] = useState<Souvenir[]>(initialItems || []);
+  const [loading, setLoading] = useState(!initialItems);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newNotes, setNewNotes] = useState("");
@@ -56,7 +66,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
       const fd = new FormData();
       fd.append("file", file);
       fd.append("tripId", tripId);
-      const res = await fetch("/api/itinerary/upload", { method: "POST", body: fd });
+      const res = await fetchWithAuth("/api/itinerary/upload", { method: "POST", body: fd });
       if (res.ok) {
         const data = await res.json();
         setNewImageUrl(data.url);
@@ -84,12 +94,22 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
     }
     if (!cached) setLoading(true);
 
-    const res = await fetch(`/api/souvenirs?tripId=${tripId}`);
-    if (res.ok) {
-      const data = await res.json();
-      setItems(data.items);
-      localStorage.setItem(cacheKey, JSON.stringify(data.items));
-      localStorage.setItem(`${cacheKey}:ts`, String(Date.now()));
+    // 失敗要說出來：快取留著（總比空白好），但不能讓上次的清單假裝是現在的狀態。
+    // 401 由 fetchWithAuth 直接送去登出，不會走到這裡。
+    try {
+      const res = await fetchWithAuth(`/api/souvenirs?tripId=${tripId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data.items);
+        localStorage.setItem(cacheKey, JSON.stringify(data.items));
+        localStorage.setItem(`${cacheKey}:ts`, String(Date.now()));
+      } else if (cached) {
+        message.error("讀取失敗，顯示的是上次的內容");
+      } else {
+        message.error("讀取失敗，請重新整理");
+      }
+    } catch {
+      message.error(cached ? "讀取失敗，顯示的是上次的內容" : "讀取失敗，請檢查網路連線");
     }
     setLoading(false);
   }
@@ -105,7 +125,16 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
     localStorage.setItem(VIEW_KEY, mode);
   }
 
-  useEffect(() => { restoreViewMode(); load(false); }, [tripId]);
+  useEffect(() => {
+    restoreViewMode();
+    if (initialItems) {
+      setItems(initialItems);
+      setLoading(false);
+    } else {
+      load(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripId, initialItems]);
 
   // Modal 狀態進 URL：手機返回鍵可關閉，行為與行程/費用一致
   useEffect(() => {
@@ -165,12 +194,12 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
 
     let res;
     if (editingItem) {
-      res = await fetch(`/api/souvenirs`, {
+      res = await fetchWithAuth(`/api/souvenirs`, {
         method: "PUT",
         body: JSON.stringify({ ...editingItem, name: newName, notes: newNotes, image_url: newImageUrl, tags: newTags }),
       });
     } else {
-      res = await fetch(`/api/souvenirs`, {
+      res = await fetchWithAuth(`/api/souvenirs`, {
         method: "POST",
         body: JSON.stringify({ tripId, name: newName, notes: newNotes, image_url: newImageUrl, tags: newTags }),
       });
@@ -190,7 +219,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
     // optimistic，失敗回滾
     setItems((prev) => prev.map(i => i.id === item.id ? { ...i, is_checked: !i.is_checked } : i));
     try {
-      const res = await fetch(`/api/souvenirs`, {
+      const res = await fetchWithAuth(`/api/souvenirs`, {
         method: "PUT",
         body: JSON.stringify({ ...item, is_checked: !item.is_checked }),
       });
@@ -212,7 +241,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
       cancelText: "取消",
       onOk: async () => {
         setItems((prev) => prev.filter(i => i.id !== id));
-        await fetch(`/api/souvenirs`, {
+        await fetchWithAuth(`/api/souvenirs`, {
           method: "DELETE",
           body: JSON.stringify({ id }),
         });
@@ -313,6 +342,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
         afterClose={() => { setNewName(""); setNewNotes(""); setNewImageUrl(""); setNewTags([]); }}
         footer={null}
         destroyOnHidden
+        centered
       >
         <div className="flex flex-col gap-4 mt-6">
           <div className="flex flex-col gap-1.5">
@@ -362,7 +392,7 @@ export default function SouvenirsTab({ tripId, readOnly = false }: { tripId: str
               placeholder="輸入標籤後按 Enter (例如：藥妝、幫代購)"
               value={newTags}
               onChange={setNewTags}
-              className="cute-select custom-tags-select"
+             
               options={
                 Array.from(new Set(items.flatMap(i => i.tags || []))).map(tag => ({
                   value: tag,
