@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Travel Tracker — Admin Design Guideline</title>
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  <style>
+    body { background: #09090b; color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #52525b; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .token-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .token-name { font-size: 11px; color: #71717a; font-family: monospace; width: 160px; flex-shrink: 0; }
+    .token-value { font-size: 11px; color: #a1a1aa; font-family: monospace; }
+    .token-desc { font-size: 11px; color: #52525b; margin-left: auto; }
+    .rule-block { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 14px 16px; }
+    .do-tag { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.25); color: #34d399; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .dont-tag { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.2); color: #f87171; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .fix-tag { background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.28); color: #fcd34d; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .ref { font-size: 11px; color: #52525b; }
+    .ref a, .ref code { color: #a1a1aa; font-family: monospace; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #a1a1aa; }
+    .demo { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 16px; }
+    .demo-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #3f3f46; margin-bottom: 10px; }
+    .nums { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="p-8 pb-24">
+<div class="max-w-3xl mx-auto space-y-20">
+
+  <!-- Title -->
+  <div class="pt-4">
+    <div class="text-xs text-zinc-600 uppercase tracking-widest mb-2">Travel Tracker · /admin</div>
+    <h1 class="text-3xl font-black text-zinc-100 mb-1">Admin Design Guideline</h1>
+    <p class="text-zinc-500 text-sm leading-relaxed">
+      後台專用補充。色票、字級、圓角階梯、glass、動效原則、間距與捲軸通則一律見
+      <code>design_guideline.html</code>，這裡不重複；只寫前台不太會遇到的畫面——資料密度的清單與表格、空資料、載入、破壞性動作、查詢列。
+      所有值取自 <code>app/admin</code>、<code>app/components/admin</code> 與 <code>app/globals.css</code> 的後台區塊。
+    </p>
+  </div>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       0. 與主 GUIDELINE 的關係
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">0 · 與主 Guideline 的關係</div>
+
+    <div class="grid sm:grid-cols-2 gap-3 mb-8">
+      <div class="rule-block">
+        <div class="text-xs font-bold text-zinc-300 mb-2">回主 guideline 查，不在這裡重複</div>
+        <ul class="text-[11px] text-zinc-500 space-y-1 leading-relaxed">
+          <li>· 背景階層、violet 主色、語意色</li>
+          <li>· 字級與字重、LINE Seed TC 使用時機</li>
+          <li>· 圓角階梯（full / 18 / 16 / 12 / 8）</li>
+          <li>· glass-premium、glass-heavy 配方</li>
+          <li>· Framer Motion 動效原則</li>
+          <li>· 全站 section 間距與分隔線</li>
+        </ul>
+      </div>
+      <div class="rule-block">
+        <div class="text-xs font-bold text-zinc-300 mb-2">只在這裡寫</div>
+        <ul class="text-[11px] text-zinc-500 space-y-1 leading-relaxed">
+          <li>· 資料密度版面（§1）</li>
+          <li>· 清單即表格、真表格規格（§2、§3）</li>
+          <li>· 空資料四種、載入、錯誤（§4）</li>
+          <li>· 動作徽章色語彙（§5）</li>
+          <li>· 破壞性與不可逆動作（§6）</li>
+          <li>· 分頁與即時更新（§7）</li>
+          <li>· 查詢列與 chips（§8）</li>
+          <li>· 數字與時間格式（§9）</li>
+          <li>· 焦點鍵盤、瀏覽器預設、存在性（§10–12）</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="text-xs text-zinc-500 font-semibold mb-3">三處校正 — 後台現況與主 guideline 打架，以主 guideline 為準</div>
+    <div class="space-y-3">
+      <div class="rule-block">
+        <div class="flex items-center gap-2 mb-2"><span class="fix-tag">校正 1</span><span class="text-xs font-bold text-zinc-300">捲軸沿用全站 6px</span></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          後台自己把捲軸放大到 10px（content-box 邊框做出內縮效果），全站規格是 6px。後台不需要另一套捲軸——
+          移除 <code>app/globals.css</code> 後台區塊裡的 <code>.admin-surface ::-webkit-scrollbar*</code> 三條覆寫，
+          保留 <code>scrollbar-width: thin</code> 與 <code>.chip-row</code> 的隱藏捲軸（那是元件層，不是主題層）。
+        </p>
+      </div>
+      <div class="rule-block">
+        <div class="flex items-center gap-2 mb-2"><span class="fix-tag">校正 2</span><span class="text-xs font-bold text-zinc-300">空狀態改回主 guideline 的結構</span></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          後台目前是虛線外框、無圖示、15px 粗體主文；主 guideline 的空狀態是置中 flex column ＋ 40–48px 圖示 ＋
+          <code>text-sm text-zinc-400</code> 主文 ＋ <code>text-xs text-zinc-600</code> 次文 ＋ 可選 ghost CTA。
+          後台改用同一個結構，只保留一個差異：圖示用線性 SVG，不用 emoji（§4）。
+        </p>
+      </div>
+      <div class="rule-block">
+        <div class="flex items-center gap-2 mb-2"><span class="fix-tag">校正 3</span><span class="text-xs font-bold text-zinc-300">容器用專案的 surface，列本身維持扁平</span></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          後台整頁沒有任何面，看起來才會「不像同一個專案」。規則分兩層：
+          <b class="text-zinc-400">容器</b>（結果清單、空狀態、錯誤框、表格）用 <code>rounded-2xl</code> ＋ <code>bg-white/[0.02]</code> ＋ <code>border-white/[0.06]</code>，
+          和 App 的 list card 同一種面；<b class="text-zinc-400">列</b>在容器內維持 hairline 分隔，不各自包成卡片。
+          glass-premium / glass-heavy 不進後台——重玻璃是 App hero 與 modal 的語彙，用在資料列上只會讓掃視變慢。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       1. 版面與密度
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">1 · 版面與密度</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-5">
+      後台是一個人帶著一個具體問題進來（「這筆怎麼不見了？」），第一個動作是打字，不是捲動。
+      版面替這件事服務：單欄、無側欄、查詢列吃掉第一個視窗的上三分之一，清單是查詢的回音。
+    </p>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">頁面容器</span><span class="token-value">mx-auto w-full max-w-5xl px-4 sm:px-6 pb-24</span><span class="token-desc">單欄；沒有表格的總覽頁內容收在 max-w-3xl</span></div>
+      <div class="token-row"><span class="token-name">頁面底</span><span class="token-value">min-h-dvh bg-[#09090b]</span><span class="token-desc">無 ambient gradient</span></div>
+      <div class="token-row"><span class="token-name">導覽列</span><span class="token-value">sticky top-0 z-30 h-16 bg-[#09090b]/70 backdrop-blur-md border-b border-white/[0.06]</span><span class="token-desc">與 App header 同規格</span></div>
+      <div class="token-row"><span class="token-name">列高</span><span class="token-value">py-3 · gap-2</span><span class="token-desc">不要撐成 App 卡片的 px-5 py-4</span></div>
+      <div class="token-row"><span class="token-name">分頁切換</span><span class="token-value">主 guideline 的 Segmented Control（.cute-segmented 的值）</span><span class="token-desc">後台不另做一套 nav</span></div>
+      <div class="token-row"><span class="token-name">section 標題</span><span class="token-value">text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500</span><span class="token-desc">配 ghost「查看全部」連結</span></div>
+      <div class="token-row"><span class="token-name">section 分隔</span><span class="token-value">hr my-7 border-white/[0.06]</span><span class="token-desc">不用實線灰</span></div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">Nav — 返回鈕與分頁切換都沿用 App 的元件規格</div>
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-400">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </div>
+        <nav class="inline-flex rounded-full border border-white/[0.05] bg-[#18181b]/85 p-1">
+          <span class="rounded-full px-3 py-[7px] text-[13px] font-semibold bg-violet-500/20 text-zinc-200">總覽</span>
+          <span class="rounded-full px-3 py-[7px] text-[13px] font-semibold text-zinc-500">異動</span>
+          <span class="rounded-full px-3 py-[7px] text-[13px] font-semibold text-zinc-500">登入</span>
+        </nav>
+      </div>
+    </div>
+
+    <div class="flex items-start gap-3">
+      <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+      <p class="text-[11px] text-zinc-500 leading-relaxed">
+        不要把後台做成「反向時間軸 ＋ 角落篩選器」。那是 feed，讀的人只能捲；後台要能回答一個指名道姓的問題。
+      </p>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       2. 清單即表格
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">2 · 事件列（手機的預設型態）</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-5">
+      手機上的資料列用 <code>&lt;ul&gt;</code> ＋ hairline 分隔，不用 <code>&lt;table&gt;</code>：手機優先是專案硬約束，
+      而表格在 375px 下只能橫捲。一列＝一筆事件，資訊順序固定，掃視才有節奏。
+      電腦版（≥768px）的異動與登入頁改用 §3 的表格，同一批資料兩種呈現，展開與還原的行為兩邊共用同一份元件。
+    </p>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">列結構</span><span class="token-value">徽章 → 標題 → meta 行</span><span class="token-desc">順序不可調換</span></div>
+      <div class="token-row"><span class="token-name">標題</span><span class="token-value">text-[15px] font-semibold text-zinc-100 truncate</span><span class="token-desc">一行，超出截斷</span></div>
+      <div class="token-row"><span class="token-name">meta 行</span><span class="token-value">text-[12px] text-zinc-500，以 · 分隔</span><span class="token-desc">最多三段：範圍 · 分類 · 時間</span></div>
+      <div class="token-row"><span class="token-name">分隔線</span><span class="token-value">border-b border-white/[0.05] last:border-b-0</span><span class="token-desc">不用斑馬紋</span></div>
+      <div class="token-row"><span class="token-name">可展開列</span><span class="token-value">左半整塊是 button ＋ aria-expanded，chevron 旋轉 180°</span><span class="token-desc">展開內容套 .admin-reveal</span></div>
+      <div class="token-row"><span class="token-name">列上的動作</span><span class="token-value">固定在列右側，shrink-0</span><span class="token-desc">不藏進展開區、不另開頁</span></div>
+      <div class="token-row"><span class="token-name">數字欄</span><span class="token-value">.admin-nums（tabular-nums）</span><span class="token-desc">時間、IP、次數一律掛</span></div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">Row — 收合 / 展開</div>
+      <ul>
+        <li class="border-b border-white/[0.05]">
+          <div class="flex items-start gap-2 py-3">
+            <div class="min-w-0 flex-1 px-2 py-1">
+              <div class="flex items-center gap-2">
+                <span class="shrink-0 rounded-full px-2 py-[3px] text-[11px] font-bold leading-none" style="background:rgba(251,113,133,0.12);color:#fda4af;box-shadow:inset 0 0 0 1px rgba(251,113,133,0.30)">刪除</span>
+                <span class="min-w-0 flex-1 truncate text-[15px] font-semibold text-zinc-100">梵蒂岡博物館＆西斯汀教堂</span>
+                <svg class="shrink-0 text-zinc-600" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <div class="mt-1 flex flex-wrap items-center gap-x-1.5 text-[12px] text-zinc-500">
+                <span>義大利</span><span class="text-zinc-700">·</span><span>行程</span><span class="text-zinc-700">·</span><span class="nums">3 小時前</span>
+              </div>
+            </div>
+            <button class="mt-0.5 flex shrink-0 items-center gap-1 rounded-full border border-amber-300/25 px-2.5 py-1 text-[12px] font-semibold text-amber-200/90">還原</button>
+          </div>
+        </li>
+        <li>
+          <div class="flex items-start gap-2 py-3">
+            <div class="min-w-0 flex-1 px-2 py-1">
+              <div class="flex items-center gap-2">
+                <span class="shrink-0 rounded-full px-2 py-[3px] text-[11px] font-bold leading-none" style="background:rgba(167,139,250,0.12);color:#c4b5fd;box-shadow:inset 0 0 0 1px rgba(167,139,250,0.30)">修改</span>
+                <span class="min-w-0 flex-1 truncate text-[15px] font-semibold text-zinc-100">B&amp;B Il Parco</span>
+                <svg class="shrink-0 text-zinc-600 rotate-180" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <div class="mt-1 flex flex-wrap items-center gap-x-1.5 text-[12px] text-zinc-500">
+                <span>義大利</span><span class="text-zinc-700">·</span><span>行程</span><span class="text-zinc-700">·</span><span class="nums">昨天 21:04</span>
+              </div>
+            </div>
+          </div>
+          <div class="pb-3 pl-1 text-[13px]">
+            <dl class="space-y-1.5">
+              <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+                <dt class="shrink-0 text-zinc-500 sm:w-20 sm:text-right">入住</dt>
+                <dd class="flex min-w-0 flex-1 flex-wrap items-baseline gap-1.5">
+                  <span class="nums" style="color:#a1a1aa">2026-10-04 15:00</span>
+                  <svg class="shrink-0 text-zinc-600" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                  <span class="nums" style="color:#e4e4e7">2026-10-05 15:00</span>
+                </dd>
+              </div>
+              <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+                <dt class="shrink-0 text-zinc-500 sm:w-20 sm:text-right">備註</dt>
+                <dd class="flex min-w-0 flex-1 flex-wrap items-baseline gap-1.5">
+                  <span class="italic" style="color:#71717a">（空）</span>
+                  <svg class="shrink-0 text-zinc-600" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                  <span style="color:#e4e4e7">已付訂金</span>
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="space-y-2">
+      <div class="flex items-start gap-3">
+        <span class="do-tag shrink-0 mt-0.5">DO</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          diff 一律「舊值 → 新值」並排，舊值 <code>#a1a1aa</code>、新值 <code>#e4e4e7</code>，空值寫「（空）」並用斜體 <code>#71717a</code>。
+          富文字欄位先去標籤再截斷到 140 字，HTML 進到 diff 只會變成一團尖括號。
+        </p>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          展開不要用 height 動畫——下面整串列表會在過程中一直抖。用 <code>clip-path</code>（<code>.admin-reveal</code>），列是被「掀」開的。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       3. 真表格
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">3 · 真的要用 &lt;table&gt; 的時候</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-5">
+      只有同時滿足三個條件才用表格：欄位 ≥ 4、讀的人需要跨列比較同一欄、而且是桌機。
+      手機一律退回 §2 的列——表格不做 responsive 變形，是直接換元件（<code>window.innerWidth &lt; 768</code> 切換）。
+      目前異動頁（動作／對象／旅程／分頁／時間／還原）與登入頁（動作／帳號／裝置／IP／時間）都符合這三個條件，已經是表格；
+      總覽頁的「最新異動」只有幾筆摘要，維持列。表格頁的容器放寬到 <code>max-w-5xl</code>，總覽維持 <code>max-w-3xl</code>。
+    </p>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">容器</span><span class="token-value">rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden</span><span class="token-desc">校正 3 的面</span></div>
+      <div class="token-row"><span class="token-name">表頭</span><span class="token-value">text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-600</span><span class="token-desc">不給背景色，只給下框線</span></div>
+      <div class="token-row"><span class="token-name">表頭框線</span><span class="token-value">border-b border-white/[0.08]</span><span class="token-desc">比列的分隔線重一階</span></div>
+      <div class="token-row"><span class="token-name">儲存格</span><span class="token-value">px-4 py-2.5 text-[13px]</span><span class="token-desc">比 App 表格密</span></div>
+      <div class="token-row"><span class="token-name">對齊</span><span class="token-value">文字靠左；數字、時間、金額靠右 ＋ .admin-nums</span><span class="token-desc">同欄數字要能上下對齊</span></div>
+      <div class="token-row"><span class="token-name">列 hover</span><span class="token-value">hover:bg-white/[0.03]</span><span class="token-desc">不用斑馬紋</span></div>
+      <div class="token-row"><span class="token-name">橫向捲動</span><span class="token-value">只允許 overflow-x-auto 在表格自己身上</span><span class="token-desc">頁面本身永不橫捲</span></div>
+      <div class="token-row"><span class="token-name">欄寬</span><span class="token-value">table-fixed ＋ colgroup 指定寬度，主要欄位留 auto</span><span class="token-desc">truncate 才會生效</span></div>
+      <div class="token-row"><span class="token-name">展開</span><span class="token-value">同一筆事件再接一個 colspan 的 &lt;tr&gt;</span><span class="token-desc">展開時上一列拿掉 border-b</span></div>
+      <div class="token-row"><span class="token-name">列的互動</span><span class="token-value">tr 上掛 tabIndex／aria-expanded／Enter·Space</span><span class="token-desc">列內按鈕要 stopPropagation</span></div>
+      <div class="token-row"><span class="token-name">沒有值</span><span class="token-value">— （text-zinc-700）</span><span class="token-desc">不要留空白儲存格</span></div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">Table — 桌機、欄位 ≥ 4</div>
+      <div class="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="border-b border-white/[0.08]">
+              <th class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-600">裝置</th>
+              <th class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-600">IP</th>
+              <th class="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-600">次數</th>
+              <th class="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-600">最近一次</th>
+            </tr>
+          </thead>
+          <tbody class="text-[13px] text-zinc-300">
+            <tr class="border-b border-white/[0.05]">
+              <td class="px-4 py-2.5">macOS · Chrome</td>
+              <td class="px-4 py-2.5 nums text-zinc-400">203.0.113.8</td>
+              <td class="px-4 py-2.5 text-right nums">42</td>
+              <td class="px-4 py-2.5 text-right nums text-zinc-400">3 小時前</td>
+            </tr>
+            <tr class="border-b border-white/[0.05]">
+              <td class="px-4 py-2.5">iPhone · Safari</td>
+              <td class="px-4 py-2.5 nums text-zinc-400">198.51.100.24</td>
+              <td class="px-4 py-2.5 text-right nums">9</td>
+              <td class="px-4 py-2.5 text-right nums text-zinc-400">昨天 08:12</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2.5">未知裝置</td>
+              <td class="px-4 py-2.5 nums text-zinc-400">192.0.2.77</td>
+              <td class="px-4 py-2.5 text-right nums text-rose-300">3</td>
+              <td class="px-4 py-2.5 text-right nums text-zinc-400">09/02 23:41</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <div class="flex items-start gap-3">
+        <span class="do-tag shrink-0 mt-0.5">DO</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">表格沒有資料時不要只留一排表頭：整個表格換成 §4 的空狀態。</p>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          不用斑馬紋。深色底上的交替列會變成噪點，反而看不出列與列的界線；分隔線已經夠了。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       4. 空資料 / 載入 / 錯誤
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">4 · 空資料、載入、錯誤</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-5">
+      前台的空狀態通常只有一種「還沒有東西」；後台有四種，而且它們要講的話完全不同。
+      文案公式固定：<b class="text-zinc-300">第一行說為什麼空，第二行說下一步</b>。不准出現「暫無資料」「查無資料」這種只講狀態、不講原因的字。
+    </p>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">① 尚未累積</span><span class="token-value">功能剛上線、還沒產生資料</span><span class="token-desc">說明從何時開始記，怎麼產生第一筆</span></div>
+      <div class="token-row"><span class="token-name">② 查不到</span><span class="token-value">有查詢條件但無結果</span><span class="token-desc">建議放寬，配 ghost CTA 清除條件</span></div>
+      <div class="token-row"><span class="token-name">③ 被時間窗篩掉</span><span class="token-value">預設只看近 24 小時</span><span class="token-desc">不是空狀態，是一行 12px 提示</span></div>
+      <div class="token-row"><span class="token-name">④ 讀取失敗</span><span class="token-value">API 掛了或網路斷了</span><span class="token-desc">rose 框，明說可以重試</span></div>
+    </div>
+
+    <div class="text-xs text-zinc-500 font-semibold mb-3">空狀態結構（校正 2 之後）</div>
+    <div class="demo mb-4">
+      <div class="demo-label">① 尚未累積</div>
+      <div class="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-10 flex flex-col items-center text-center">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" class="mb-3"><path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/></svg>
+        <p class="text-sm text-zinc-400">還沒有任何異動紀錄</p>
+        <p class="mt-1 text-xs text-zinc-600 leading-relaxed">紀錄從這支功能上線後開始累積。在旅程裡改一筆東西，它就會出現在這裡。</p>
+      </div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">② 查不到 — 唯一帶 CTA 的空狀態</div>
+      <div class="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-10 flex flex-col items-center text-center">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" class="mb-3"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <p class="text-sm text-zinc-400">這個條件找不到東西</p>
+        <p class="mt-1 text-xs text-zinc-600 leading-relaxed">換個關鍵字，或把條件拿掉一個再試。</p>
+        <button class="mt-4 h-9 px-4 rounded-full border border-white/[0.08] text-xs font-semibold text-zinc-400">清除條件</button>
+      </div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">③ 被時間窗篩掉 — 不是空狀態，是提示行</div>
+      <p class="text-[12px] text-zinc-600">顯示最近 24 小時。要看更早的，打個關鍵字或按「近 7 天」。</p>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">④ 讀取失敗</div>
+      <div class="rounded-2xl border border-rose-400/20 bg-rose-400/[0.06] px-4 py-5 text-[14px] text-rose-200">
+        讀不到異動紀錄，請重新整理再試一次。
+      </div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">載入中 — skeleton 的高度等於真實列高</div>
+      <ul class="space-y-3">
+        <li class="h-14 rounded-xl bg-white/[0.03]"></li>
+        <li class="h-14 rounded-xl bg-white/[0.03]"></li>
+        <li class="h-14 rounded-xl bg-white/[0.03]"></li>
+      </ul>
+    </div>
+
+    <div class="space-y-2">
+      <div class="flex items-start gap-3">
+        <span class="do-tag shrink-0 mt-0.5">DO</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          skeleton 用 <code>.admin-pulse</code>、3–4 條、<code>h-14 rounded-xl bg-white/[0.03]</code>，並掛 <code>aria-hidden</code>；
+          數量與高度要對得上真實列，否則資料進來時整頁會跳。
+        </p>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          後台的空狀態不用 emoji 圖示。前台用 emoji 是語氣的一部分，後台在回答「東西到哪去了」，插圖會讓人以為出了別的事。
+        </p>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">錯誤不要用 toast 打發。整塊區域讀不到就該在那塊區域說，toast 會在使用者還沒看到前就消失。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       5. 動作徽章
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">5 · 動作徽章色語彙</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-5">
+      徽章的顏色只代表<b class="text-zinc-300">動作類別</b>，不代表嚴重度、不代表成功失敗。
+      一律 <code>rounded-full px-2 py-[3px] text-[11px] font-bold</code>，底色 12% 不透明度、文字取該色的 300 階、外框用 <code>inset box-shadow</code>。
+    </p>
+
+    <div class="demo mb-5">
+      <div class="demo-label">七種，目前就是全部</div>
+      <div class="flex flex-wrap gap-2">
+        <span class="rounded-full px-2 py-[3px] text-[11px] font-bold leading-none" style="background:rgba(52,211,153,0.12);color:#6ee7b7;box-shadow:inset 0 0 0 1px rgba(52,211,153,0.28)">新增</span>
+        <span class="rounded-full px-2 py-[3px] text-[11px] font-bold leading-none" style="background:rgba(167,139,250,0.12);color:#c4b5fd;box-shadow:inset 0 0 0 1px rgba(167,139,250,0.30)">修改</span>
+        <span class="rounded-full px-2 py-[3px] text-[11px] font-bold leading-none" style="background:rgba(251,113,133,0.12);color:#fda4af;box-shadow:inset 0 0 0 1px rgba(251,113,133,0.30)">刪除</span>
+        <span class="rounded-full px-2 py-[3px] text-[11px] font-bold leading-none" style="background:rgba(251,191,36,0.12);color:#fcd34d;box-shadow:inset 0 0 0 1px rgba(251,191,36,0.30)">還原</span>
+        <span class="rounded-full px-2 py-[3px] text-[11px] font-bold leading-none" style="background:rgba(96,165,250,0.12);color:#93c5fd;box-shadow:inset 0 0 0 1px rgba(96,165,250,0.30)">登入</span>
+        <span class="rounded-full px-2 py-[3px] text-[11px] font-bold leading-none" style="background:rgba(161,161,170,0.10);color:#d4d4d8;box-shadow:inset 0 0 0 1px rgba(161,161,170,0.26)">登出</span>
+        <span class="rounded-full px-2 py-[3px] text-[11px] font-bold leading-none" style="background:rgba(251,113,133,0.16);color:#fda4af;box-shadow:inset 0 0 0 1px rgba(251,113,133,0.40)">登入失敗</span>
+      </div>
+    </div>
+
+    <div class="space-y-0 mb-5">
+      <div class="token-row"><span class="token-name">create / 新增</span><span class="token-value">emerald · rgba(52,211,153,…)</span><span class="token-desc">資料被造出來</span></div>
+      <div class="token-row"><span class="token-name">update / 修改</span><span class="token-value">violet · rgba(167,139,250,…)</span><span class="token-desc">專案主色，最常見</span></div>
+      <div class="token-row"><span class="token-name">delete / 刪除</span><span class="token-value">rose · rgba(251,113,133,…)</span><span class="token-desc">資料消失</span></div>
+      <div class="token-row"><span class="token-name">restore / 還原</span><span class="token-value">amber · rgba(251,191,36,…)</span><span class="token-desc">與還原按鈕同色系</span></div>
+      <div class="token-row"><span class="token-name">login / logout</span><span class="token-value">blue · zinc</span><span class="token-desc">身分事件，與資料事件分色</span></div>
+      <div class="token-row"><span class="token-name">login_failed</span><span class="token-value">rose，不透明度提到 16% / 外框 40%</span><span class="token-desc">唯一被允許加重的例外</span></div>
+    </div>
+
+    <div class="flex items-start gap-3">
+      <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+      <p class="text-[11px] text-zinc-500 leading-relaxed">
+        新增動作類別時不要發明新顏色。先問它能不能歸進新增／修改／刪除／還原四類；真的不行才討論，一個 surface 撐不起第八種顏色。
+      </p>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       6. 破壞性與不可逆動作
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">6 · 破壞性與不可逆動作</div>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">位置</span><span class="token-value">長在那一列上</span><span class="token-desc">不另開詳細頁、不另開管理模式</span></div>
+      <div class="token-row"><span class="token-name">樣式</span><span class="token-value">border border-amber-300/25 text-amber-200/90，hover 才填色</span><span class="token-desc">outline 而非實心：這不是主要動作</span></div>
+      <div class="token-row"><span class="token-name">進行中</span><span class="token-value">文字換成「還原中」＋ disabled:opacity-40</span><span class="token-desc">不用轉圈圖示佔位</span></div>
+      <div class="token-row"><span class="token-name">不可用</span><span class="token-value">整顆不渲染</span><span class="token-desc">不給一顆按不動的按鈕</span></div>
+      <div class="token-row"><span class="token-name">完成回饋</span><span class="token-value">antd message ＋ 重新查一次</span><span class="token-desc">不用 modal 慶祝</span></div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">還原鈕的三個狀態</div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button class="flex items-center gap-1 rounded-full border border-amber-300/25 px-2.5 py-1 text-[12px] font-semibold text-amber-200/90">還原</button>
+        <button class="flex items-center gap-1 rounded-full border border-amber-300/50 bg-amber-300/10 px-2.5 py-1 text-[12px] font-semibold text-amber-200/90">還原</button>
+        <button class="flex items-center gap-1 rounded-full border border-amber-300/25 px-2.5 py-1 text-[12px] font-semibold text-amber-200/90 opacity-40">還原中</button>
+        <span class="ref">預設 · hover · 進行中</span>
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <div class="flex items-start gap-3">
+        <span class="do-tag shrink-0 mt-0.5">DO</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          動作本身要留紀錄。還原會產生一筆 <code>restore</code> 事件，後台自己的操作也在同一份帳上——否則沒有人能回答「是誰把它還原的」。
+        </p>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="do-tag shrink-0 mt-0.5">DO</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          二次確認只留給「不可逆且會覆蓋現有資料」的動作。還原留得下紀錄、可以再還原回去，就不要再攔一次——每一次多餘的確認都在訓練使用者閉著眼睛按下一步。
+        </p>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          後台的動作按鈕不用紅色實心。紅色在這個 surface 已經有意思了（刪除徽章、錯誤框），再拿去當按鈕會讓「讀到的事」和「要做的事」混在一起。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       7. 分頁與即時更新
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">7 · 分頁與即時更新</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-5">
+      這一節只有一條核心規則：<b class="text-zinc-300">正在讀的畫面不准被搬動</b>。
+      後台的人正盯著某一列看，任何自動插入、自動捲動、自動重排都會讓他失去位置。
+    </p>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">往下讀</span><span class="token-value">「載入更早的」全寬 ghost 按鈕</span><span class="token-desc">不用無限捲動</span></div>
+      <div class="token-row"><span class="token-name">按鈕樣式</span><span class="token-value">w-full rounded-full border-white/[0.08] py-2.5 text-[13px] font-semibold text-zinc-400</span><span class="token-desc">載入中換字 ＋ disabled:opacity-50</span></div>
+      <div class="token-row"><span class="token-name">輪詢</span><span class="token-value">20 秒，分頁隱藏時跳過</span><span class="token-desc">失敗不打擾，下一輪再試</span></div>
+      <div class="token-row"><span class="token-name">新資料</span><span class="token-value">排在計數 pill 後面等人收下</span><span class="token-desc">收下時才套 .admin-reveal 進場</span></div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">新資料的計數 pill 與分頁按鈕</div>
+      <button class="mb-3 flex w-full items-center justify-center gap-2 rounded-full border border-violet-400/25 bg-violet-400/10 py-2 text-[13px] font-semibold text-violet-200">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        3 筆新異動
+      </button>
+      <button class="w-full rounded-full border border-white/[0.08] py-2.5 text-[13px] font-semibold text-zinc-400">載入更早的</button>
+    </div>
+
+    <div class="flex items-start gap-3">
+      <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+      <p class="text-[11px] text-zinc-500 leading-relaxed">
+        不要讓輪詢直接把新列插進清單。一旦插入，這個畫面就從「查詢結果」退化成 feed，而 feed 回答不了指名道姓的問題。
+      </p>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       8. 查詢列與 chips
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">8 · 查詢列與 chips</div>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">查詢列</span><span class="token-value">h-14 rounded-2xl border-white/[0.08] bg-white/[0.03] pl-12 pr-11</span><span class="token-desc">左 icon、右清除鈕</span></div>
+      <div class="token-row"><span class="token-name">字級</span><span class="token-value">text-[16px]</span><span class="token-desc">低於 16px 時 iOS 會自動放大整頁</span></div>
+      <div class="token-row"><span class="token-name">focus</span><span class="token-value">focus:border-violet-400/40</span><span class="token-desc">邊框規格見主 guideline 的 Form Inputs</span></div>
+      <div class="token-row"><span class="token-name">chips</span><span class="token-value">rounded-full px-3 py-1.5 text-[13px]；已選 bg-violet-400/15 ＋ ring-inset ring-violet-400/30</span><span class="token-desc">aria-pressed</span></div>
+      <div class="token-row"><span class="token-name">chip row 手機</span><span class="token-value">-mx-4 px-4 overflow-x-auto ＋ .chip-row</span><span class="token-desc">橫捲但不露捲軸</span></div>
+      <div class="token-row"><span class="token-name">debounce</span><span class="token-value">300ms</span><span class="token-desc">同時把查詢寫進網址 ?q=</span></div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">Query bar ＋ chips</div>
+      <div class="relative">
+        <svg class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <div class="flex h-14 w-full items-center rounded-2xl border border-white/[0.08] bg-white/[0.03] pl-12 pr-11 text-[16px] text-zinc-600">找一筆異動：名稱、旅程，或 action:delete</div>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-1.5">
+        <span class="rounded-full px-3 py-1.5 text-[13px] font-medium bg-violet-400/15 text-violet-200 ring-1 ring-inset ring-violet-400/30">刪除</span>
+        <span class="rounded-full px-3 py-1.5 text-[13px] font-medium bg-white/[0.04] text-zinc-400">修改</span>
+        <span class="rounded-full px-3 py-1.5 text-[13px] font-medium bg-white/[0.04] text-zinc-400">近 7 天</span>
+        <span class="rounded-full px-3 py-1.5 text-[13px] font-medium bg-white/[0.04] text-zinc-400">行程</span>
+        <span class="rounded-full px-3 py-1.5 text-[13px] font-medium bg-white/[0.04] text-zinc-400">費用</span>
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <div class="flex items-start gap-3">
+        <span class="do-tag shrink-0 mt-0.5">DO</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          chips 必須能組出任何一個查詢，不靠打字也成立——手機上打字成本太高，只要有一種查詢只能用鍵盤達成，這個版面在手機上就死了。
+        </p>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="do-tag shrink-0 mt-0.5">DO</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          查詢要寫進網址。一條連結就能把「我是怎麼找到這筆的」交給未來的自己，這是後台最常被重複的動作。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       9. 數字與時間
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">9 · 數字與時間格式</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-5">
+      「45 天前」沒有人在心裡換算得出來，「2026/09/02 23:41」也不會讓人立刻知道是不是剛剛。
+      門檻定死，不要每個頁面各寫一套。
+    </p>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">&lt; 1 分鐘</span><span class="token-value">剛剛</span><span class="token-desc"></span></div>
+      <div class="token-row"><span class="token-name">&lt; 60 分鐘</span><span class="token-value">X 分鐘前</span><span class="token-desc"></span></div>
+      <div class="token-row"><span class="token-name">&lt; 24 小時</span><span class="token-value">X 小時前</span><span class="token-desc"></span></div>
+      <div class="token-row"><span class="token-name">&lt; 48 小時</span><span class="token-value">昨天 HH:mm</span><span class="token-desc"></span></div>
+      <div class="token-row"><span class="token-name">同年</span><span class="token-value">MM/DD HH:mm</span><span class="token-desc"></span></div>
+      <div class="token-row"><span class="token-name">跨年</span><span class="token-value">YYYY/MM/DD</span><span class="token-desc"></span></div>
+      <div class="token-row"><span class="token-name">展開後</span><span class="token-value">YYYY/MM/DD HH:mm 絕對時間</span><span class="token-desc">列上給相對，細節給絕對</span></div>
+    </div>
+
+    <div class="demo mb-4">
+      <div class="demo-label">tabular-nums 的差別 — 同一欄的數字要能上下對齊</div>
+      <div class="grid grid-cols-2 gap-6 text-[13px]">
+        <div>
+          <div class="ref mb-2">沒有 .admin-nums</div>
+          <div class="text-zinc-400">203.0.113.8</div>
+          <div class="text-zinc-400">198.51.100.24</div>
+          <div class="text-zinc-400">192.0.2.77</div>
+        </div>
+        <div>
+          <div class="ref mb-2">.admin-nums</div>
+          <div class="nums text-zinc-300">203.0.113.8</div>
+          <div class="nums text-zinc-300">198.51.100.24</div>
+          <div class="nums text-zinc-300">192.0.2.77</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-start gap-3">
+      <span class="do-tag shrink-0 mt-0.5">DO</span>
+      <p class="text-[11px] text-zinc-500 leading-relaxed">
+        列表只給裝置的短描述（<code>describeDevice()</code>，例如「macOS · Chrome」），完整 User-Agent 字串放展開區並 <code>break-words</code>。
+        UA 字串塞進列會把標題擠掉，而它只在追查時才需要。
+      </p>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       10. 焦點與鍵盤
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">10 · 焦點與鍵盤</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-5">
+      後台是唯一會被純鍵盤操作的畫面：打字查詢、Tab 到某一列、Enter 展開、Tab 到還原。焦點必須看得見。
+    </p>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">.admin-focus</span><span class="token-value">outline 2px #a78bfa · offset 2px · radius 12px</span><span class="token-desc">只在 :focus-visible 出現</span></div>
+      <div class="token-row"><span class="token-name">滑鼠點擊</span><span class="token-value">:focus:not(:focus-visible) { outline: none }</span><span class="token-desc">點擊不該留下框</span></div>
+      <div class="token-row"><span class="token-name">可展開列</span><span class="token-value">aria-expanded；不可展開時整顆 disabled</span><span class="token-desc">別讓 Tab 停在按不動的東西上</span></div>
+      <div class="token-row"><span class="token-name">chips</span><span class="token-value">aria-pressed</span><span class="token-desc">狀態不能只靠顏色</span></div>
+      <div class="token-row"><span class="token-name">導覽</span><span class="token-value">aria-current="page"</span><span class="token-desc"></span></div>
+      <div class="token-row"><span class="token-name">頁面標題</span><span class="token-value">每頁一個 h1，視覺上不需要時用 sr-only</span><span class="token-desc"></span></div>
+      <div class="token-row"><span class="token-name">skeleton</span><span class="token-value">aria-hidden</span><span class="token-desc">讀螢幕不用聽假資料</span></div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-label">Focus ring</div>
+      <button class="rounded-full border border-white/[0.08] px-4 py-2 text-[13px] font-semibold text-zinc-300" style="outline:2px solid #a78bfa;outline-offset:2px">鍵盤焦點的樣子</button>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       11. 瀏覽器預設
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">11 · 接手瀏覽器預設</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-5">
+      瀏覽器會自己畫一堆東西：選取色、游標、search 的清除鈕、捲軸。這些不屬於任何設計系統，不接手就會在深色底上露出來。
+      整個後台掛在 <code>.admin-surface</code> 下統一處理。
+    </p>
+
+    <div class="space-y-0 mb-6">
+      <div class="token-row"><span class="token-name">::selection</span><span class="token-value">rgba(167,139,250,0.28) / #f4f4f5</span><span class="token-desc">預設的藍色會撞到主色</span></div>
+      <div class="token-row"><span class="token-name">caret-color</span><span class="token-value">#a78bfa</span><span class="token-desc">游標也是品牌的一部分</span></div>
+      <div class="token-row"><span class="token-name">input[type=search]</span><span class="token-value">關掉 WebKit 的 decoration / cancel-button</span><span class="token-desc">清除鈕自己畫</span></div>
+      <div class="token-row"><span class="token-name">捲軸</span><span class="token-value">沿用全站 6px（校正 1）</span><span class="token-desc">後台不另立一套</span></div>
+      <div class="token-row"><span class="token-name">.chip-row</span><span class="token-value">scrollbar-width: none ＋ ::-webkit-scrollbar { display:none }</span><span class="token-desc">元件層，可以保留</span></div>
+      <div class="token-row"><span class="token-name">reduced-motion</span><span class="token-value">.admin-reveal 關閉；.admin-pulse 關閉並固定 opacity .7</span><span class="token-desc">兩個動畫都要有退路</span></div>
+    </div>
+
+    <div class="rule-block mb-3">
+      <div class="text-xs font-bold text-zinc-300 mb-2">antd 的連結樣式會蓋掉 Tailwind</div>
+      <p class="text-[11px] text-zinc-500 leading-relaxed">
+        antd 把 <code>:where(.css-…) a { color; background-color }</code> 以 <b class="text-zinc-400">無 layer</b> 的形式注入，
+        而 Tailwind v4 的 utilities 全在 <code>@layer</code> 裡——無 layer 一律贏過 layered，和特異性無關。
+        所以 <code>&lt;Link&gt;</code> 上的顏色與底色一定要加 <code>!</code>（<code>!text-zinc-500</code>、<code>!bg-violet-500/20</code>），
+        否則整排導覽會安靜地變成 antd 的連結藍。border 與間距不受影響。
+      </p>
+    </div>
+
+    <div class="rule-block">
+      <div class="text-xs font-bold text-zinc-300 mb-2">後台唯一被編排過的動作</div>
+      <p class="text-[11px] text-zinc-500 leading-relaxed">
+        <code>.admin-reveal</code>：<code>clip-path: inset(0 0 100% 0)</code> ＋ blur 3px 解析，420ms
+        <code>cubic-bezier(0.16, 1, 0.3, 1)</code>。列是被「掀」開讓人看見 diff，而不是把下面的清單推走。
+        這是這個 surface 僅有的一段編排動作——再加第二段就會把它稀釋掉。
+      </p>
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       12. 存在性與權限
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section>
+    <div class="section-title">12 · 存在性與權限</div>
+
+    <div class="space-y-2">
+      <div class="flex items-start gap-3">
+        <span class="do-tag shrink-0 mt-0.5">DO</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          不是管理員一律 <code>notFound()</code>。403 等於告訴對方「這裡有東西，只是你進不去」；404 讓後台在別人眼裡不存在。
+          這道檢查放在 <code>app/admin/layout.tsx</code>，底下的頁面不各自再擋一次。
+        </p>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          UI 不出現「你沒有權限」「請聯絡管理員」這類字。看得到這句話的人，已經知道有東西可以被聯絡。
+        </p>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="dont-tag shrink-0 mt-0.5">DON'T</span>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          不要先畫角色權限 UI。後台只有一個帳號（<code>ADMIN_USER_ID</code>），為了想像中的多角色先做切換器，只會讓每一頁都多一層沒有人用的殼。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div class="pt-8 border-t border-white/[0.05] text-[11px] text-zinc-600 leading-relaxed">
+    補充 <code>design_guideline.html</code>，只涵蓋 <code>/admin</code>。
+    值取自 <code>app/admin/</code>、<code>app/components/admin/</code>、<code>app/globals.css</code> 的後台區塊；
+    §0 的三處校正尚未套用到程式碼。
+  </div>
+
+</div>
+</body>
+</html>

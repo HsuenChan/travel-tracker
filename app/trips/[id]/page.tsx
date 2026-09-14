@@ -999,9 +999,10 @@ export default function TripPage() {
           animate={{ clipPath: "inset(0 0 0% 0)", opacity: 1, transitionEnd: { clipPath: "none" } }}
           transition={{ duration: 0.48, ease: [0.2, 0, 0, 1], delay: 0.15 }}
         >
+          {/* 電腦版不上毛玻璃：橫幅不鋪底，框框自己是實色的，捲過去的內容不會透出來 */}
           {!isMobile && (
-            <div className="flex items-center justify-center mb-8 py-2 sticky top-16 z-[90] bg-[#09090b]/60 backdrop-blur-md">
-              <div className="flex bg-[#18181b]/80 border border-white/8 backdrop-blur-md rounded-full p-1.5 shadow-xl">
+            <div className="flex items-center justify-center mb-8 py-2 sticky top-16 z-[90]">
+              <div className="flex bg-[#18181b] border border-white/8 rounded-full p-1.5 shadow-xl">
                 {[
                   { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
                   { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },

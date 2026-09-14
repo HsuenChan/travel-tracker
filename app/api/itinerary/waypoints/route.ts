@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { WAYPOINT_TYPES } from "@/lib/waypointTypes";
+import { actorFrom, logChange } from "@/lib/activityLog";
+import { deriveWaypointStats } from "@/lib/waypointStats";
 
 function num(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -101,6 +103,19 @@ export async function PUT(request: NextRequest) {
       notes: (w.notes as string) ?? null,
     }));
 
+  // 這支是整段覆寫，所以紀錄也用整段的角度：舊的整串途經點收進 snapshot，
+  // 還原時就是把這串寫回去。逐點記錄只會讓「存一次」變成幾十筆雜訊。
+  const { data: beforeWaypoints } = await supabase
+    .from("route_waypoints")
+    .select("*")
+    .eq("itinerary_item_id", itineraryItemId)
+    .order("order_index", { ascending: true });
+  const { data: leg } = await supabase
+    .from("itinerary_items")
+    .select("id, title, trip_id")
+    .eq("id", itineraryItemId)
+    .maybeSingle();
+
   const { error: delError } = await supabase
     .from("route_waypoints")
     .delete()
@@ -114,38 +129,26 @@ export async function PUT(request: NextRequest) {
     inserted = data ?? [];
   }
 
-  const stats = deriveStats(rows);
+  const stats = deriveWaypointStats(rows);
   const { error: itemError } = await supabase
     .from("itinerary_items")
     .update(stats)
     .eq("id", itineraryItemId);
   if (itemError) return NextResponse.json({ error: itemError.message }, { status: 500 });
 
+  const beforeCount = beforeWaypoints?.length ?? 0;
+  await logChange({
+    action: "update",
+    table: "route_waypoints",
+    actor: actorFrom(user),
+    tripId: (leg?.trip_id as string) ?? null,
+    entityId: itineraryItemId,
+    label: (leg?.title as string) ?? "途經點",
+    before: { waypoints: beforeWaypoints ?? [] },
+    changes: [{ field: "waypoints", label: "途經點", before: `${beforeCount} 個`, after: `${rows.length} 個` }],
+    note: `整段覆寫途經點（${beforeCount} → ${rows.length}）`,
+    request,
+  });
+
   return NextResponse.json({ waypoints: inserted, ...stats });
-}
-
-/** 里程取最後一個累積距離；爬升／下降是相鄰海拔差的正負累加 */
-function deriveStats(rows: { elevation_m: number | null; distance_km: number | null }[]) {
-  if (rows.length === 0) return { distance_km: null, ascent_m: null, descent_m: null };
-
-  const distances = rows.map((r) => r.distance_km).filter((d): d is number => d !== null);
-  const distance_km = distances.length > 0 ? Math.max(...distances) : null;
-
-  let ascent = 0, descent = 0, seen = 0;
-  let prev: number | null = null;
-  for (const r of rows) {
-    if (r.elevation_m === null) continue;
-    seen++;
-    if (prev !== null) {
-      const d = r.elevation_m - prev;
-      if (d > 0) ascent += d; else descent -= d;
-    }
-    prev = r.elevation_m;
-  }
-
-  return {
-    distance_km,
-    ascent_m: seen >= 2 ? Math.round(ascent) : null,
-    descent_m: seen >= 2 ? Math.round(descent) : null,
-  };
 }

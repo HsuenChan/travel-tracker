@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { actorFrom, logChange } from "@/lib/activityLog";
 
 /* settlement_paid 建表時沒開放 user-scoped 寫入（RLS），
    這裡改走 service role ＋ 明確檢查「旅程擁有者或成員」 */
@@ -28,7 +29,7 @@ async function authorize(tripId: string | null) {
   if (!(await canAccessTrip(service, tripId, user.id))) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
-  return { service };
+  return { service, user };
 }
 
 export async function GET(request: NextRequest) {
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const { tripId, pairKey } = await request.json();
   if (!pairKey) return NextResponse.json({ error: "tripId and pairKey required" }, { status: 400 });
-  const { service, error } = await authorize(tripId ?? null);
+  const { service, user, error } = await authorize(tripId ?? null);
   if (error) return error;
 
   const { error: dbError } = await service
@@ -56,13 +57,25 @@ export async function POST(request: NextRequest) {
     .upsert({ trip_id: tripId, pair_key: pairKey });
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
+  // settlement_paid 是 (trip_id, pair_key) 複合主鍵，沒有單一 id 可以指
+  await logChange({
+    action: "create",
+    table: "settlement_paid",
+    actor: actorFrom(user!),
+    tripId,
+    entityId: null,
+    label: pairKey,
+    after: { trip_id: tripId, pair_key: pairKey },
+    note: "標記為已結清",
+    request,
+  });
   return NextResponse.json({ success: true });
 }
 
 export async function DELETE(request: NextRequest) {
   const { tripId, pairKey } = await request.json();
   if (!pairKey) return NextResponse.json({ error: "tripId and pairKey required" }, { status: 400 });
-  const { service, error } = await authorize(tripId ?? null);
+  const { service, user, error } = await authorize(tripId ?? null);
   if (error) return error;
 
   const { error: dbError } = await service
@@ -72,5 +85,16 @@ export async function DELETE(request: NextRequest) {
     .eq("pair_key", pairKey);
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
+  await logChange({
+    action: "delete",
+    table: "settlement_paid",
+    actor: actorFrom(user!),
+    tripId,
+    entityId: null,
+    label: pairKey,
+    before: { trip_id: tripId, pair_key: pairKey },
+    note: "取消已結清標記",
+    request,
+  });
   return NextResponse.json({ success: true });
 }
