@@ -182,6 +182,9 @@ function getSpan(item: ItineraryItem): { days: string[]; total: number } {
 }
 
 /** 續日精簡條的狀態字：依類別換說法 */
+/** 幾天以上才值得在頂部放日期 chips —— 三天的旅程多一排只是噪點 */
+const DATE_CHIP_MIN = 5;
+
 const CONTINUE_LABEL: Record<string, string> = {
   hotel: "住宿中",
   transport: "移動中",
@@ -255,6 +258,51 @@ export default function ItineraryTab({
   const [aiGenerating, setAIGenerating] = useState(false);
   const [aiPreview, setAIPreview] = useState<PreviewItem[]>([]);
   const [aiConfirming, setAIConfirming] = useState(false);
+
+  // 頂部日期 chips：跟著捲動標出目前在哪一天
+  const [activeDate, setActiveDate] = useState<string | null>(null);
+  const chipRowRef = useRef<HTMLDivElement | null>(null);
+  const datesRef = useRef<string[]>([]);
+
+  /* 捲到哪一天就標哪一天。offset＝header ＋ chips 列的高度，和 anchor 的 scroll-mt 對齊 */
+  useEffect(() => {
+    if (datesRef.current.length < DATE_CHIP_MIN) {
+      setActiveDate(null);
+      return;
+    }
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const offset = window.innerWidth < 768 ? 116 : 180;
+      let current: string | null = null;
+      for (const d of datesRef.current) {
+        const el = document.getElementById(`itinerary-date-${d}`);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top - offset <= 4) current = d;
+        else break;
+      }
+      setActiveDate(current ?? datesRef.current[0] ?? null);
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [items]);
+
+  /* 手機上 chips 是橫捲的，active 跑出畫面就等於沒有 */
+  useEffect(() => {
+    const row = chipRowRef.current;
+    if (!row || !activeDate) return;
+    const chip = row.querySelector<HTMLElement>(`[data-date="${activeDate}"]`);
+    if (!chip) return;
+    const left = chip.offsetLeft - row.clientWidth / 2 + chip.clientWidth / 2;
+    row.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+  }, [activeDate]);
 
   async function fetchItems(force = true) {
     const cacheKey = `travel_itinerary_${tripId}`;
@@ -806,6 +854,8 @@ export default function ItineraryTab({
     return acc;
   }, {});
   const dates = Array.from(new Set([...Object.keys(startsOn), ...Object.keys(continuesOn)])).sort();
+  const showDateChips = dates.length >= DATE_CHIP_MIN;
+  datesRef.current = dates;
   const timeToMinutes = (t: string | null) => {
     if (!t) return 9999;
     const [h, m] = t.split(":").map(Number);
@@ -827,15 +877,17 @@ export default function ItineraryTab({
       color: dotColor,
       className: walked ? "rail-done" : undefined,
       content: (
-        <div id={`itinerary-date-${date}`} className="scroll-mt-20 md:scroll-mt-36">
-          <div className="flex items-center gap-2 mb-2.5 flex-wrap sticky top-16 md:top-32 z-40 py-2 bg-[#09090b]/60 backdrop-blur-md">
+        <div
+          id={`itinerary-date-${date}`}
+          className={showDateChips ? "scroll-mt-[116px] md:scroll-mt-[180px]" : "scroll-mt-20 md:scroll-mt-36"}
+        >
+          {/* 有 chips 列時它已經在標「現在是哪一天」，日期標題就不用再黏一層 */}
+          <div
+            className={`flex items-center gap-2 mb-2.5 flex-wrap py-2 ${showDateChips ? "" : "sticky top-16 md:top-32 z-40 bg-[#09090b]/60 backdrop-blur-md"}`}
+          >
+            {/* 跳日期交給頂部的 chips 列，日期標題就只是標題 */}
             <Typography.Text
-              title="跳到下一天"
-              onClick={() => {
-                const next = dates[(dates.indexOf(date) + 1) % dates.length];
-                document.getElementById(`itinerary-date-${next}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-              className={`font-display text-[13px] font-semibold cursor-pointer hover:opacity-75 transition-opacity select-none ${isToday ? "text-violet-400" : isPast ? "text-zinc-600" : "text-zinc-400"
+              className={`font-display text-[13px] font-semibold ${isToday ? "text-violet-400" : isPast ? "text-zinc-600" : "text-zinc-400"
                 }`}
             >
               {date} <span className="opacity-50 text-xs ml-0.5">(週{WEEKDAYS[dayjs(date).day()]})</span>
@@ -872,13 +924,13 @@ export default function ItineraryTab({
     };
 
     // 跨日行程在續日只給一條精簡狀態條：不重複整張卡，也不放編輯／記帳鈕
-    const continuingNodes = (continuesOn[date] ?? []).map((item) => {
+    const continuingEntries = (continuesOn[date] ?? []).map((item) => {
       const total = spans.get(item.id)?.total ?? 1;
       const dayIndex = dayjs(date).diff(dayjs(item.date), "day") + 1;
       const isLastDay = date === item.end_date;
       const stateLabel = CONTINUE_LABEL[item.category ?? "other"] ?? "持續中";
       const endLabel = item.category === "hotel" ? "退房" : "結束";
-      return {
+      const node = {
         key: `cont-${item.id}-${date}`,
         className: walked ? "rail-done" : undefined,
         icon: (
@@ -904,6 +956,8 @@ export default function ItineraryTab({
           </button>
         ),
       };
+      // 最後一天帶著退房／結束時間，就照那個時間排進當天；中間那幾天沒有時間，沉到當天最後
+      return { minutes: isLastDay && item.end_time ? timeToMinutes(item.end_time) : null, node };
     });
 
     const itemNodes = (startsOn[date] ?? []).map((item, itemIndex) => {
@@ -1145,7 +1199,15 @@ export default function ItineraryTab({
       };
     });
 
-    return [dateNode, ...continuingNodes, ...itemNodes];
+    // 住宿是「今晚睡這裡」，排在當天行程之後才讀得順；但退房發生在早上，有時間就照時間排
+    const itemMinutes = (startsOn[date] ?? []).map((item) => timeToMinutes(item.time));
+    const timed = [
+      ...continuingEntries.flatMap((e) => (e.minutes === null ? [] : [{ minutes: e.minutes, node: e.node }])),
+      ...itemNodes.map((node, i) => ({ minutes: itemMinutes[i], node })),
+    ].sort((a, b) => a.minutes - b.minutes);
+    const untimed = continuingEntries.filter((e) => e.minutes === null);
+
+    return [dateNode, ...timed.map((e) => e.node), ...untimed.map((e) => e.node)];
   });
 
   // 報告卡的「N 個建議」同一個算法：ok 不算問題
@@ -1339,7 +1401,45 @@ export default function ItineraryTab({
           )}
         </div>
       ) : (
-        <Timeline className="itinerary-timeline" items={timelineItems} />
+        <>
+          {showDateChips && (
+            <div
+              ref={chipRowRef}
+              aria-label="跳到某一天"
+              className="chip-row sticky top-16 md:top-32 z-50 mb-1 flex gap-1 overflow-x-auto bg-[#09090b] py-2"
+            >
+              {dates.map((d) => {
+                const active = d === activeDate;
+                const chipToday = d === todayStr;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    data-date={d}
+                    aria-current={active ? "true" : undefined}
+                    onClick={() =>
+                      document
+                        .getElementById(`itinerary-date-${d}`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                    className={`shrink-0 h-8 rounded-full px-2.5 text-[13px] font-semibold transition-colors cursor-pointer ${active
+                      ? "bg-violet-500/20 text-zinc-200"
+                      : chipToday
+                        ? "text-violet-400 hover:bg-white/[0.06]"
+                        : d < todayStr
+                          ? "text-zinc-600 hover:bg-white/[0.06] hover:text-zinc-400"
+                          : "text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300"
+                      }`}
+                  >
+                    {dayjs(d).format("M/D")}
+                    <span className="ml-1 text-[11px] opacity-50">{WEEKDAYS[dayjs(d).day()]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <Timeline className="itinerary-timeline" items={timelineItems} />
+        </>
       )}
 
       <Modal

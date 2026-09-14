@@ -44,6 +44,7 @@ web
 
 - 真實個人旅程資料（使用者帳號內的實際旅程，非展示假資料）。
 - 設計指南頁：`design_guideline.html`（倉庫根目錄，另發佈於 GitHub Pages）。
+- 後台設計指南頁：`admin_design_guideline.html`（倉庫根目錄）——只涵蓋 `/admin`，前台共通的部分不重複。
 - `README.md` 內含完整功能清單（中英雙語）。
 
 ## Product Principles

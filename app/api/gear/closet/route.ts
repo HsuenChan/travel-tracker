@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeQty, normalizeRole, normalizeWeight } from "@/lib/gear";
+import { actorFrom, logChange } from "@/lib/activityLog";
 
 /** The closet is user-owned, so RLS (08_gear_closet.sql) also enforces the user_id here. */
 function toInsertRow(userId: string, raw: Record<string, unknown>) {
@@ -57,6 +58,10 @@ export async function POST(request: NextRequest) {
     .select();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // 裝備櫃屬於使用者而不是旅程，所以 trip_id 一律 null
+  for (const row of data ?? []) {
+    await logChange({ action: "create", table: "gear_closet", actor: actorFrom(user), after: row, tripId: null, tripName: null, request });
+  }
   return NextResponse.json({ items: data, inserted: data?.length ?? 0, duplicates: rows.length - fresh.length });
 }
 
@@ -68,6 +73,9 @@ export async function DELETE(request: NextRequest) {
   const { id } = await request.json();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
+  // 刪除後這筆就不在了，還原完全靠這份快照
+  const { data: before } = await supabase.from("gear_closet").select("*").eq("id", id).eq("user_id", user.id).maybeSingle();
+
   const { error } = await supabase
     .from("gear_closet")
     .delete()
@@ -75,5 +83,6 @@ export async function DELETE(request: NextRequest) {
     .eq("user_id", user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "delete", table: "gear_closet", actor: actorFrom(user), before, entityId: id, tripId: null, tripName: null, request });
   return NextResponse.json({ success: true });
 }

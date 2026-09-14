@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "admin_design_guideline.html"
+        ],
+        "createdAt": "2026-09-14T05:18:37.970Z",
+        "reason": "spec fixture: the flagged pairs are the project's own documented values (active segmented item = #e4e4e7 on violet-500/20, straight from globals.css .cute-segmented) and rule-block body copy on a near-black panel, same pattern as the sibling design_guideline.html"
+      }
+    ]
+  }
+}

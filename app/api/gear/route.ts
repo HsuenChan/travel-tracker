@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeQty, normalizeRole, normalizeScope, normalizeWeight } from "@/lib/gear";
+import { actorFrom, logChange } from "@/lib/activityLog";
 
 /**
  * Row shape accepted from the client for both single and bulk inserts.
@@ -70,6 +71,11 @@ export async function POST(request: NextRequest) {
     .select();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // 裝備櫃套用一次會進很多列，旅程名稱查一次就好
+  const { data: trip } = await supabase.from("trips").select("name").eq("id", tripId).maybeSingle();
+  for (const row of data ?? []) {
+    await logChange({ action: "create", table: "gear_items", actor: actorFrom(user), after: row, tripId, tripName: trip?.name ?? null, request });
+  }
   return NextResponse.json(Array.isArray(body.items) ? { items: data, inserted: data?.length ?? 0 } : data?.[0]);
 }
 
@@ -101,6 +107,9 @@ export async function PUT(request: NextRequest) {
   if (assigned_to !== undefined) patch.assigned_to = assigned_to || null;
   if (order_index !== undefined) patch.order_index = order_index;
 
+  // 後台的欄位級 diff 與還原都靠這份舊值
+  const { data: before } = await supabase.from("gear_items").select("*").eq("id", id).maybeSingle();
+
   const { data, error } = await supabase
     .from("gear_items")
     .update(patch)
@@ -109,6 +118,7 @@ export async function PUT(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "update", table: "gear_items", actor: actorFrom(user), before, after: data, request });
   return NextResponse.json(data);
 }
 
@@ -120,11 +130,15 @@ export async function DELETE(request: NextRequest) {
   const { id } = await request.json();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
+  // 刪除後這筆就不在了，還原完全靠這份快照
+  const { data: before } = await supabase.from("gear_items").select("*").eq("id", id).maybeSingle();
+
   const { error } = await supabase
     .from("gear_items")
     .delete()
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "delete", table: "gear_items", actor: actorFrom(user), before, entityId: id, request });
   return NextResponse.json({ success: true });
 }

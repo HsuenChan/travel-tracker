@@ -7,6 +7,9 @@ import { Button, Input } from "antd";
 
 type QuillRange = { index: number; length: number };
 type QuillToolbar = { container?: HTMLElement };
+type QuillLine = { length: () => number };
+type QuillOp = { insert?: string | Record<string, unknown>; attributes?: Record<string, unknown> };
+type QuillDelta = { ops: QuillOp[] };
 
 type QuillLike = {
   format: (name: string, value: unknown) => void;
@@ -16,6 +19,8 @@ type QuillLike = {
   insertEmbed: (index: number, type: string, value: unknown, source: string) => void;
   setSelection: (index: number, length: number) => void;
   getModule: (name: string) => unknown;
+  getLine: (index: number) => [QuillLine | null, number];
+  deleteText: (index: number, length: number, source: string) => void;
 };
 
 /** Quill 內建的 table module 只有 API 沒有 UI，操作列全部要自己接 */
@@ -59,13 +64,16 @@ type QuillProps = {
 
 /**
  * Quill 沒有內建分隔線，自己註冊一個輸出 <hr> 的 block embed；
+ * 軟換行（Shift+Enter）也沒有，一併補一個行內 <br>；
  * table 是內建 module 但沒有 icon，一起補上。
  * 必須用 react-quill-new re-export 的同一個 Quill，否則會註冊到別的 registry。
  */
 let formatsRegistered = false;
+let Delta: typeof import("quill-delta").default | null = null;
 function registerCustomFormats(Quill: typeof import("quill").default) {
   if (formatsRegistered) return;
   formatsRegistered = true;
+  Delta = Quill.import("delta");
 
   const BlockEmbed = Quill.import("blots/block/embed") as typeof import("quill/blots/block").BlockEmbed;
   class DividerBlot extends BlockEmbed {
@@ -73,6 +81,16 @@ function registerCustomFormats(Quill: typeof import("quill").default) {
     static tagName = "hr";
   }
   Quill.register("formats/divider", DividerBlot);
+
+  const { EmbedBlot } = Quill.import("parchment");
+  class SoftBreakBlot extends EmbedBlot {
+    static blotName = "softbreak";
+    static tagName = "BR";
+    /* 一定要帶 class：parchment 的 registry 對同一個 tagName 只認第一個註冊者，
+       有 class 才不會蓋掉 Quill 內建那個長度 0 的 break（空行用的 <br>） */
+    static className = "ql-softbreak";
+  }
+  Quill.register("formats/softbreak", SoftBreakBlot);
 
   const icons = Quill.import("ui/icons") as Record<string, string>;
   icons.divider =
@@ -110,6 +128,46 @@ interface Props {
   placeholder?: string;
   extraClass?: string;
   readOnly?: boolean;
+}
+
+/**
+ * HTML 載回編輯器時，Quill 會對每個 <br> 補一個 \n（＝拆成新的區塊）：
+ * 通用的 matchBlot 先把 <br class="ql-softbreak"> 轉成 softbreak embed，接著選擇器型的
+ * matchBreak 才跑，看到結尾不是 \n 就補一個。這個 matcher 排在最後，把那個 \n 收掉，
+ * 軟換行才不會在重新載入後又被拆成兩個 quote。
+ */
+function keepSoftBreak(node: Node, delta: QuillDelta): QuillDelta {
+  if (!(node instanceof HTMLElement) || !node.classList.contains("ql-softbreak")) return delta;
+  const ops = delta.ops ?? [];
+  const last = ops[ops.length - 1];
+  const prev = ops[ops.length - 2];
+  const isSoftBreak = typeof prev?.insert === "object" && prev.insert !== null && "softbreak" in prev.insert;
+  if (!Delta || last?.insert !== "\n" || !isSoftBreak) return delta;
+  return new Delta(ops.slice(0, -1)) as unknown as QuillDelta;
+}
+
+/**
+ * Shift+Enter：在同一個區塊裡換行（插入 <br>），而不是另起新段落／新的一行引言。
+ * Quill 內建的 Enter binding 是 { key: "Enter", shiftKey: null }，有沒有按 Shift 都吃同一個
+ * handler，所以要自己攔下來；自訂 binding 會排在內建的前面，先回傳非 true 就不會再往下跑。
+ */
+function insertSoftBreak(
+  this: { quill: QuillLike },
+  range: QuillRange,
+  context: { format: Record<string, unknown> }
+) {
+  /* code block 的 \n 本來就是區塊內換行，而且 CodeBlock 不收 embed，交回 Quill 預設處理 */
+  if (context.format["code-block"]) return true;
+
+  const quill = this.quill;
+  if (range.length > 0) quill.deleteText(range.index, range.length, "user");
+  const [line, offset] = quill.getLine(range.index);
+  /* 區塊結尾的 <br> 瀏覽器不會多畫一行，游標在行尾時要補第二個當行尾標記 */
+  const atLineEnd = !line || offset >= line.length() - 1;
+  quill.insertEmbed(range.index, "softbreak", true, "user");
+  if (atLineEnd) quill.insertEmbed(range.index + 1, "softbreak", true, "user");
+  quill.setSelection(range.index + 1, 0);
+  return false;
 }
 
 const POP_WIDTH = 264;
@@ -208,6 +266,12 @@ export default function QuillEditor({ value, onChange, placeholder, extraClass =
   /* Snow 內建的 link tooltip 在 antd Modal 內會失效，改開自製的 link popover */
   const editModules = useMemo(() => ({
     table: true,
+    keyboard: {
+      bindings: {
+        softBreak: { key: "Enter", shiftKey: true, handler: insertSoftBreak },
+      },
+    },
+    clipboard: { matchers: [["br", keepSoftBreak]] },
     toolbar: {
       container: [
         [{ header: [1, 2, 3, false] }],

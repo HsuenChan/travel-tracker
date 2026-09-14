@@ -575,3 +575,90 @@ body {
   color: #c4b5fd;
   text-decoration-color: currentColor;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   後台（/admin）
+   瀏覽器預設會自己畫一堆東西：選取色、游標、捲軸、focus ring、
+   等寬數字。這些不屬於任何設計系統，不接手就會露出來。
+   ────────────────────────────────────────────────────────────── */
+
+.admin-surface ::selection {
+  background: rgba(167, 139, 250, 0.28);
+  color: #f4f4f5;
+}
+
+.admin-surface {
+  caret-color: #a78bfa;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.admin-surface ::-webkit-scrollbar { width: 10px; height: 10px; }
+.admin-surface ::-webkit-scrollbar-track { background: transparent; }
+.admin-surface ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 100px;
+}
+.admin-surface ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); background-clip: content-box; }
+
+/* IP、時間、次數要能上下對齊掃視，比例數字會讓同一欄的數字寬度跳動 */
+.admin-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 鍵盤焦點才畫圈，滑鼠點擊不畫 */
+.admin-focus:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+.admin-focus:focus:not(:focus-visible) { outline: none; }
+
+/* search input 的清除鈕由我們自己畫，關掉 WebKit 那顆 */
+.admin-surface input[type="search"]::-webkit-search-decoration,
+.admin-surface input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* chips 橫向捲動時不要露出捲軸 */
+.chip-row { scrollbar-width: none; }
+.chip-row::-webkit-scrollbar { display: none; }
+
+/*
+  這個 surface 唯一一段被編排過的動作：列被打開時，內容從上緣被「掀」出來。
+  用 clip-path 而不是 height，才不會在展開途中把下面整串列表推得一抖一抖。
+*/
+@keyframes admin-reveal {
+  from {
+    clip-path: inset(0 0 100% 0);
+    filter: blur(3px);
+    opacity: 0.4;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+.admin-reveal {
+  animation: admin-reveal 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes admin-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.admin-pulse {
+  animation: admin-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-reveal { animation: none; }
+  .admin-pulse { animation: none; opacity: 0.7; }
+}

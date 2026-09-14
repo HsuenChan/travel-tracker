@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { actorFrom, logChange } from "@/lib/activityLog";
 
 type ExpenseRow = Record<string, unknown> & {
   itinerary_items?: { id: string; title: string; date: string } | null;
@@ -66,16 +67,19 @@ export async function POST(request: NextRequest) {
     notes: notes || null,
   };
 
-  let { error } = await supabase
+  let { data: created, error } = await supabase
     .from("expenses")
-    .insert({ ...base, itinerary_item_id: body.itinerary_item_id || null });
+    .insert({ ...base, itinerary_item_id: body.itinerary_item_id || null })
+    .select()
+    .single();
 
   // 06_expense_itinerary_link.sql 尚未執行時，欄位不存在 → 退回不帶關聯的寫入
   if (error && error.message.includes("itinerary_item_id")) {
-    ({ error } = await supabase.from("expenses").insert(base));
+    ({ data: created, error } = await supabase.from("expenses").insert(base).select().single());
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "create", table: "expenses", actor: actorFrom(user), after: created, request });
   return NextResponse.json({ success: true });
 }
 
@@ -99,16 +103,22 @@ export async function PUT(request: NextRequest) {
     notes: notes || null,
   };
 
-  let { error } = await supabase
+  // 後台的欄位級 diff 與還原都靠這份舊值
+  const { data: before } = await supabase.from("expenses").select("*").eq("id", id).maybeSingle();
+
+  let { data: after, error } = await supabase
     .from("expenses")
     .update({ ...base, itinerary_item_id: body.itinerary_item_id || null })
-    .eq("id", id);
+    .eq("id", id)
+    .select()
+    .single();
 
   if (error && error.message.includes("itinerary_item_id")) {
-    ({ error } = await supabase.from("expenses").update(base).eq("id", id));
+    ({ data: after, error } = await supabase.from("expenses").update(base).eq("id", id).select().single());
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "update", table: "expenses", actor: actorFrom(user), before, after, request });
   return NextResponse.json({ success: true });
 }
 
@@ -119,11 +129,15 @@ export async function DELETE(request: NextRequest) {
 
   const { id } = await request.json();
 
+  // 刪除後這筆就不在了，還原完全靠這份快照
+  const { data: before } = await supabase.from("expenses").select("*").eq("id", id).maybeSingle();
+
   const { error } = await supabase
     .from("expenses")
     .delete()
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "delete", table: "expenses", actor: actorFrom(user), before, entityId: id, request });
   return NextResponse.json({ success: true });
 }

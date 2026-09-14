@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { actorFrom, logChange } from "@/lib/activityLog";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -29,11 +30,14 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { tripId, date, title, category, time, end_date, end_time, location, notes, image_urls, distance_km, ascent_m, descent_m } = body;
 
-  const { error } = await supabase
+  const { data: created, error } = await supabase
     .from("itinerary_items")
-    .insert({ trip_id: tripId, user_id: user.id, date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [], distance_km: distance_km ?? null, ascent_m: ascent_m ?? null, descent_m: descent_m ?? null });
+    .insert({ trip_id: tripId, user_id: user.id, date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [], distance_km: distance_km ?? null, ascent_m: ascent_m ?? null, descent_m: descent_m ?? null })
+    .select()
+    .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "create", table: "itinerary_items", actor: actorFrom(user), after: created, request });
   return NextResponse.json({ success: true });
 }
 
@@ -45,12 +49,18 @@ export async function PUT(request: NextRequest) {
   const body = await request.json();
   const { id, date, title, category, time, end_date, end_time, location, notes, image_urls, distance_km, ascent_m, descent_m } = body;
 
-  const { error } = await supabase
+  // 後台的欄位級 diff 與還原都靠這份舊值，所以覆寫前先讀一次
+  const { data: before } = await supabase.from("itinerary_items").select("*").eq("id", id).maybeSingle();
+
+  const { data: after, error } = await supabase
     .from("itinerary_items")
     .update({ date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [], distance_km: distance_km ?? null, ascent_m: ascent_m ?? null, descent_m: descent_m ?? null })
-    .eq("id", id);
+    .eq("id", id)
+    .select()
+    .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "update", table: "itinerary_items", actor: actorFrom(user), before, after, request });
   return NextResponse.json({ success: true });
 }
 
@@ -76,8 +86,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("itinerary_items").update(patch).eq("id", id);
+  const { data: before } = await supabase.from("itinerary_items").select("*").eq("id", id).maybeSingle();
+  const { data: after, error } = await supabase.from("itinerary_items").update(patch).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "update", table: "itinerary_items", actor: actorFrom(user), before, after, request });
   return NextResponse.json({ success: true });
 }
 
@@ -88,11 +100,15 @@ export async function DELETE(request: NextRequest) {
 
   const { id } = await request.json();
 
+  // 刪除後這筆就不在了，還原完全靠這份快照
+  const { data: before } = await supabase.from("itinerary_items").select("*").eq("id", id).maybeSingle();
+
   const { error } = await supabase
     .from("itinerary_items")
     .delete()
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "delete", table: "itinerary_items", actor: actorFrom(user), before, entityId: id, request });
   return NextResponse.json({ success: true });
 }

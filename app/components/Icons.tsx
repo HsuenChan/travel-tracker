@@ -547,3 +547,51 @@ export function MountainIcon({ size = 13, className, stroke = "currentColor", st
     </svg>
   );
 }
+
+export function SearchIcon({ size = 16, className, stroke = "currentColor", strokeWidth = 2.2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="11" cy="11" r="7" /><line x1="16.2" y1="16.2" x2="21" y2="21" />
+    </svg>
+  );
+}
+
+export function RestoreIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2.2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3 9h11a5 5 0 0 1 0 10h-3" /><polyline points="7 5 3 9 7 13" />
+    </svg>
+  );
+}
+
+export function ShieldIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 2.5l7.5 3v5.8c0 4.4-3 8.4-7.5 9.7-4.5-1.3-7.5-5.3-7.5-9.7V5.5z" />
+    </svg>
+  );
+}
+
+export function LaptopIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="4" y="5" width="16" height="11" rx="1.5" /><line x1="2" y1="19.5" x2="22" y2="19.5" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon({ size = 12, className, stroke = "currentColor", strokeWidth = 2.4 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+export function ArrowRightIcon({ size = 12, className, stroke = "currentColor", strokeWidth = 2.2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="4" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
+    </svg>
+  );
+}

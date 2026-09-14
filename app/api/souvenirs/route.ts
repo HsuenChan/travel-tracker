@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { actorFrom, logChange } from "@/lib/activityLog";
 
 export async function GET(request: NextRequest) {
   const tripId = request.nextUrl.searchParams.get("tripId");
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "create", table: "souvenirs", actor: actorFrom(user), after: data, request });
   return NextResponse.json(data);
 }
 
@@ -46,6 +48,9 @@ export async function PUT(request: NextRequest) {
 
   const { id, is_checked, name, notes, image_url, tags, order_index } = await request.json();
 
+  // 後台的欄位級 diff 與還原都靠這份舊值
+  const { data: before } = await supabase.from("souvenirs").select("*").eq("id", id).maybeSingle();
+
   const { data, error } = await supabase
     .from("souvenirs")
     .update({ is_checked, name, notes, image_url, tags, order_index })
@@ -54,6 +59,7 @@ export async function PUT(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "update", table: "souvenirs", actor: actorFrom(user), before, after: data, request });
   return NextResponse.json(data);
 }
 
@@ -64,11 +70,15 @@ export async function DELETE(request: NextRequest) {
 
   const { id } = await request.json();
 
+  // 刪除後這筆就不在了，還原完全靠這份快照
+  const { data: before } = await supabase.from("souvenirs").select("*").eq("id", id).maybeSingle();
+
   const { error } = await supabase
     .from("souvenirs")
     .delete()
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logChange({ action: "delete", table: "souvenirs", actor: actorFrom(user), before, entityId: id, request });
   return NextResponse.json({ success: true });
 }

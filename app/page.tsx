@@ -20,7 +20,7 @@ import { parseCoverPos } from "@/lib/coverPos";
 import { UserOutlined, AimOutlined, LoadingOutlined } from "@ant-design/icons";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
-  MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon,
+  MenuListIcon, LogoutIcon, CloseIcon, GoogleIcon, ShieldIcon,
 } from "@/app/components/Icons";
 
 const TripGlobe = dynamic(() => import("./components/TripGlobe"), { ssr: false });
@@ -245,6 +245,7 @@ export default function Home() {
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showAllTracks, setShowAllTracks] = useState(true);
@@ -267,6 +268,7 @@ export default function Home() {
       .then((r) => r.json())
       .then((data) => {
         setAuthenticated(data.authenticated);
+        setIsAdmin(!!data.isAdmin);
         if (data.authenticated) fetchAll();
         else setLoading(false);
       })
@@ -667,6 +669,14 @@ export default function Home() {
               onOpenChange={setDropdownOpen}
               popupRender={() => (
                 <div className="bg-[#18181b] border border-white/[0.08] rounded-xl overflow-hidden shadow-2xl min-w-[160px]">
+                  {isAdmin && (
+                    <a href="/admin" className="block border-b border-white/[0.06]">
+                      <button className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-zinc-300 hover:bg-white/[0.06] transition-colors text-left cursor-pointer">
+                        <ShieldIcon size={13} />
+                        後台
+                      </button>
+                    </a>
+                  )}
                   <a href="/api/auth/logout" className="block">
                     <button className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-400 hover:bg-white/[0.06] transition-colors text-left cursor-pointer">
                       <LogoutIcon size={13} />
