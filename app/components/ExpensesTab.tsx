@@ -9,6 +9,8 @@ import {
 } from "antd";
 import { EditOutlined, DeleteOutlined, CheckOutlined, CameraOutlined } from "@ant-design/icons";
 import { PlusIcon, CoinIcon, CategoryBadge } from "@/app/components/Icons";
+import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
+import PillButton from "@/app/components/PillButton";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_MAP as CATEGORY_MAP,
@@ -715,13 +717,10 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
           </button>
         </div>
         {!readOnly && (
-          <button
-            onClick={openAdd}
-            className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-          >
+          <PillButton onClick={openAdd}>
             <PlusIcon size={12} />
             新增費用
-          </button>
+          </PillButton>
         )}
       </div>
 
@@ -836,30 +835,18 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
           </button>
         </div>
       ) : expenses.length === 0 ? (
-        <div
-          className="flex flex-col items-center gap-3 py-12 pb-10 rounded-2xl border border-white/[0.06]"
-          style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(20,184,166,0.06) 0%, transparent 65%), rgba(9,9,11,0.6)' }}
-        >
-          <div
-            className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center"
-            style={{ background: 'rgba(20,184,166,0.1)', border: '1px solid rgba(20,184,166,0.18)' }}
-          >
-            <CoinIcon size={26} stroke="#14b8a6" strokeWidth={1.5} />
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <Typography.Text className="text-zinc-300 text-sm font-medium">還沒有費用記錄</Typography.Text>
-            <Typography.Text className="text-zinc-600 text-xs">掌握每一筆開銷，旅行更安心。</Typography.Text>
-          </div>
-          {!readOnly && (
-            <button
-              onClick={openAdd}
-              className="mt-1 inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-            >
+        <EmptyState
+          accent="#14b8a6"
+          icon={<CoinIcon size={32} stroke="#14b8a6" strokeWidth={1.5} />}
+          title="還沒有費用記錄"
+          description="掌握每一筆開銷，旅行更安心。"
+          action={!readOnly && (
+            <EmptyStateAction onClick={openAdd}>
               <PlusIcon size={12} />
               新增第一筆費用
-            </button>
+            </EmptyStateAction>
           )}
-        </div>
+        />
       ) : filteredExpenses.length === 0 ? (
         <div className="text-zinc-400 text-center py-8 text-sm">此條件沒有費用</div>
       ) : (
@@ -943,13 +930,10 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   );
 
   const addButton = !readOnly && (
-    <button
-      onClick={openAdd}
-      className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-    >
+    <PillButton onClick={openAdd}>
       <PlusIcon size={12} />
       新增費用
-    </button>
+    </PillButton>
   );
 
   const statsContent = (
@@ -1191,7 +1175,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
       </div>
       {people.length === 0 ? (
         <div className="text-zinc-400 text-center py-8">
-          請先在旅程編輯中加入分帳成員
+          請先在旅程編輯中加入旅伴
         </div>
       ) : settlementNeedsRates ? (
         <div className="text-zinc-400 text-center py-8">

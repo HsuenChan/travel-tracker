@@ -7,6 +7,7 @@ import PillButton from "./PillButton";
 import { motion } from "framer-motion";
 import { DeleteOutlined, EditOutlined, PictureOutlined, CloseOutlined, LoadingOutlined } from "@ant-design/icons";
 import { PlusIcon, CarabinerIcon, GridIcon, MenuListIcon, ArchiveIcon, TrashIcon, UploadIcon, InfoIcon, EditIcon } from "@/app/components/Icons";
+import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
 import type { GearScope } from "@/lib/gear";
 
 type ViewMode = "card" | "list";
@@ -1185,18 +1186,12 @@ export default function GearTab({
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div
-          className="flex flex-col items-center gap-4 py-20 rounded-3xl border border-white/5 bg-white/2"
-          style={{ background: 'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.05) 0%, transparent 70%)' }}
-        >
-          <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
-            <CarabinerIcon size={32} stroke="#8b5cf6" strokeWidth={1.5} />
-          </div>
-          <div className="text-center">
-            <div className="text-zinc-200 font-medium mb-1">還沒有裝備清單</div>
-            <div className="text-zinc-500 text-xs px-10">逐件記下要帶的東西與重量，出發前一格一格勾掉。</div>
-          </div>
-        </div>
+        <EmptyState
+          icon={<CarabinerIcon size={32} stroke="#8b5cf6" strokeWidth={1.5} />}
+          title="還沒有裝備清單"
+          description="逐件記下要帶的東西與重量，出發前一格一格勾掉。"
+          action={!readOnly && <EmptyStateAction onClick={openAdd}>新增裝備</EmptyStateAction>}
+        />
       ) : visibleItems.length === 0 ? (
         <div className="py-12 rounded-2xl border border-white/5 bg-white/[0.02] text-center text-zinc-500 text-sm">
           「{tagFilter}」分類下沒有裝備

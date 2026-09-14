@@ -443,6 +443,9 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
     ...(vehiclePoint ? [vehiclePoint] : []),
   ];
 
+  // 手機的地球只有一個手掌寬，七八個名字會疊在一起；沒被選到的只留光點
+  const compactLabels = dimensions.width > 0 && dimensions.width < 768;
+
   const htmlElementCallback = useCallback((d: object) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = d as any;
@@ -471,11 +474,11 @@ export default function TripGlobe({ trips, segments, selectedTripId, onTripClick
           <div style="position:absolute;inset:-4px;background:${color};opacity:0.4;border-radius:50%;filter:blur(4px);display:${p.isSelected ? 'block' : 'none'}"></div>
           <div style="width:100%;height:100%;background:${color};border-radius:50%;box-shadow:0 0 8px ${color}, 0 0 16px ${color};border:1.5px solid #fff;"></div>
         </div>
-        <div style="margin-top:6px;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);color:#fff;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;white-space:nowrap;border:1px solid rgba(255,255,255,0.15);box-shadow:0 4px 12px rgba(0,0,0,0.5);">${p.tripName}</div>`;
+        ${compactLabels && !p.isSelected ? "" : `<div style="margin-top:6px;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);color:#fff;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;white-space:nowrap;border:1px solid rgba(255,255,255,0.15);box-shadow:0 4px 12px rgba(0,0,0,0.5);">${p.tripName}</div>`}`;
       el.addEventListener("click", () => onTripClick(p.tripId));
     }
     return el;
-  }, [onTripClick]);
+  }, [onTripClick, compactLabels]);
 
   return (
     <div ref={containerRef} className="w-full h-full">

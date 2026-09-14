@@ -1,0 +1,1276 @@
+{
+ "_source": "逐條讀官方 KiwiCanyons CanyonTopo PDF 的路線圖頁轉寫（pdftoppm 150dpi）。落差、錨點註記、落水潭顏色一律照原圖，沒畫的就留空，不推測。",
+ "_pool_legend": "原圖以深藍／淺藍區分深潭與淺潭者標 deep/shallow；全圖同色者一律 unknown；文字或符號標明迴流者標 hydraulic。",
+ "Robinson Creek": {
+  "topo": "https://www.kiwicanyons.org/wp-content/uploads/2012/01/Robinson-Creek.pdf p2 · Topo by Daniel Clearwater",
+  "sections": [
+   {
+    "nm": "入溪 → A",
+    "f": [
+     {
+      "k": "R",
+      "l": "R1 6m",
+      "d": 6,
+      "pool": "d",
+      "an": "TL XX"
+     },
+     {
+      "k": "R",
+      "l": "R2 或 J 5m",
+      "d": 5,
+      "pool": "d",
+      "an": "TL XX"
+     },
+     {
+      "k": "J",
+      "l": "J 1m",
+      "d": 1,
+      "pool": "d",
+      "an": "「Roundy-roundy pool」"
+     },
+     {
+      "k": "R",
+      "l": "R 4m",
+      "d": 4,
+      "pool": "s",
+      "an": "TL XX"
+     },
+     {
+      "k": "R",
+      "l": "R3 8m",
+      "d": 8,
+      "pool": "s",
+      "an": "TR XX ·「Options pool」"
+     },
+     {
+      "k": "HL",
+      "l": "HL 6m",
+      "d": 0,
+      "an": "TL XX · X"
+     },
+     {
+      "k": "J",
+      "l": "J 4m!",
+      "d": 4,
+      "an": "XX"
+     },
+     {
+      "k": "R",
+      "l": "R4 5m",
+      "d": 5,
+      "pool": "d",
+      "an": "TL XX ·「Sticky Absiel」C3"
+     }
+    ]
+   },
+   {
+    "nm": "A → 出溪",
+    "f": [
+     {
+      "k": "J",
+      "l": "J 3m! 或 DC",
+      "d": 3,
+      "pool": "d",
+      "an": "TR X"
+     },
+     {
+      "k": "R",
+      "l": "R5 9m",
+      "d": 9,
+      "pool": "s",
+      "an": "TR XX · TL XX"
+     },
+     {
+      "k": "R",
+      "l": "R6 25m 或 Jerry's Leap J 4m!",
+      "d": 25,
+      "pool": "s",
+      "an": "TL XX · TR XX ·「The Cavern」"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "s"
+     },
+     {
+      "k": "R",
+      "l": "R9 4m",
+      "d": 4,
+      "pool": "s",
+      "an": "TL X"
+     },
+     {
+      "k": "S",
+      "l": "S 3m! 或 J 3m!",
+      "d": 3,
+      "pool": "s",
+      "an": "TR X"
+     }
+    ]
+   }
+  ]
+ },
+ "Imp Grotto": {
+  "topo": "https://www.kiwicanyons.org/wp-content/uploads/2020/04/Imp-Grotto.pdf p2 · Topo by Daniel Clearwater",
+  "sections": [
+   {
+    "nm": "入溪 → 出溪",
+    "f": [
+     {
+      "k": "R",
+      "l": "R1 或 J 12m",
+      "d": 12,
+      "pool": "d",
+      "an": "TL 樹錨"
+     },
+     {
+      "k": "J",
+      "l": "J! 3m",
+      "d": 3,
+      "pool": "s",
+      "an": "DC TR"
+     },
+     {
+      "k": "HL",
+      "l": "HL 4m",
+      "d": 0,
+      "an": "TL X · XX"
+     },
+     {
+      "k": "R",
+      "l": "R2 21m（Corkscrew 瀑布）",
+      "d": 21,
+      "pool": "s",
+      "an": "TR X"
+     },
+     {
+      "k": "J",
+      "l": "J 3m",
+      "d": 3,
+      "pool": "d"
+     },
+     {
+      "k": "DC",
+      "l": "DC TL",
+      "d": 0
+     },
+     {
+      "k": "J",
+      "l": "J 4m",
+      "d": 4,
+      "pool": "d"
+     },
+     {
+      "k": "DC",
+      "l": "DC 4m",
+      "d": 4,
+      "pool": "d"
+     },
+     {
+      "k": "R",
+      "l": "R3 40m（可乾式垂降）",
+      "d": 40,
+      "pool": "h",
+      "an": "TL XX · Very Narrow"
+     },
+     {
+      "k": "N",
+      "l": "迴流推向 TR 底切，可全程遠離水流走 TL"
+     },
+     {
+      "k": "J",
+      "l": "J/S 4m",
+      "d": 4,
+      "pool": "d"
+     },
+     {
+      "k": "R",
+      "l": "R4 或 S 7m",
+      "d": 7,
+      "pool": "d",
+      "an": "TR X"
+     },
+     {
+      "k": "J",
+      "l": "J 5m（橋上跳水）",
+      "d": 5,
+      "pool": "d"
+     }
+    ]
+   }
+  ]
+ },
+ "Red Granite Creek": {
+  "topo": "https://www.kiwicanyons.org/wp-content/uploads/2021/05/Red-Granite-Creek.pdf p2 · Topo by Lee Den Haan and Richard Bramley",
+  "sections": [
+   {
+    "nm": "入溪 370m → A",
+    "f": [
+     {
+      "k": "J",
+      "l": "J 2m 或 DC 2m",
+      "d": 2,
+      "pool": "u",
+      "an": "TR @ 370m 入溪"
+     },
+     {
+      "k": "R",
+      "l": "R1 22m",
+      "d": 22,
+      "pool": "u",
+      "an": "TR XX"
+     },
+     {
+      "k": "R",
+      "l": "R2 12m 或 J 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "TL XX · 高水位時錨點難接近"
+     },
+     {
+      "k": "J",
+      "l": "J 4m 或 DC 4m",
+      "d": 4,
+      "pool": "u",
+      "an": "TR"
+     },
+     {
+      "k": "J",
+      "l": "J 5m",
+      "d": 5,
+      "pool": "u"
+     },
+     {
+      "k": "J",
+      "l": "J 12m! 或 DC 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "TR"
+     },
+     {
+      "k": "J",
+      "l": "J 2m 或 DC 2m",
+      "d": 2,
+      "pool": "u",
+      "an": "TR"
+     },
+     {
+      "k": "N",
+      "l": "300m 平流段"
+     },
+     {
+      "k": "J",
+      "l": "J 9m! 或 DC 9m",
+      "d": 9,
+      "pool": "u",
+      "an": "TL"
+     },
+     {
+      "k": "J",
+      "l": "J 4m",
+      "d": 4,
+      "pool": "u"
+     },
+     {
+      "k": "J",
+      "l": "J 6m 或 DC 6m",
+      "d": 6,
+      "pool": "u",
+      "an": "TR"
+     },
+     {
+      "k": "J",
+      "l": "J 15m!",
+      "d": 15,
+      "pool": "u",
+      "an": "TL"
+     },
+     {
+      "k": "S",
+      "l": "S 3m 或 DC 3m",
+      "d": 3,
+      "pool": "u",
+      "an": "XX TL"
+     },
+     {
+      "k": "R",
+      "l": "R3 16m",
+      "d": 16,
+      "pool": "u"
+     },
+     {
+      "k": "J",
+      "l": "J 5m",
+      "d": 5,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R4 40m",
+      "d": 40,
+      "pool": "u",
+      "an": "TR XX · 下段入口 TR @ 270m"
+     }
+    ]
+   },
+   {
+    "nm": "A → Mikonui 河",
+    "f": [
+     {
+      "k": "J",
+      "l": "J 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "TL XX"
+     },
+     {
+      "k": "R",
+      "l": "R5 15m",
+      "d": 15,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R6 10m 或 DC 5m",
+      "d": 10,
+      "pool": "u",
+      "an": "TR X"
+     },
+     {
+      "k": "R",
+      "l": "R7 40m",
+      "d": 40,
+      "pool": "u",
+      "an": "TL 樹錨"
+     },
+     {
+      "k": "J",
+      "l": "J 5m",
+      "d": 5,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R8 18m",
+      "d": 18,
+      "pool": "u",
+      "an": "TL XX · 高水位錨點難接近，全程掛繩"
+     },
+     {
+      "k": "J",
+      "l": "J 10m",
+      "d": 10,
+      "pool": "u"
+     },
+     {
+      "k": "N",
+      "l": "篩（Sieve）"
+     },
+     {
+      "k": "R",
+      "l": "R9 20m",
+      "d": 20,
+      "an": "TR XX · TR X 偏移"
+     },
+     {
+      "k": "R",
+      "l": "R10 18m",
+      "d": 18,
+      "pool": "u",
+      "an": "TR XX"
+     },
+     {
+      "k": "J",
+      "l": "J 12m",
+      "d": 12,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R11 38m",
+      "d": 38,
+      "an": "C XX · 出溪接 Mikonui 河"
+     }
+    ]
+   }
+  ]
+ },
+ "Falls Creek (Hollyford)": {
+  "topo": "https://www.kiwicanyons.org/wp-content/uploads/2011/06/Falls-Creek-Canyon.pdf p2 · Topo drawn by Patrick Timm (2021)",
+  "sections": [
+   {
+    "nm": "入溪 700m → A",
+    "f": [
+     {
+      "k": "R",
+      "l": "R1 80m（25m 處中繼）",
+      "d": 80,
+      "pool": "u",
+      "an": "XX C · 高水位有明顯湧浪，可由 TR 繞潭緣"
+     },
+     {
+      "k": "N",
+      "l": "「The Windy Narrows」"
+     },
+     {
+      "k": "R",
+      "l": "R2 10m",
+      "d": 10,
+      "an": "X TR · TL「Hole In The Wall」"
+     },
+     {
+      "k": "N",
+      "l": "60m 連續下攀"
+     },
+     {
+      "k": "R",
+      "l": "R3 6m",
+      "d": 6,
+      "pool": "u",
+      "an": "X TR"
+     },
+     {
+      "k": "N",
+      "l": "200m 連續下攀"
+     }
+    ]
+   },
+   {
+    "nm": "A → B",
+    "f": [
+     {
+      "k": "R",
+      "l": "R4 7m",
+      "d": 7,
+      "an": "X C"
+     },
+     {
+      "k": "R",
+      "l": "R5 8m",
+      "d": 8,
+      "pool": "u",
+      "an": "X TR"
+     },
+     {
+      "k": "N",
+      "l": "連續下攀"
+     },
+     {
+      "k": "R",
+      "l": "R6 26m（The Black Hole）",
+      "d": 26,
+      "pool": "u",
+      "an": "XX TL · 抽繩不易，建議順垂降路線在水中抽"
+     },
+     {
+      "k": "N",
+      "l": "連續下攀 ·「Jagged Chute」"
+     },
+     {
+      "k": "J",
+      "l": "J 3m",
+      "d": 3,
+      "pool": "u",
+      "an": "TR 底切注意"
+     }
+    ]
+   },
+   {
+    "nm": "B → 出溪",
+    "f": [
+     {
+      "k": "J",
+      "l": "J 3m 或 DC",
+      "d": 3,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R7 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "XX TR · TR 底切注意"
+     },
+     {
+      "k": "N",
+      "l": "越過 pour over 的岩栓在邊緣後方 4m，另一側第二顆可架手拉繩"
+     },
+     {
+      "k": "R",
+      "l": "R8 50m（TR 偏移 10m 處）",
+      "d": 50,
+      "pool": "u",
+      "an": "XX TR · X · XX TR"
+     },
+     {
+      "k": "N",
+      "l": "由 TR 橫越岩階出溪，接 Falls Creek 步道回公路"
+     }
+    ]
+   }
+  ]
+ },
+ "The General": {
+  "topo": "https://www.kiwicanyons.org/wp-content/uploads/2018/05/The-General.pdf p4–p5 · Canyon Log 依 Joe Budgen 原圖重繪，2026/01 更新",
+  "_note": "此圖用 CL／CR（峽谷左／右）而非 TL／TR，x／xx 為單／雙岩栓。SL 依 demo 既有慣例當安全繩處理（不計入落差），原文長度保留在標籤裡。",
+  "sections": [
+   {
+    "nm": "入溪 → A",
+    "f": [
+     {
+      "k": "R",
+      "l": "R1/DC 5m",
+      "d": 5,
+      "pool": "u",
+      "an": "x CL"
+     },
+     {
+      "k": "R",
+      "l": "R2 20m",
+      "d": 20,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R3/DC 5m",
+      "d": 5,
+      "pool": "u",
+      "an": "x CL"
+     },
+     {
+      "k": "HL",
+      "l": "SL 15m",
+      "d": 0,
+      "an": "x CR"
+     },
+     {
+      "k": "R",
+      "l": "R4 35m",
+      "d": 35,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "N",
+      "l": "North Branch 匯入 CR"
+     },
+     {
+      "k": "N",
+      "l": "Marble Staircase 下攀 · 50m 峽谷行走"
+     },
+     {
+      "k": "R",
+      "l": "R5/DC 5m",
+      "d": 5,
+      "pool": "u",
+      "an": "x CR"
+     },
+     {
+      "k": "R",
+      "l": "R6 5m",
+      "d": 5,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R7 45m",
+      "d": 45,
+      "pool": "u",
+      "an": "xx CL · 銳利岩緣"
+     },
+     {
+      "k": "R",
+      "l": "R8 20m",
+      "d": 20,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R9 10m",
+      "d": 10,
+      "pool": "u",
+      "an": "xx CL · 上方落石"
+     },
+     {
+      "k": "N",
+      "l": "Superiore 替代入溪 1050m（30m）"
+     },
+     {
+      "k": "DC",
+      "l": "DC",
+      "d": 0,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R10 8m",
+      "d": 8,
+      "pool": "u",
+      "an": "xx CR"
+     },
+     {
+      "k": "N",
+      "l": "峽谷行走"
+     },
+     {
+      "k": "R",
+      "l": "R11 5m",
+      "d": 5,
+      "pool": "u",
+      "an": "xx CR"
+     },
+     {
+      "k": "R",
+      "l": "R12 10m",
+      "d": 10,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R13 5m",
+      "d": 5,
+      "pool": "u",
+      "an": "xx CR"
+     },
+     {
+      "k": "R",
+      "l": "R14 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R15 6m",
+      "d": 6,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R16 10m",
+      "d": 10,
+      "pool": "u",
+      "an": "xx CR"
+     }
+    ]
+   },
+   {
+    "nm": "A → B",
+    "f": [
+     {
+      "k": "R",
+      "l": "R17 8m",
+      "d": 8,
+      "pool": "u",
+      "an": "xx CR · 上方落石"
+     },
+     {
+      "k": "N",
+      "l": "30m 峽谷行走"
+     },
+     {
+      "k": "R",
+      "l": "R18 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "xx CR · 擺盪風險"
+     },
+     {
+      "k": "R",
+      "l": "R19 4m",
+      "d": 4,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R20 15m",
+      "d": 15,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "N",
+      "l": "The Siphon · 雙段落差"
+     },
+     {
+      "k": "R",
+      "l": "R21 20m",
+      "d": 20,
+      "pool": "u",
+      "an": "xx CL · x 偏移"
+     },
+     {
+      "k": "N",
+      "l": "Intermedio 替代入溪 900m（40m）"
+     },
+     {
+      "k": "HL",
+      "l": "SL 5m",
+      "d": 0,
+      "an": "x CL"
+     },
+     {
+      "k": "R",
+      "l": "R22 30m",
+      "d": 30,
+      "pool": "u",
+      "an": "xx CL"
+     }
+    ]
+   },
+   {
+    "nm": "B → C",
+    "f": [
+     {
+      "k": "HL",
+      "l": "SL 4m",
+      "d": 0,
+      "an": "x CL"
+     },
+     {
+      "k": "R",
+      "l": "R23 28m",
+      "d": 28,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R24 5m",
+      "d": 5,
+      "pool": "u",
+      "an": "xx CR"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "HL",
+      "l": "SL 3m",
+      "d": 0,
+      "an": "x CL"
+     },
+     {
+      "k": "R",
+      "l": "R25 25m",
+      "d": 25,
+      "pool": "u",
+      "an": "xx CL · SLOT OF DOOM · 落石"
+     },
+     {
+      "k": "R",
+      "l": "R26 23m",
+      "d": 23,
+      "pool": "u",
+      "an": "xx CL · 落石"
+     },
+     {
+      "k": "R",
+      "l": "R27 15m",
+      "d": 15,
+      "pool": "u",
+      "an": "xx CL · xx 偏移"
+     },
+     {
+      "k": "DC",
+      "l": "DC 4m",
+      "d": 4,
+      "pool": "u"
+     },
+     {
+      "k": "N",
+      "l": "暴露感強"
+     },
+     {
+      "k": "R",
+      "l": "R28 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "N",
+      "l": "Inferiore 替代入溪 800m（40m）"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R29 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R30 8m",
+      "d": 8,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R31 15m",
+      "d": 15,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R32 15m",
+      "d": 15,
+      "pool": "u",
+      "an": "xx CL · 雙段落差"
+     },
+     {
+      "k": "R",
+      "l": "R33 4m",
+      "d": 4,
+      "pool": "u",
+      "an": "xx CL"
+     }
+    ]
+   },
+   {
+    "nm": "C → D",
+    "f": [
+     {
+      "k": "R",
+      "l": "R34 4m",
+      "d": 4,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "N",
+      "l": "連續下攀"
+     },
+     {
+      "k": "R",
+      "l": "R35 15m",
+      "d": 15,
+      "pool": "u",
+      "an": "xx CL · THE VOLCANO"
+     },
+     {
+      "k": "R",
+      "l": "R36 15m",
+      "d": 15,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "DC",
+      "l": "DC 4m",
+      "d": 4,
+      "pool": "u"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R37 6m",
+      "d": 6,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R38 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "xx CL · 底切垂降"
+     },
+     {
+      "k": "R",
+      "l": "R39 4m",
+      "d": 4,
+      "pool": "u",
+      "an": "x CL"
+     },
+     {
+      "k": "R",
+      "l": "R40 6m",
+      "d": 6,
+      "pool": "u",
+      "an": "xx CL"
+     },
+     {
+      "k": "R",
+      "l": "R41 15m",
+      "d": 15,
+      "pool": "u",
+      "an": "xx CL · x 偏移 · 底切垂降"
+     },
+     {
+      "k": "DC",
+      "l": "DC 4m",
+      "d": 4,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R42 8m",
+      "d": 8,
+      "pool": "u",
+      "an": "xx CL · THE V SLOT · 擺盪風險"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R43 4m",
+      "d": 4,
+      "pool": "u",
+      "an": "xx CR · 假底"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R44 5m",
+      "d": 5,
+      "pool": "u",
+      "an": "xx CR"
+     },
+     {
+      "k": "N",
+      "l": "連續下攀"
+     },
+     {
+      "k": "R",
+      "l": "R45 8m",
+      "d": 8,
+      "pool": "u",
+      "an": "xx CR"
+     },
+     {
+      "k": "N",
+      "l": "連續下攀"
+     },
+     {
+      "k": "R",
+      "l": "R46 10m",
+      "d": 10,
+      "pool": "u",
+      "an": "xv CR"
+     }
+    ]
+   },
+   {
+    "nm": "D → 出溪",
+    "f": [
+     {
+      "k": "N",
+      "l": "連續下攀 · 15 分鐘峽谷行走"
+     },
+     {
+      "k": "N",
+      "l": "620m 處 · 再 45 分鐘出溪"
+     }
+    ]
+   }
+  ]
+ },
+ "Bartrum Creek": {
+  "topo": "Waitaha Valley 指南 p24–p25（KiwiCanyons）· 圖例：↻ Dangerous hydraulic、SL Safety line、CW Creek walk、UC Up climb",
+  "sections": [
+   {
+    "nm": "入溪 600m → A",
+    "f": [
+     {
+      "k": "N",
+      "l": "CW 250m 含下攀 · TL 支流匯入 · CW 50m"
+     },
+     {
+      "k": "UC",
+      "l": "UC 5m",
+      "d": 5,
+      "an": "暴露感強，可能需人體確保"
+     },
+     {
+      "k": "R",
+      "l": "R1 12m",
+      "d": 12,
+      "pool": "h",
+      "an": "TL XX 或 J! · 底切"
+     },
+     {
+      "k": "R",
+      "l": "R2 10m",
+      "d": 10,
+      "pool": "u",
+      "an": "TR XX 或 J!"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "DC",
+      "l": "DC 4m",
+      "d": 4,
+      "pool": "u"
+     },
+     {
+      "k": "DC",
+      "l": "DC 3m",
+      "d": 3,
+      "pool": "u"
+     },
+     {
+      "k": "N",
+      "l": "CW 100m"
+     },
+     {
+      "k": "HL",
+      "l": "SL 6m",
+      "d": 0,
+      "an": "TL XX → TL XX"
+     },
+     {
+      "k": "R",
+      "l": "R3 7m 或 S!",
+      "d": 7,
+      "pool": "u"
+     },
+     {
+      "k": "DC",
+      "l": "DC 1m",
+      "d": 1,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R4 7m",
+      "d": 7,
+      "pool": "u",
+      "an": "TL XX"
+     }
+    ]
+   },
+   {
+    "nm": "A → B",
+    "f": [
+     {
+      "k": "HL",
+      "l": "SL 10m",
+      "d": 0,
+      "an": "TR XX → TR XX · 底切"
+     },
+     {
+      "k": "R",
+      "l": "R5 10m",
+      "d": 10,
+      "pool": "h"
+     },
+     {
+      "k": "N",
+      "l": "CW 50m"
+     },
+     {
+      "k": "R",
+      "l": "R6 8m",
+      "d": 8,
+      "pool": "u",
+      "an": "TR XX"
+     },
+     {
+      "k": "J",
+      "l": "J 5m",
+      "d": 5,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R7 6m",
+      "d": 6,
+      "pool": "u",
+      "an": "TR XX"
+     },
+     {
+      "k": "DC",
+      "l": "DC 3m",
+      "d": 3,
+      "pool": "u"
+     },
+     {
+      "k": "J",
+      "l": "J 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R8 16m 或 J 6m",
+      "d": 16,
+      "pool": "u",
+      "an": "TR XX ·「Rooster Tail Cauldron」"
+     },
+     {
+      "k": "R",
+      "l": "R9 12m",
+      "d": 12,
+      "pool": "u",
+      "an": "TL XX"
+     },
+     {
+      "k": "J",
+      "l": "J 5m",
+      "d": 5,
+      "pool": "u"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "N",
+      "l": "CW 50m"
+     },
+     {
+      "k": "R",
+      "l": "R10 11m",
+      "d": 11,
+      "pool": "u",
+      "an": "TL XX"
+     }
+    ]
+   },
+   {
+    "nm": "B → C",
+    "f": [
+     {
+      "k": "R",
+      "l": "R11 5m 或 DC",
+      "d": 5,
+      "pool": "h",
+      "an": "TR XX · 底切與潛在篩"
+     },
+     {
+      "k": "J",
+      "l": "J 3m",
+      "d": 3,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R12 4m 或 J",
+      "d": 4,
+      "pool": "u",
+      "an": "TL XX"
+     },
+     {
+      "k": "UC",
+      "l": "UC（漂木可能移動，需重新打岩栓）",
+      "d": 0
+     },
+     {
+      "k": "R",
+      "l": "R13 15m（垂降接滑降）或 S 8m",
+      "d": 15,
+      "pool": "u",
+      "an": "TL XX"
+     },
+     {
+      "k": "DC",
+      "l": "DC 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "N",
+      "l": "高水位另有岩栓 TR X · CW 100m"
+     },
+     {
+      "k": "R",
+      "l": "R14 10m 或 DC 8m",
+      "d": 10,
+      "pool": "u",
+      "an": "TR X"
+     },
+     {
+      "k": "N",
+      "l": "CW 100m · TR 可能的脫逃點"
+     }
+    ]
+   },
+   {
+    "nm": "C → 出溪",
+    "f": [
+     {
+      "k": "UC",
+      "l": "UC 或 J",
+      "d": 0,
+      "an": "TL 樹錨"
+     },
+     {
+      "k": "R",
+      "l": "R15 6m",
+      "d": 6,
+      "pool": "u"
+     },
+     {
+      "k": "R",
+      "l": "R16 8m 或 J",
+      "d": 8,
+      "pool": "u",
+      "an": "TR XX"
+     },
+     {
+      "k": "J",
+      "l": "J 2m",
+      "d": 2,
+      "pool": "u"
+     },
+     {
+      "k": "N",
+      "l": "CW 50m · 15 分鐘回 Kiwi Flat Hut"
+     }
+    ]
+   }
+  ]
+ }
+}

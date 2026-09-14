@@ -11,9 +11,12 @@ import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/compone
 import ElevationSparkline from "@/app/components/ElevationSparkline";
 import { decideElevationDisplay } from "@/lib/elevationDisplay";
 import { computeOutdoorTotals, type OutdoorTotals } from "@/lib/outdoorTotals";
+import type { RouteProfile } from "@/lib/routeProfile";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
+import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
+import PillButton from "@/app/components/PillButton";
 import QuickExpenseModal from "@/app/components/QuickExpenseModal";
 import { parseCoverPos, withCoverPos } from "@/lib/coverPos";
 import { compressImage } from "@/lib/compressImage";
@@ -52,6 +55,8 @@ interface ItineraryItem {
   descent_m: number | null;
   /** null = 依海拔覆蓋率自動判斷；true/false = 使用者明確設定 */
   show_elevation: boolean | null;
+  /** 戶外路段的路線檔案：分級、性質、時間、進場、危險。見 lib/routeProfile.ts */
+  route_profile: RouteProfile | null;
 }
 
 interface WeatherDay {
@@ -883,7 +888,7 @@ export default function ItineraryTab({
         >
           {/* 有 chips 列時它已經在標「現在是哪一天」，日期標題就不用再黏一層 */}
           <div
-            className={`flex items-center gap-2 mb-2.5 flex-wrap py-2 ${showDateChips ? "" : "sticky top-16 md:top-32 z-40 bg-[#09090b]/60 backdrop-blur-md"}`}
+            className={`flex items-center gap-2 mb-2.5 flex-wrap py-2 ${showDateChips ? "" : "sticky top-16 md:top-32 z-40 bg-[#09090b]"}`}
           >
             {/* 跳日期交給頂部的 chips 列，日期標題就只是標題 */}
             <Typography.Text
@@ -1170,13 +1175,19 @@ export default function ItineraryTab({
                   {expenseChip}
                 </div>
               )}
-              <div className="hidden md:flex justify-between items-start">
+              {/* 桌機把時間拉到右側固定寬度的一欄，整排靠右對齊 —— 像時刻表一樣可以縱向掃視，
+                  順便把原本空掉的右半邊用起來；手機維持時間跟在標題下方那一行 */}
+              <div className="hidden md:flex justify-between items-start gap-4">
                 <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap mb-1">
-                  {timeLabel && <span className="text-zinc-500">{timeLabel}</span>}
                   <Typography.Text strong className="text-zinc-100 text-sm">{item.title}</Typography.Text>
                   {item.category && <CategoryBadge category={item.category} />}
                 </div>
-                {actionButtons}
+                <div className="shrink-0 flex items-start gap-2">
+                  {timeLabel && (
+                    <span className="min-w-[104px] text-right text-zinc-400 leading-6">{timeLabel}</span>
+                  )}
+                  {actionButtons}
+                </div>
               </div>
               {(locationInner || routeChip || expenseChip) && (
                 <div className="hidden md:flex text-zinc-500 text-xs mb-0.5 items-center gap-2 flex-wrap">
@@ -1362,44 +1373,20 @@ export default function ItineraryTab({
         <div className="text-center py-14 rounded-3xl border border-white/5 bg-white/[0.02]">
           <div className="text-zinc-300 text-sm font-medium mb-1">行程載入失敗</div>
           <div className="text-zinc-500 text-xs mb-4">請檢查網路連線後重試</div>
-          <button
-            onClick={() => fetchItems()}
-            className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-4 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-          >
-            重新載入
-          </button>
+          <PillButton onClick={() => fetchItems()}>重新載入</PillButton>
         </div>
       ) : dates.length === 0 ? (
-        <div
-          className="flex flex-col items-center gap-4 py-16 px-6 rounded-3xl border border-white/5 bg-white/[0.02] text-center"
-          style={{ background: 'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.05) 0%, transparent 70%)' }}
-        >
-          <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
-            <CalendarIcon size={32} stroke="#8b5cf6" strokeWidth={1.5} />
-          </div>
-          <div>
-            <div className="text-zinc-200 font-medium mb-1">還沒有行程安排</div>
-            <div className="text-zinc-500 text-xs max-w-[240px] mx-auto">
-              把每一天規劃好，旅程會更從容。
-            </div>
-          </div>
-          {!readOnly && (
-            <div className="flex gap-2 w-full max-w-[300px]">
-              <button
-                onClick={() => openAdd()}
-                className="flex-1 h-10 rounded-2xl bg-white/[0.06] border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition-all cursor-pointer"
-              >
-                手動新增
-              </button>
-              <button
-                onClick={() => setAIModalOpen(true)}
-                className="flex-1 h-10 rounded-2xl bg-violet-600 border border-violet-500 text-white text-sm font-medium hover:bg-violet-500 transition-all shadow-[0_4px_12px_rgba(139,92,246,0.3)] cursor-pointer"
-              >
-                AI 助手生成
-              </button>
+        <EmptyState
+          icon={<CalendarIcon size={32} stroke="#8b5cf6" strokeWidth={1.5} />}
+          title="還沒有行程安排"
+          description="把每一天規劃好，旅程會更從容。"
+          action={!readOnly && (
+            <div className="flex gap-2">
+              <EmptyStateAction onClick={() => openAdd()}>手動新增</EmptyStateAction>
+              <EmptyStateAction primary onClick={() => setAIModalOpen(true)}>AI 助手生成</EmptyStateAction>
             </div>
           )}
-        </div>
+        />
       ) : (
         <>
           {showDateChips && (
@@ -1862,6 +1849,7 @@ export default function ItineraryTab({
             open
             readOnly={readOnly}
             onClose={() => setRouteItem(null)}
+            routeProfile={live.route_profile}
             showElevation={live.show_elevation}
             onShowElevationChange={(value) => {
               setItems((prev) => prev.map((i) => i.id === live.id ? { ...i, show_elevation: value } : i));

@@ -293,21 +293,14 @@ export default function NotesTab({ tripId, readOnly, initialContent }: Props) {
 
         {!readOnly && (
           <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full text-[14px] font-semibold h-10 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50"
-            >
+            <PillButton size="lg" onClick={handleSave} disabled={saving} className="flex-1 !font-semibold">
               {saving && <LoadingOutlined style={{ fontSize: 13 }} />}
               儲存筆記
               {dirty && !saving && <span className="w-1.5 h-1.5 rounded-full bg-violet-400" aria-label="有未儲存變更" />}
-            </button>
-            <button
-              onClick={() => setEditing(false)}
-              className="inline-flex items-center justify-center rounded-full text-[14px] font-medium h-10 px-5 text-zinc-400 hover:text-zinc-200 border border-white/10 hover:bg-white/[0.06] transition-all duration-200 cursor-pointer"
-            >
+            </PillButton>
+            <PillButton size="lg" onClick={() => setEditing(false)} className="!bg-transparent !text-zinc-400 hover:!bg-white/[0.06] hover:!text-zinc-200">
               閱讀模式
-            </button>
+            </PillButton>
           </div>
         )}
         </>
