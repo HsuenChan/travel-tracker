@@ -84,6 +84,11 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
             className="absolute inset-0 pointer-events-none"
             style={{ background: "linear-gradient(160deg, rgba(9,9,11,0.5) 0%, rgba(9,9,11,0.72) 55%, rgba(9,9,11,0.94) 100%)" }}
           />
+          {/* 文字全部靠左，左側給一層很淡的遮罩；可讀性主要靠文字自己的陰影，照片維持亮度 */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: "linear-gradient(100deg, rgba(9,9,11,0.32) 0%, rgba(9,9,11,0.12) 45%, transparent 65%)" }}
+          />
         </>
       )}
       <div
@@ -101,6 +106,7 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
           <Typography.Title
             level={2}
             className={`font-display !text-zinc-100 !m-0 ${notes ? "!mb-1.5" : "!mb-5"} !leading-tight !font-black tracking-tight !text-[24px] md:!text-[30px]`}
+            style={cover ? { textShadow: "0 1px 2px rgba(9,9,11,0.7), 0 4px 16px rgba(9,9,11,0.5)" } : undefined}
           >
             {name}
           </Typography.Title>
@@ -108,6 +114,7 @@ const TripHero = forwardRef<HTMLDivElement, TripHeroProps>(function TripHero(
           {notes && (
             <div
               className="notes-content hero-subtitle mb-5 text-[13px] leading-relaxed text-zinc-400 max-w-xl"
+              style={cover ? { textShadow: "0 1px 2px rgba(9,9,11,0.75), 0 2px 10px rgba(9,9,11,0.55)" } : undefined}
               dangerouslySetInnerHTML={{ __html: notes }}
             />
           )}

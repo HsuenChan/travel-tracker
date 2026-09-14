@@ -1,6 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { WAYPOINT_TYPES } from "@/lib/waypointTypes";
+
+/** 落水潭深淺，與 supabase/18_waypoint_topo.sql 的 check constraint 同一份 */
+const POOL_TYPES = ["unknown", "shallow", "deep", "hydraulic"];
+
+/** 空字串一律存成 null，畫面才不用同時判斷「沒有」與「空的」 */
+function str(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  return t === "" ? null : t;
+}
 import { actorFrom, logChange } from "@/lib/activityLog";
 import { deriveWaypointStats } from "@/lib/waypointStats";
 
@@ -101,6 +111,10 @@ export async function PUT(request: NextRequest) {
       lat: num(w.lat),
       lng: num(w.lng),
       notes: (w.notes as string) ?? null,
+      // 縱剖面圖用的三欄。這支是整段覆寫，漏掉任何一欄就等於使用者按一次儲存就把它清空
+      pool_type: POOL_TYPES.includes(String(w.pool_type)) ? String(w.pool_type) : null,
+      anchor_note: str(w.anchor_note),
+      section: str(w.section),
     }));
 
   // 這支是整段覆寫，所以紀錄也用整段的角度：舊的整串途經點收進 snapshot，

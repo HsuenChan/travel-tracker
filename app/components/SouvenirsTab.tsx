@@ -8,6 +8,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { motion } from "framer-motion";
 import { DeleteOutlined, EditOutlined, PictureOutlined, CloseOutlined, LoadingOutlined } from "@ant-design/icons";
 import { PlusIcon, GiftIcon, GridIcon, MenuListIcon } from "@/app/components/Icons";
+import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
 
 type ViewMode = "card" | "list";
 
@@ -436,18 +437,12 @@ export default function SouvenirsTab({
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div
-          className="flex flex-col items-center gap-4 py-20 rounded-3xl border border-white/5 bg-white/2"
-          style={{ background: 'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.05) 0%, transparent 70%)' }}
-        >
-          <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
-            <GiftIcon size={32} stroke="#8b5cf6" />
-          </div>
-          <div className="text-center">
-            <div className="text-zinc-200 font-medium mb-1">尚未建立清單</div>
-            <div className="text-zinc-500 text-xs px-10">在這裡記錄準備為自己與親友購買的伴手禮吧。</div>
-          </div>
-        </div>
+        <EmptyState
+          icon={<GiftIcon size={32} stroke="#8b5cf6" />}
+          title="尚未建立清單"
+          description="在這裡記錄準備為自己與親友購買的伴手禮吧。"
+          action={!readOnly && <EmptyStateAction onClick={openAdd}>新增伴手禮</EmptyStateAction>}
+        />
       ) : viewMode === "list" ? (
         <div className="flex flex-col gap-1.5">
           {visibleItems.map(item => (

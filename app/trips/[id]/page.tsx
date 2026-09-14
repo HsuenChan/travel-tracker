@@ -23,6 +23,8 @@ import SegmentCard from "@/app/components/SegmentCard";
 import TripHero from "@/app/components/TripHero";
 import TripRecapCard from "@/app/components/TripRecapCard";
 import MobileNav from "@/app/components/MobileNav";
+import PillButton from "@/app/components/PillButton";
+import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
 import {
   PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon, CarabinerIcon,
   CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
@@ -627,13 +629,10 @@ export default function TripPage() {
     <>
       <div className="my-3 flex items-center justify-between">
         <Typography.Text strong className="text-zinc-100 text-[15px]">交通段落</Typography.Text>
-        <button
-          onClick={() => pushModal("addSegment")}
-          className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-        >
+        <PillButton onClick={() => pushModal("addSegment")}>
           <PlusIcon size={12} />
           新增段落
-        </button>
+        </PillButton>
       </div>
 
       {segmentsLoading ? (
@@ -648,36 +647,21 @@ export default function TripPage() {
         <div className="text-center py-14 rounded-2xl border border-white/[0.06] bg-white/[0.02]">
           <div className="text-zinc-300 text-sm font-medium mb-1">交通記錄載入失敗</div>
           <div className="text-zinc-400 text-xs mb-4">請檢查網路連線後重試</div>
-          <button
-            onClick={() => fetchSegments()}
-            className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-4 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-          >
-            重新載入
-          </button>
+          <PillButton onClick={() => fetchSegments()}>重新載入</PillButton>
         </div>
       ) : segments.length === 0 ? (
-        <div
-          className="flex flex-col items-center gap-3 py-12 pb-10 rounded-2xl border border-white/[0.06]"
-          style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(59,130,246,0.06) 0%, transparent 65%), rgba(9,9,11,0.6)' }}
-        >
-          <div
-            className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center"
-            style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.18)' }}
-          >
-            <PlaneIcon size={26} stroke="#3b82f6" strokeWidth={1.5} />
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <Typography.Text className="text-zinc-300 text-sm font-medium">還沒有交通記錄</Typography.Text>
-            <Typography.Text className="text-zinc-600 text-xs">記錄每一段旅程，不錯過任何細節。</Typography.Text>
-          </div>
-          <button
-            onClick={() => pushModal("addSegment")}
-            className="mt-1 inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-          >
-            <PlusIcon size={12} />
-            新增第一段
-          </button>
-        </div>
+        <EmptyState
+          accent="#3b82f6"
+          icon={<PlaneIcon size={32} stroke="#3b82f6" strokeWidth={1.5} />}
+          title="還沒有交通記錄"
+          description="記錄每一段旅程，不錯過任何細節。"
+          action={
+            <EmptyStateAction onClick={() => pushModal("addSegment")}>
+              <PlusIcon size={12} />
+              新增第一段
+            </EmptyStateAction>
+          }
+        />
       ) : (
         <Timeline className="segment-timeline" items={timelineItems} />
       )}
@@ -722,71 +706,50 @@ export default function TripPage() {
           </div>
         ) : (
           <div className="flex gap-1.5 shrink-0">
-            <button
-              onClick={openShareModal}
-              disabled={sharing}
-              title="分享旅程"
-              className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
-            >
+            <PillButton onClick={openShareModal} disabled={sharing} title="分享旅程">
               {sharing ? <LoadingOutlined size={13} /> : <ShareIcon size={13} />}
               分享
-            </button>
+            </PillButton>
 
             {isOwner && (
-              <button
-                onClick={handleInvite}
-                disabled={inviting}
-                title="邀請夥伴共同編輯"
-                className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 disabled:opacity-40 cursor-pointer"
-              >
+              <PillButton onClick={handleInvite} disabled={inviting} title="邀請夥伴共同編輯">
                 {inviting ? <LoadingOutlined size={13} /> : <UserPlusIcon size={13} />}
                 邀請
-              </button>
+              </PillButton>
             )}
 
             {(isOwner || isMember) && people.length > 0 && (
-              <button
-                onClick={() => setShowBindingPanel(true)}
-                title="把分帳名單對應到成員帳號"
-                className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
-              >
+              <PillButton onClick={() => setShowBindingPanel(true)} title="把分帳名單對應到成員帳號">
                 <UsersIcon size={13} />
                 分帳綁定
-              </button>
+              </PillButton>
             )}
 
-            <button
-              onClick={() => pushModal("lineBot")}
-              title="LINE Bot 記帳"
-              className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
-            >
+            <PillButton onClick={() => pushModal("lineBot")} title="LINE Bot 記帳">
               <LineBotIcon size={13} />
               LINE Bot
-            </button>
+            </PillButton>
 
-            <button
-              onClick={() => pushModal("editTrip")}
-              className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-white/[0.06] border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-all duration-200 cursor-pointer"
-            >
+            <PillButton onClick={() => pushModal("editTrip")}>
               <EditIcon size={13} />
               編輯
-            </button>
+            </PillButton>
 
             {isOwner && (
               <Popconfirm title="確定要刪除這筆旅程嗎？" onConfirm={handleDelete} okText="刪除" cancelText="取消" okButtonProps={{ danger: true, loading: deleting }}>
-                <button className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200 cursor-pointer">
+                <PillButton variant="danger">
                   <TrashIcon size={13} />
                   刪除
-                </button>
+                </PillButton>
               </Popconfirm>
             )}
 
             {isMember && (
               <Popconfirm title="確定要離開此旅程嗎？" onConfirm={handleLeave} okText="離開" cancelText="取消" okButtonProps={{ danger: true, loading: leaving }}>
-                <button className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200 cursor-pointer">
+                <PillButton variant="danger">
                   <TrashIcon size={13} />
                   離開旅程
-                </button>
+                </PillButton>
               </Popconfirm>
             )}
           </div>
@@ -978,7 +941,7 @@ export default function TripPage() {
                   })}
             </div>
           ) : (
-            <div className="text-zinc-500 text-[13px] py-4 text-center">先在旅程編輯加入分帳成員，再回來綁定</div>
+            <div className="text-zinc-500 text-[13px] py-4 text-center">先在旅程編輯加入旅伴，再回來綁定</div>
           )}
         </Modal>
 
@@ -1111,32 +1074,6 @@ export default function TripPage() {
         />
       )}
 
-      {/* 快速記帳 FAB：旅程進行期間、手機拇指區的一鍵記帳 */}
-      {isMobile && trip && (!trip.enabled_tabs || trip.enabled_tabs.includes("expenses")) && (() => {
-        const today = dayjs().format("YYYY-MM-DD");
-        const inTrip = trip.start_date && trip.end_date && today >= trip.start_date && today <= trip.end_date;
-        if (!inTrip) return null;
-        return (
-          <button
-            onClick={() => {
-              const p = new URLSearchParams(Array.from(searchParams.entries()));
-              p.set("tab", "expenses");
-              p.set("modal", "addExpense");
-              p.delete("expenseId");
-              setActiveTab("expenses");
-              router.push(`/trips/${id}?${p.toString()}`, { scroll: false });
-            }}
-            aria-label="快速記帳"
-            className="fixed right-4 z-[300] w-12 h-12 rounded-full flex items-center justify-center text-zinc-300 bg-white/[0.08] border border-white/10 backdrop-blur-md cursor-pointer active:scale-95 transition-transform"
-            style={{
-              bottom: "calc(96px + env(safe-area-inset-bottom, 0px))",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-            }}
-          >
-            <CoinIcon size={18} />
-          </button>
-        );
-      })()}
 
       {/* Mobile More Actions Bottom Sheet */}
       <div

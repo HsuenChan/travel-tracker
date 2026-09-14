@@ -567,8 +567,8 @@ body {
 
 /* hero 副標題的連結是配角：常態低調，hover 才亮 */
 .hero-subtitle a {
-  color: rgba(196, 181, 253, 0.75);
-  text-decoration-color: rgba(196, 181, 253, 0.25);
+  color: rgba(203, 190, 255, 0.95);
+  text-decoration-color: rgba(203, 190, 255, 0.45);
 }
 
 .hero-subtitle a:hover {
@@ -625,8 +625,47 @@ body {
 }
 
 /* chips 橫向捲動時不要露出捲軸 */
-.chip-row { scrollbar-width: none; }
+/*
+  右緣淡出：chips 靠「切一半」暗示可以橫捲，但在深色底上齊頭切齊會被當成排版壞掉。
+  沒有溢出時右邊本來就是空白，遮罩落在空白上看不出來，所以不需要另外判斷。
+*/
+.chip-row {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+}
 .chip-row::-webkit-scrollbar { display: none; }
+
+/*
+  路線檔案的分頁列。與 .chip-row 的差別是兩側都會淡出 —— 分頁會被捲到中間，
+  左邊一定有內容，只淡出右邊的話左緣會變成一刀硬切，看起來像排版壞掉。
+
+  淡出寬度由 JS 依「那一側還有沒有分頁」寫進來：已經捲到底的那一側設成 0，
+  否則停在最左時第一個分頁的字會無緣無故被吃掉一角。
+*/
+.route-tabs {
+  /*
+    完全不露捲軸：這一列是用點擊或左右滑移動的，多一條捲軸只是噪音，
+    而且它會佔掉幾 px 高度把整列撐高。捲動本身（overflow）寫在元件的 class 上。
+  */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--fade-l, 0px),
+    #000 calc(100% - var(--fade-r, 0px)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--fade-l, 0px),
+    #000 calc(100% - var(--fade-r, 0px)),
+    transparent 100%
+  );
+}
+.route-tabs::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
 /*
   這個 surface 唯一一段被編排過的動作：列被打開時，內容從上緣被「掀」出來。

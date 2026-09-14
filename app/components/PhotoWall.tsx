@@ -213,7 +213,7 @@ export default function PhotoWall({ albumUrl }: Props) {
         <Typography.Text strong className="text-zinc-100 text-[15px]">
           照片（{photos.length}）
         </Typography.Text>
-        <a href={albumUrl} target="_blank" rel="noopener noreferrer" className="text-zinc-500 text-xs">
+        <a href={albumUrl} target="_blank" rel="noopener noreferrer" className="!text-zinc-500 text-xs">
           在 Google Photos 開啟 ↗
         </a>
       </div>
@@ -234,7 +234,7 @@ export default function PhotoWall({ albumUrl }: Props) {
           <Typography.Text className="text-zinc-600 text-xs">
             已顯示全部 {photos.length} 張・
           </Typography.Text>
-          <a href={albumUrl} target="_blank" rel="noopener noreferrer" className="text-zinc-600 text-xs">
+          <a href={albumUrl} target="_blank" rel="noopener noreferrer" className="!text-zinc-600 text-xs">
             在 Google Photos 開啟 ↗
           </a>
         </div>

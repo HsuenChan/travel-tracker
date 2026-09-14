@@ -17,6 +17,7 @@ import {
 } from "antd";
 import { getCountryFlags, getCountryCodes } from "@/lib/countries";
 import { parseCoverPos } from "@/lib/coverPos";
+import PillButton from "@/app/components/PillButton";
 import { UserOutlined, AimOutlined, LoadingOutlined } from "@ant-design/icons";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
@@ -365,12 +366,7 @@ export default function Home() {
       <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center gap-4 px-6">
         <div className="text-zinc-300 text-[15px] font-medium">連線失敗</div>
         <div className="text-zinc-500 text-[13px] text-center">無法確認登入狀態，請檢查網路後重試。</div>
-        <button
-          onClick={checkAuth}
-          className="inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-9 px-5 bg-white/[0.06] border border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
-        >
-          重新連線
-        </button>
+        <PillButton size="md" onClick={checkAuth}>重新連線</PillButton>
       </div>
     );
   }

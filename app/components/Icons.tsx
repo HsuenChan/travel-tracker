@@ -572,6 +572,36 @@ export function ShieldIcon({ size = 14, className, stroke = "currentColor", stro
   );
 }
 
+/** 縱剖面：階梯狀下降的河床，直接說明那一頁畫的是什麼 */
+export function TopoProfileIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2.5 4.5v5h5v5h5v5h9" />
+      <path d="M5 12.5v3" />
+      <path d="M10 17.5v3" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5.2l3.2 2" />
+    </svg>
+  );
+}
+
+export function AlertTriangleIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 3.6 1.9 20.4h20.2z" />
+      <path d="M12 9.6v4.2" />
+      <path d="M12 17.2h.01" />
+    </svg>
+  );
+}
+
 export function LaptopIcon({ size = 14, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>

@@ -249,7 +249,7 @@ export default function EditTripModal({ trip, onClose, onSaved }: Props) {
           />
         </Form.Item>
 
-        <Form.Item name="people" label="分帳成員" extra="輸入名字後按 Enter 加入">
+        <Form.Item name="people" label="旅伴" extra="輸入名字後按 Enter 加入">
           <Select
             mode="tags"
             placeholder="輸入成員名字，按 Enter 確認"

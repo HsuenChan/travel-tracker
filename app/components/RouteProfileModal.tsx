@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Input, InputNumber, Select, App, Skeleton, Tooltip } from "antd";
 import { motion } from "framer-motion";
 import {
@@ -8,11 +8,19 @@ import {
   Tooltip as ChartTooltip,
 } from "recharts";
 import PillButton from "./PillButton";
-import { PlusIcon, TrashIcon, MountainIcon, InfoIcon, ArrowUpIcon, ArrowDownIcon, UploadIcon } from "@/app/components/Icons";
+import { PlusIcon, TrashIcon, MountainIcon, InfoIcon, ArrowUpIcon, ArrowDownIcon, UploadIcon,
+  ClockIcon, MapIcon, TopoProfileIcon, PhotoIcon, AlertTriangleIcon, LocationIcon } from "@/app/components/Icons";
 import { parseCoordPair } from "@/lib/coords";
 import GpxImportModal, { type ImportedWaypoint } from "@/app/components/GpxImportModal";
 import { decideElevationDisplay } from "@/lib/elevationDisplay";
 import { WAYPOINT_TYPE_GROUPS, WAYPOINT_TYPE_LABEL } from "@/lib/waypointTypes";
+import {
+  type RouteProfile,
+  pickText, hasQuickInfo, hasTimes, hasApproach, hasTopo, hasHazards, routePhotos,
+} from "@/lib/routeProfile";
+import {
+  GradeChips, QuickInfoPane, TimesPane, ApproachPane, TopoPane, PhotosPane, HazardsPane,
+} from "@/app/components/RouteDossier";
 
 export interface Waypoint {
   id?: string;
@@ -24,6 +32,12 @@ export interface Waypoint {
   /** 垂降／下攀／跳水／滑降的落差；其他類型留空 */
   drop_m: number | null;
   type: string | null;
+  /** 落水潭深淺，縱剖面圖用：unknown / shallow / deep / hydraulic */
+  pool_type?: string | null;
+  /** 錨點註記（如 TR X X），縱剖面圖標籤底下那一行 */
+  anchor_note?: string | null;
+  /** 屬於哪一段（Upper／A → B），縱剖面圖用來分段 */
+  section?: string | null;
   notes: string | null;
   lat: number | null;
   lng: number | null;
@@ -100,6 +114,9 @@ function normalizeForCompare(rows: Waypoint[]): string {
     notes: w.notes ?? null,
     lat: w.lat ?? null,
     lng: w.lng ?? null,
+    pool_type: w.pool_type ?? null,
+    anchor_note: w.anchor_note ?? null,
+    section: w.section ?? null,
   })));
 }
 
@@ -133,6 +150,7 @@ export default function RouteProfileModal({
   initialWaypoints,
   showElevation,
   onShowElevationChange,
+  routeProfile,
 }: {
   itemId: string;
   itemTitle: string;
@@ -147,6 +165,11 @@ export default function RouteProfileModal({
   showElevation?: boolean | null;
   /** 改變設定後回報，讓行程卡的 sparkline 跟著更新 */
   onShowElevationChange?: (value: boolean | null) => void;
+  /**
+   * 路線檔案（itinerary_items.route_profile）。沒有就只剩高度圖與途經點那一頁，
+   * 跟這個彈窗原本的樣子一樣。
+   */
+  routeProfile?: RouteProfile | null;
 }) {
   const [waypoints, setWaypoints] = useState<Waypoint[]>(initialWaypoints ?? []);
   const [loading, setLoading] = useState(!initialWaypoints);
@@ -160,6 +183,8 @@ export default function RouteProfileModal({
   const [togglingElevation, setTogglingElevation] = useState(false);
   // 進入編輯時的基準快照，用來判斷有沒有未儲存變更
   const [editBaseline, setEditBaseline] = useState<string>("");
+  // null = 還沒選過，交給 currentTab 推導出第一個有資料的分頁
+  const [activeTab, setActiveTab] = useState<string | null>(null);
 
   const draftKey = `travel_waypoints_draft_${itemId}`;
   const { message, modal } = App.useApp();
@@ -530,6 +555,369 @@ export default function RouteProfileModal({
     message.success(rows.length === 0 ? "已清空途經點" : `已儲存 ${rows.length} 個途經點`);
   }
 
+  /* ---------------------------------------------------------------- 檢視模式的組裝 */
+
+  const headerRegion = pickText(routeProfile?.region ?? null);
+  const headerSubtitle = pickText(routeProfile?.subtitle ?? null);
+
+  /**
+   * 有資料的分頁才長出來。
+   *
+   * 「高度圖與途經點」是唯一一個沒資料也要留著的 —— 還沒建點位的路線就是靠它進編輯器，
+   * 少了它那條路線再也開不了編輯。唯讀的分享頁沒有編輯器，才可以在沒點位時收掉。
+   */
+  const tabs = useMemo(() => {
+    const list: { key: string; label: string; icon: React.ReactNode }[] = [];
+    if (hasQuickInfo(routeProfile)) list.push({ key: "info", label: "快速資訊", icon: <InfoIcon size={12} /> });
+    if (hasTimes(routeProfile)) list.push({ key: "time", label: "時間規劃", icon: <ClockIcon size={12} /> });
+    if (waypoints.length > 0 || !readOnly) list.push({ key: "route", label: "高度圖與途經點", icon: <MountainIcon size={12} /> });
+    if (hasApproach(routeProfile)) list.push({ key: "approach", label: "進場路線", icon: <MapIcon size={12} /> });
+    if (hasTopo(routeProfile) || waypoints.some((w) => Number(w.drop_m ?? 0) > 0)) list.push({ key: "topo", label: "路線圖", icon: <TopoProfileIcon size={12} /> });
+    if (routePhotos(routeProfile).length > 0) list.push({ key: "photos", label: "代表照片", icon: <PhotoIcon size={12} /> });
+    if (hasHazards(routeProfile)) list.push({ key: "risk", label: "風險注意", icon: <AlertTriangleIcon size={12} /> });
+    return list;
+  }, [routeProfile, waypoints, readOnly]);
+
+  /**
+   * 目前分頁用推導而不是用 effect 同步：資料是彈窗開啟後才載進來的，分頁清單會從空變成好幾個。
+   * 用 effect 設初值會先閃一幀空白，而且使用者在載入前點到的 key 可能在載入後根本不存在。
+   */
+  const currentTab = (activeTab && tabs.some((t) => t.key === activeTab) ? activeTab : tabs[0]?.key) ?? null;
+
+  const tabScroller = useRef<HTMLDivElement>(null);
+  /** 滑鼠拖曳捲動的暫存。moved 要留到 click 時才判斷，否則滑到一半放開會誤切分頁 */
+  const tabDrag = useRef({ active: false, startX: 0, startLeft: 0, moved: false, captured: false });
+
+  /** 兩側淡出各自看那一邊還有沒有分頁，捲到底的那側關掉 */
+  function syncTabFades() {
+    const el = tabScroller.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    el.style.setProperty("--fade-l", el.scrollLeft > 4 ? "24px" : "0px");
+    el.style.setProperty("--fade-r", el.scrollLeft < max - 4 ? "24px" : "0px");
+  }
+
+  /**
+   * 把分頁捲到中間。
+   *
+   * 刻意只改 scrollLeft 而不用 scrollIntoView —— 後者會連垂直方向一起捲，
+   * 在彈窗裡會把下面的內容往上推，等於點一下分頁畫面就跳掉。
+   */
+  function centerTab(key: string | null) {
+    const el = tabScroller.current;
+    if (!el || !key) return;
+    const btn = el.querySelector<HTMLElement>(`[data-tab="${key}"]`);
+    if (!btn) return;
+    el.scrollTo({ left: btn.offsetLeft - (el.clientWidth - btn.offsetWidth) / 2, behavior: "smooth" });
+  }
+
+  /*
+    第一次同步用 callback ref，不用 effect。
+
+    分頁列是資料載進來、骨架換掉之後才出現的；用 effect 就得猜「哪個 state 變動時
+    它剛好已經在 DOM 裡」，猜錯的話 ref 還是 null，淡出永遠不會被設上去（實測就是這樣）。
+    callback ref 在節點掛上的那一刻必定被呼叫，沒有這個時序問題。
+  */
+  const attachTabScroller = useCallback((node: HTMLDivElement | null) => {
+    tabScroller.current = node;
+    // syncTabFades 只讀 ref，沒有其他相依，閉包停在第一次 render 也是對的
+    if (node) syncTabFades();
+  }, []);
+
+  // 換分頁時把它帶到中間；視窗寬度變了要重算兩側淡出
+  useEffect(() => {
+    centerTab(currentTab);
+    syncTabFades();
+    window.addEventListener("resize", syncTabFades);
+    return () => window.removeEventListener("resize", syncTabFades);
+  }, [currentTab]);
+
+  function handleTabPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    // 觸控與觸控筆交給瀏覽器原生的慣性捲動，自己接管只會更難滑
+    if (e.pointerType !== "mouse") return;
+    const el = tabScroller.current;
+    if (!el) return;
+    tabDrag.current = { active: true, startX: e.clientX, startLeft: el.scrollLeft, moved: false, captured: false };
+  }
+
+  function handleTabPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const el = tabScroller.current;
+    const drag = tabDrag.current;
+    if (!drag.active || !el) return;
+    const dx = e.clientX - drag.startX;
+    // 手指／滑鼠總會抖一下，太小的位移仍然算點選
+    if (Math.abs(dx) <= 3) return;
+    drag.moved = true;
+    /*
+      指標捕捉刻意等到真的拖起來才抓。
+      一按下就抓的話，依規格 click 的 target 會變成捕捉指標的容器而不是按鈕，
+      按鈕的 onClick 就再也不會觸發 —— 分頁會變成完全點不動。
+    */
+    if (!drag.captured) {
+      el.setPointerCapture(e.pointerId);
+      drag.captured = true;
+    }
+    el.scrollLeft = drag.startLeft - dx;
+    // 拖曳是直接改 scrollLeft，不保證每一步都收得到 scroll 事件，所以順手自己算一次
+    syncTabFades();
+  }
+
+  function handleTabPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = tabDrag.current;
+    if (!drag.active) return;
+    drag.active = false;
+    if (drag.captured) {
+      tabScroller.current?.releasePointerCapture(e.pointerId);
+      drag.captured = false;
+    }
+  }
+
+  /** 還沒有途經點時，「高度圖與途經點」分頁的內容 */
+  const emptyWaypointsPane = (
+    <div className="flex flex-col items-center gap-4 py-14 rounded-2xl border border-white/5 bg-white/[0.02]">
+      <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+        <MountainIcon size={26} stroke="#34d399" strokeWidth={1.6} />
+      </div>
+      <div className="text-center">
+        <div className="text-zinc-200 font-medium mb-1">還沒有途經點</div>
+        <div className="text-zinc-500 text-xs px-8 leading-relaxed">
+          依序填入登山口、山屋、山頂的海拔與累積距離，就能畫出這段路線的高度圖。
+        </div>
+      </div>
+      {!readOnly && (
+        <PillButton variant="primary" onClick={startEdit}>
+          <PlusIcon size={13} />
+          建立途經點
+        </PillButton>
+      )}
+    </div>
+  );
+
+  /** 高度圖、分段時間帶與途經點清單 —— 這個彈窗原本的全部內容 */
+  const waypointsPane = (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap shrink-0">
+        <div className="flex items-center gap-4">
+          {([
+            { label: "里程", value: stats.distance === null ? "—" : `${stats.distance} km` },
+            { label: "總爬升", value: stats.ascent === null ? "—" : `+${stats.ascent} m` },
+            { label: "總下降", value: stats.descent === null ? "—" : `−${stats.descent} m` },
+          ]).map(({ label, value }) => (
+            <div key={label}>
+              <div className="text-zinc-500 text-[11px] mb-0.5">{label}</div>
+              <div className="text-zinc-100 text-[17px] leading-none font-semibold tabular-nums">{value}</div>
+            </div>
+          ))}
+        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-3">
+            {/*
+              顯示與隱藏的唯一入口。刻意只有兩態：使用者按過之後就以他的選擇為準，
+              null（自動判斷）只是尚未表態時的初始值 —— 明確的選擇本來就該蓋過啟發式判斷，
+              多一個「改回自動」只會讓這顆按鈕變成難懂的三態循環。
+            */}
+            {waypoints.length > 0 && (
+              <button
+                onClick={() => setShowElevation(elevationDecision.show ? false : true)}
+                disabled={togglingElevation}
+                className="text-zinc-500 text-[12px] hover:text-zinc-300 transition-colors cursor-pointer disabled:opacity-40"
+              >
+                {elevationDecision.show ? "隱藏高度圖" : "顯示高度圖"}
+              </button>
+            )}
+            <PillButton onClick={startEdit}>編輯</PillButton>
+          </div>
+        )}
+      </div>
+
+      {plottable ? (
+        <>
+          <div className="h-[160px] sm:h-[220px] -ml-2 shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 24, right: 8, bottom: 4, left: 0 }}>
+                <defs>
+                  <linearGradient id="route-elevation" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.55} />
+                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.04} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                {dayRanges.length > 1 && dayRanges.map(([day, range], i) => (
+                  <ReferenceArea
+                    key={day}
+                    x1={range.from}
+                    x2={range.to}
+                    fill={DAY_BANDS[i % DAY_BANDS.length]}
+                    stroke="none"
+                    label={{ value: `第 ${day + 1} 天`, position: "insideTop", fill: "#71717a", fontSize: 10 }}
+                  />
+                ))}
+                <XAxis
+                  dataKey="x"
+                  type="number"
+                  domain={["dataMin", "dataMax"]}
+                  tick={{ fill: "#71717a", fontSize: 10 }}
+                  tickFormatter={(v: number) => hasDistances ? `${v} km` : ""}
+                  stroke="rgba(255,255,255,0.1)"
+                />
+                <YAxis
+                  orientation="right"
+                  tick={{ fill: "#71717a", fontSize: 10 }}
+                  tickFormatter={(v: number) => `${v}m`}
+                  width={46}
+                  stroke="rgba(255,255,255,0.1)"
+                  domain={["dataMin - 100", "dataMax + 100"]}
+                />
+                <ChartTooltip content={<RouteTooltip />} />
+                <Area
+                  type="linear"
+                  dataKey="elevation"
+                  stroke="#a78bfa"
+                  strokeWidth={2}
+                  fill="url(#route-elevation)"
+                  dot={{ r: 2.5, fill: "#c4b5fd", stroke: "none" }}
+                  activeDot={{ r: 4.5, fill: "#ddd6fe", stroke: "none" }}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+        </>
+      ) : (
+        /* 說「這裡沒東西值得看」的訊息不該比它取代的圖表還佔空間，所以壓成一行、長解釋進 tooltip */
+        <div className="flex items-center gap-1.5 flex-wrap text-zinc-600 text-[11px] shrink-0">
+          {elevationDecision.detail ? (
+            <Tooltip title={elevationDecision.detail} trigger={["hover", "click"]} styles={{ root: { maxWidth: 300 } }}>
+              <span className="inline-flex items-center gap-1 cursor-help">
+                <InfoIcon size={10} />
+                {elevationDecision.reason}
+              </span>
+            </Tooltip>
+          ) : (
+            <span>{elevationDecision.reason ?? "海拔資料不足"}</span>
+          )}
+        </div>
+      )}
+
+      {/* 分段時間帶：寬度依各段耗時比例，對照上河地形圖下方那排時間 */}
+      {stats.totalMin > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-zinc-500 text-[11px] shrink-0">時間</span>
+          <div className="flex-1 flex gap-0.5 min-w-0">
+            {waypoints.slice(1).map((w, i) => {
+              const min = w.duration_min ?? 0;
+              if (min <= 0) return null;
+              return (
+                <div
+                  key={i}
+                  title={`${waypoints[i].name} → ${w.name}`}
+                  className="h-6 rounded-md flex items-center justify-center text-[10px] text-zinc-300 tabular-nums overflow-hidden whitespace-nowrap px-1"
+                  style={{ flexGrow: min, flexBasis: 0, background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)" }}
+                >
+                  {fmtMinutes(min)}
+                </div>
+              );
+            })}
+          </div>
+          <span className="text-zinc-400 text-[11px] shrink-0 tabular-nums">{fmtMinutes(stats.totalMin)}</span>
+        </div>
+      )}
+
+      {/*
+        途經點清單。備註原本只有高度圖的 hover tooltip 一個出口，而手機沒有 hover ——
+        等於現場最該讀的危險與脫逃資訊在手機上完全看不到，除非進編輯模式。
+        危險點與脫逃點給邊框顏色，因為那兩類是絕對不能漏看的。
+      */}
+      <div className="flex flex-col gap-2 border-t border-white/[0.06] pt-3">
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <span className="text-zinc-400 text-[12px] font-medium">途經點 {waypoints.length}</span>
+          {dropStats.count > 0 && (
+            <span className="flex items-center gap-2.5 text-[11px] tabular-nums">
+              {dropStats.longestRappel !== null && (
+                <span className="text-zinc-300">
+                  最長繩距 <span className="font-semibold">{dropStats.longestRappel} m</span>
+                </span>
+              )}
+              {dropStats.rappelCount > 0 && (
+                <span className="text-zinc-500">垂降 {dropStats.rappelCount} 段</span>
+              )}
+              <Tooltip
+                title="已記錄障礙的落差總和，不是實測垂直落差 —— 同一處若同時能垂降或跳水，topo 記成一個點位就只算一次。"
+                trigger={["hover", "click"]}
+                styles={{ root: { maxWidth: 300 } }}
+              >
+                <span className="text-zinc-500 inline-flex items-center gap-1 cursor-help">
+                  落差合計 {Math.round(dropStats.total)} m
+                  <InfoIcon size={10} />
+                </span>
+              </Tooltip>
+            </span>
+          )}
+          <span className="text-zinc-600 text-[11px]">
+            {stats.days > 1 ? `${stats.days} 天` : ""}
+            {!hasDistances && waypoints.length > 1 ? "　X 軸為等距排列（有點位沒填距離）" : ""}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {waypoints.map((w, i) => {
+            const accent = ROW_ACCENT[w.type ?? ""] ?? null;
+            const meta = [
+              w.type ? WAYPOINT_TYPE_LABEL[w.type] ?? w.type : null,
+              w.elevation_m !== null ? `${w.elevation_m} m` : null,
+              w.distance_km !== null ? `${w.distance_km} km` : null,
+              w.duration_min ? fmtMinutes(w.duration_min) : null,
+            ].filter(Boolean);
+            return (
+              <div
+                key={w.id ?? i}
+                className="rounded-xl border px-3 py-2"
+                style={accent
+                  ? { borderColor: accent.border, background: accent.bg }
+                  : { borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
+              >
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <span className="text-zinc-600 text-[11px] tabular-nums w-5 shrink-0">{i + 1}</span>
+                  <span className="text-zinc-100 text-[13px] font-medium min-w-0 break-words">{w.name}</span>
+                </div>
+                {meta.length > 0 && (
+                  <div className="pl-7 text-[11px] tabular-nums" style={{ color: accent?.text ?? "#71717a" }}>
+                    {meta.join(" · ")}
+                  </div>
+                )}
+                {/* 長條寬度按落差比例 —— 一眼看出最長那段在哪，這是溪降真正需要的視覺化 */}
+                {hasDrop(w) && dropStats.max > 0 && (
+                  <div className="pl-7 mt-1 flex items-center gap-2">
+                    <div className="flex-1 h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${(Number(w.drop_m) / dropStats.max) * 100}%`,
+                          background: Number(w.drop_m) === dropStats.longestRappel && w.type === "rappel"
+                            ? "linear-gradient(90deg,#a78bfa,#8b5cf6)"
+                            : "rgba(110,231,183,0.55)",
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-zinc-500 tabular-nums shrink-0 w-10 text-right">
+                      {w.drop_m} m
+                    </span>
+                  </div>
+                )}
+                {w.notes && (
+                  <div className="pl-7 mt-1 text-zinc-400 text-[12px] leading-relaxed break-words">
+                    {w.notes}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <Modal
       title={
@@ -746,245 +1134,77 @@ export default function RouteProfileModal({
             </div>
           </div>
         </div>
-      ) : waypoints.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 py-14 mt-6 rounded-2xl border border-white/5 bg-white/[0.02]">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-            <MountainIcon size={26} stroke="#34d399" strokeWidth={1.6} />
-          </div>
-          <div className="text-center">
-            <div className="text-zinc-200 font-medium mb-1">還沒有途經點</div>
-            <div className="text-zinc-500 text-xs px-8 leading-relaxed">
-              依序填入登山口、山屋、山頂的海拔與累積距離，就能畫出這段路線的高度圖。
-            </div>
-          </div>
-          {!readOnly && (
-            <PillButton variant="primary" onClick={startEdit}>
-              <PlusIcon size={13} />
-              建立途經點
-            </PillButton>
-          )}
-        </div>
       ) : (
-        <div className="flex flex-col gap-4 mt-6">
-          <div className="flex items-end justify-between gap-3 flex-wrap shrink-0">
-            <div className="flex items-center gap-4">
-              {([
-                { label: "里程", value: stats.distance === null ? "—" : `${stats.distance} km` },
-                { label: "總爬升", value: stats.ascent === null ? "—" : `+${stats.ascent} m` },
-                { label: "總下降", value: stats.descent === null ? "—" : `−${stats.descent} m` },
-              ]).map(({ label, value }) => (
-                <div key={label}>
-                  <div className="text-zinc-500 text-[11px] mb-0.5">{label}</div>
-                  <div className="text-zinc-100 text-[17px] leading-none font-semibold tabular-nums">{value}</div>
-                </div>
-              ))}
-            </div>
-            {!readOnly && (
-              <div className="flex items-center gap-3">
-                {/*
-                  顯示與隱藏的唯一入口。刻意只有兩態：使用者按過之後就以他的選擇為準，
-                  null（自動判斷）只是尚未表態時的初始值 —— 明確的選擇本來就該蓋過啟發式判斷，
-                  多一個「改回自動」只會讓這顆按鈕變成難懂的三態循環。
-                */}
-                {waypoints.length > 0 && (
-                  <button
-                    onClick={() => setShowElevation(elevationDecision.show ? false : true)}
-                    disabled={togglingElevation}
-                    className="text-zinc-500 text-[12px] hover:text-zinc-300 transition-colors cursor-pointer disabled:opacity-40"
-                  >
-                    {elevationDecision.show ? "隱藏高度圖" : "顯示高度圖"}
-                  </button>
-                )}
-                <PillButton onClick={startEdit}>編輯</PillButton>
-              </div>
-            )}
-          </div>
-
-          {plottable ? (
-            <>
-              <div className="h-[160px] sm:h-[220px] -ml-2 shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 24, right: 8, bottom: 4, left: 0 }}>
-                    <defs>
-                      <linearGradient id="route-elevation" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.55} />
-                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.04} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    {dayRanges.length > 1 && dayRanges.map(([day, range], i) => (
-                      <ReferenceArea
-                        key={day}
-                        x1={range.from}
-                        x2={range.to}
-                        fill={DAY_BANDS[i % DAY_BANDS.length]}
-                        stroke="none"
-                        label={{ value: `第 ${day + 1} 天`, position: "insideTop", fill: "#71717a", fontSize: 10 }}
-                      />
-                    ))}
-                    <XAxis
-                      dataKey="x"
-                      type="number"
-                      domain={["dataMin", "dataMax"]}
-                      tick={{ fill: "#71717a", fontSize: 10 }}
-                      tickFormatter={(v: number) => hasDistances ? `${v} km` : ""}
-                      stroke="rgba(255,255,255,0.1)"
-                    />
-                    <YAxis
-                      orientation="right"
-                      tick={{ fill: "#71717a", fontSize: 10 }}
-                      tickFormatter={(v: number) => `${v}m`}
-                      width={46}
-                      stroke="rgba(255,255,255,0.1)"
-                      domain={["dataMin - 100", "dataMax + 100"]}
-                    />
-                    <ChartTooltip content={<RouteTooltip />} />
-                    <Area
-                      type="linear"
-                      dataKey="elevation"
-                      stroke="#a78bfa"
-                      strokeWidth={2}
-                      fill="url(#route-elevation)"
-                      dot={{ r: 2.5, fill: "#c4b5fd", stroke: "none" }}
-                      activeDot={{ r: 4.5, fill: "#ddd6fe", stroke: "none" }}
-                      connectNulls
-                      isAnimationActive={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-
-            </>
-          ) : (
-            /* 說「這裡沒東西值得看」的訊息不該比它取代的圖表還佔空間，所以壓成一行、長解釋進 tooltip */
-            <div className="flex items-center gap-1.5 flex-wrap text-zinc-600 text-[11px] shrink-0">
-              {elevationDecision.detail ? (
-                <Tooltip title={elevationDecision.detail} trigger={["hover", "click"]} styles={{ root: { maxWidth: 300 } }}>
-                  <span className="inline-flex items-center gap-1 cursor-help">
-                    <InfoIcon size={10} />
-                    {elevationDecision.reason}
-                  </span>
-                </Tooltip>
-              ) : (
-                <span>{elevationDecision.reason ?? "海拔資料不足"}</span>
+        <div className="flex flex-col gap-3">
+          {/*
+            抬頭與分頁列黏在彈窗頂端。捲到途經點第 30 筆時還看得到自己在哪條路線、
+            也還切得了分頁 —— 彈窗的 body 本來就是捲動容器（globals.css 的 .ant-modal-body），
+            所以 sticky 直接以它為基準，不必另外包一層捲動區。
+          */}
+          <div className="sticky top-0 z-10 bg-[#18181b] pt-5 flex flex-col gap-3 shrink-0">
+          {/* 檔案抬頭：區域、副標、分級。名字已經在彈窗標題上，這裡不重複 */}
+          {routeProfile && (headerRegion || headerSubtitle || routeProfile.grading) && (
+            <div className="flex flex-col gap-1.5 shrink-0">
+              {headerRegion && (
+                <span className="inline-flex items-center gap-1.5 text-zinc-500 text-[11px] tracking-wide">
+                  <LocationIcon size={11} />
+                  {headerRegion}
+                </span>
               )}
+              {headerSubtitle && <p className="m-0 text-zinc-300 text-[13px] leading-snug">{headerSubtitle}</p>}
+              {routeProfile.grading && <GradeChips grading={routeProfile.grading} />}
             </div>
           )}
 
-          {/* 分段時間帶：寬度依各段耗時比例，對照上河地形圖下方那排時間 */}
-          {stats.totalMin > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500 text-[11px] shrink-0">時間</span>
-              <div className="flex-1 flex gap-0.5 min-w-0">
-                {waypoints.slice(1).map((w, i) => {
-                  const min = w.duration_min ?? 0;
-                  if (min <= 0) return null;
+          {tabs.length > 1 && (
+            <div className="border-b border-white/[0.08] shrink-0">
+              <div
+                ref={attachTabScroller}
+                className="route-tabs flex gap-1 select-none overflow-x-auto overflow-y-hidden"
+                role="tablist"
+                aria-label="路線檔案分頁"
+                onScroll={syncTabFades}
+                onPointerDown={handleTabPointerDown}
+                onPointerMove={handleTabPointerMove}
+                onPointerUp={handleTabPointerUp}
+                onPointerCancel={handleTabPointerUp}
+              >
+                {tabs.map((t) => {
+                  const active = t.key === currentTab;
                   return (
-                    <div
-                      key={i}
-                      title={`${waypoints[i].name} → ${w.name}`}
-                      className="h-6 rounded-md flex items-center justify-center text-[10px] text-zinc-300 tabular-nums overflow-hidden whitespace-nowrap px-1"
-                      style={{ flexGrow: min, flexBasis: 0, background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)" }}
+                    <button
+                      key={t.key}
+                      data-tab={t.key}
+                      role="tab"
+                      aria-selected={active}
+                      // 剛剛那一下是在滑分頁列，不是在選分頁
+                      onClick={() => { if (!tabDrag.current.moved) setActiveTab(t.key); }}
+                      className={`inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap px-2.5 py-2 -mb-px border-b-2 text-[12.5px] transition-colors cursor-pointer ${
+                        active
+                          ? "border-emerald-400 text-emerald-300"
+                          : "border-transparent text-zinc-500 hover:text-zinc-300"
+                      }`}
                     >
-                      {fmtMinutes(min)}
-                    </div>
+                      {t.icon}
+                      {t.label}
+                    </button>
                   );
                 })}
               </div>
-              <span className="text-zinc-400 text-[11px] shrink-0 tabular-nums">{fmtMinutes(stats.totalMin)}</span>
             </div>
           )}
-
-          {/*
-            途經點清單。備註原本只有高度圖的 hover tooltip 一個出口，而手機沒有 hover ——
-            等於現場最該讀的危險與脫逃資訊在手機上完全看不到，除非進編輯模式。
-            危險點與脫逃點給邊框顏色，因為那兩類是絕對不能漏看的。
-          */}
-          <div className="flex flex-col gap-2 border-t border-white/[0.06] pt-3">
-            <div className="flex items-baseline justify-between gap-2 flex-wrap">
-              <span className="text-zinc-400 text-[12px] font-medium">途經點 {waypoints.length}</span>
-              {dropStats.count > 0 && (
-                <span className="flex items-center gap-2.5 text-[11px] tabular-nums">
-                  {dropStats.longestRappel !== null && (
-                    <span className="text-zinc-300">
-                      最長繩距 <span className="font-semibold">{dropStats.longestRappel} m</span>
-                    </span>
-                  )}
-                  {dropStats.rappelCount > 0 && (
-                    <span className="text-zinc-500">垂降 {dropStats.rappelCount} 段</span>
-                  )}
-                  <Tooltip
-                    title="已記錄障礙的落差總和，不是實測垂直落差 —— 同一處若同時能垂降或跳水，topo 記成一個點位就只算一次。"
-                    trigger={["hover", "click"]}
-                    styles={{ root: { maxWidth: 300 } }}
-                  >
-                    <span className="text-zinc-500 inline-flex items-center gap-1 cursor-help">
-                      落差合計 {Math.round(dropStats.total)} m
-                      <InfoIcon size={10} />
-                    </span>
-                  </Tooltip>
-                </span>
-              )}
-              <span className="text-zinc-600 text-[11px]">
-                {stats.days > 1 ? `${stats.days} 天` : ""}
-                {!hasDistances && waypoints.length > 1 ? "　X 軸為等距排列（有點位沒填距離）" : ""}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {waypoints.map((w, i) => {
-                const accent = ROW_ACCENT[w.type ?? ""] ?? null;
-                const meta = [
-                  w.type ? WAYPOINT_TYPE_LABEL[w.type] ?? w.type : null,
-                  w.elevation_m !== null ? `${w.elevation_m} m` : null,
-                  w.distance_km !== null ? `${w.distance_km} km` : null,
-                  w.duration_min ? fmtMinutes(w.duration_min) : null,
-                ].filter(Boolean);
-                return (
-                  <div
-                    key={w.id ?? i}
-                    className="rounded-xl border px-3 py-2"
-                    style={accent
-                      ? { borderColor: accent.border, background: accent.bg }
-                      : { borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
-                  >
-                    <div className="flex items-baseline gap-2 min-w-0">
-                      <span className="text-zinc-600 text-[11px] tabular-nums w-5 shrink-0">{i + 1}</span>
-                      <span className="text-zinc-100 text-[13px] font-medium min-w-0 break-words">{w.name}</span>
-                    </div>
-                    {meta.length > 0 && (
-                      <div className="pl-7 text-[11px] tabular-nums" style={{ color: accent?.text ?? "#71717a" }}>
-                        {meta.join(" · ")}
-                      </div>
-                    )}
-                    {/* 長條寬度按落差比例 —— 一眼看出最長那段在哪，這是溪降真正需要的視覺化 */}
-                    {hasDrop(w) && dropStats.max > 0 && (
-                      <div className="pl-7 mt-1 flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${(Number(w.drop_m) / dropStats.max) * 100}%`,
-                              background: Number(w.drop_m) === dropStats.longestRappel && w.type === "rappel"
-                                ? "linear-gradient(90deg,#a78bfa,#8b5cf6)"
-                                : "rgba(110,231,183,0.55)",
-                            }}
-                          />
-                        </div>
-                        <span className="text-[10px] text-zinc-500 tabular-nums shrink-0 w-10 text-right">
-                          {w.drop_m} m
-                        </span>
-                      </div>
-                    )}
-                    {w.notes && (
-                      <div className="pl-7 mt-1 text-zinc-400 text-[12px] leading-relaxed break-words">
-                        {w.notes}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
           </div>
+
+          {currentTab === "info" && routeProfile && <QuickInfoPane profile={routeProfile} />}
+          {currentTab === "time" && routeProfile && <TimesPane profile={routeProfile} />}
+          {currentTab === "approach" && routeProfile && <ApproachPane profile={routeProfile} />}
+          {currentTab === "topo" && <TopoPane profile={routeProfile ?? null} waypoints={waypoints} />}
+          {currentTab === "photos" && routeProfile && <PhotosPane profile={routeProfile} />}
+          {currentTab === "risk" && routeProfile && <HazardsPane profile={routeProfile} />}
+          {currentTab === "route" && (waypoints.length === 0 ? emptyWaypointsPane : waypointsPane)}
+          {currentTab === null && (
+            <div className="text-zinc-500 text-[12px] py-8 text-center">這條路線還沒有任何資料。</div>
+          )}
         </div>
       )}
       <GpxImportModal
