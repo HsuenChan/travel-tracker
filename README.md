@@ -14,6 +14,8 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 ### Key Features
 
 - **Interactive 3D Globe** — WebGL rendering with animated flight arcs (all tracks shown by default), region-level markers, and smooth transitions. Destinations stored as precise lat/lng coordinates via Nominatim / OpenStreetMap. Country flags auto-resolved from Nominatim ISO codes. The trip drawer opens with a storytelling footprint summary — year span, trips, unique countries (counted by ISO code), and total travel days.
+- **Travel Passport** — One book that holds every trip, the ones you created and the ones you were invited to alike — someone else opening the trip does not mean you were not there. Past the cover is the data page: the holder's photo rendered as print halftone, the trip, country and day counts beneath it, and two lines of machine-readable code at the foot. Then the entry stamps — one per country per trip, so three visits to Japan leave three stamps, and each stamp's shape, angle and ink are derived from the country code, so the same country always looks the same. The record page carries the distance of logged flights, the single longest flight, the longest trip and the country visited most; a flight counts only when both airports have known coordinates, and the rest are stated as excluded, because treating an unknown airport as zero produces a number that looks precise and is wrong. Every record disappears when there is nothing to say — a country visited once is not the country you visit most. After that comes a page per year — that year's trips, countries, days and a photo from that year's Google Photos album — which can be saved as an image to share. It is a book that actually turns: drag a page and the paper bows under your finger and swings round the spine, snapping back if you let go too early. Tap either half to turn, or use the arrow keys. On a device without WebGL, or for anyone who has asked their system to reduce motion, it falls back to flat pages that change without turning — the same content either way.
+- **Where the App Opens** — A trip that is happening right now opens straight into that trip. When everything has ended and no trip has been opened recently, the app lands on the travel passport instead — the off season has no "now" to show, but the ground already covered is still there. Opening any trip within the last 14 days keeps you on the trip list, because that means the trip is still being looked back on and should not be interrupted. The decision is made once per launch, so returning from the passport to the list never bounces you away again.
 - **Route Tab** — Boarding-pass style cards for transport segments (flights, trains, buses).
 - **Rich Text Notes + AI** — Full Quill editor with six section chips that trigger AI-generated content (travel tips, packing list, transit guides, etc.) via Google Gemini. Shared across all trip members. Opens in read mode with an explicit edit toggle; unsaved edits are kept as a local draft (restored on return, with an unsaved-changes indicator) so switching tabs never loses work. The toolbar covers headings, colours, links, lists, quotes, dividers and tables — tables are inserted by picking a size from a grid, and a row/column toolbar appears whenever the cursor sits inside one. Shift+Enter starts a new line inside the current block, so a quote, list item or paragraph can span several lines, while Enter still starts a new one. Reading mode uses the same typography as the editor, so a note looks identical before and after saving. The same editor powers itinerary notes and trip descriptions.
 - **Itinerary Planning** — Multi-day events with a unified date-time range picker (end time optional). Timeline shows day-of-week labels, real-time weather forecasts, and per-item category icon nodes on the rail. Per-item rich text notes with clickable links, plus multiple photos per item (downscaled client-side before upload to Supabase Storage; the first photo becomes a full-width cover on top of the card with a +N badge and lightbox gallery). A multi-day event shows up on every day it covers: the starting day keeps the full card, while each following day gets a slim bar with the item's name and how far into the stay it is ("住宿中 3/9 天"), plus the check-out time on the last day — tapping the bar jumps back to the full card. Days in the middle of a stay appear on the timeline even when nothing else is planned, and the weather forecast covers the whole span rather than just the starting day.
@@ -33,6 +35,7 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 - **Trip Mode & Quick-Expense FAB** — While a trip is in progress, opening it lands directly on today's itinerary. Landing always respects the trip's visible-tab setting: with the itinerary tab hidden it opens the first visible tab instead, and hiding the tab you are currently on moves you to the first visible one. The trip hero uses the first itinerary photo as a cover with a "Day N / M" progress pill and bar, home-page trip cards show the same cover, and the timeline rail tints the days already travelled. On mobile a floating "記帳" button is always within thumb reach, opening the expense form from any tab.
 - **Trip Recap & Celebrations** — When a trip ends, a recap card (days · itinerary items · unique places) appears under the hero with a one-time confetti burst. Marking the last outstanding settlement as paid also celebrates with confetti.
 - **Sharing & Collaboration** — Generate shareable read-only links (with active tab preserved in URL). Sharing asks which tabs the link should expose before it hands over the URL: the tabs you leave unticked never appear on the shared page, and their data is never sent to the recipient's browser at all — so a link can show the itinerary while keeping the costs to yourself. A trip's own hidden tabs are not offered, the choice is remembered for next time, and because a trip has a single share link, changing the selection also changes what an already-sent link shows. Shared links preview as “Trip name - Travel Tracker” with the trip's own hero photo as the thumbnail — a link that does not share the itinerary falls back to the app icon there, since the hero photo comes from an itinerary item. Trip members with edit access are automatically redirected to the full editor when opening a share link. Member avatars sit at the end of the hero pill row (with loading skeletons); owners can remove members, members can leave trips, and split-name ↔ account binding opens as a modal — from the action row on desktop, from the trip menu on mobile.
+- **Copy an Itinerary from a Share Link** — Someone looking at your trip can turn it into a trip of their own: pick a departure date and the whole itinerary shifts to start there, with each day's plan and its ordering unchanged. What travels across is the plan itself — times, places, notes, the itinerary photos, and for an outdoor leg its waypoints — while expenses, members, the Google Photos album and transport segments stay with the original trip, because those belong to that trip rather than to the plan. The photos come across as links to the originals rather than as new files, so they disappear if the original trip is deleted. A link that does not share the itinerary tab has nothing to copy, and copying can be turned off per link from the share settings. Someone without an account is sent to sign in and lands straight back on the date step, and the share page ends with a way in of its own, so a link can be the first thing a new user ever sees.
 - **Claim Your Identity After Joining** — When joining a trip, pick which existing split-bill member name represents you. Owners can manage member-name ↔ account bindings from the trip page. (Groundwork for upcoming expense-to-account integration.)
 - **Gear & Packing List** — Build the pack item by item with a per-unit weight and quantity. The number on top is your own load — personal gear plus the shared kit assigned to you — with the team total and any still-unassigned shared kit next to it, because a four-person total says nothing about what any one person has to carry; the three numbers that decide whether the bag is carryable — base weight, worn, and consumables — count only your own pack as well. Working out who "you" are needs the split-bill member bound to an account: without that binding, and on the read-only share link, the bar falls back to the team total. Every item carries one free-form category — single-select, because an item can only sit in one place on the weight ledger — and the chip row shows the count and weight in each. Tap a category to filter, or open the manage sheet to rename or delete one across the whole list; a deleted category is cleared off its items rather than deleting them, and they fall into 未分類. Packing splits into personal and shared team kit: personal gear is visible only to the person who added it, enforced in the database rather than filtered in the page, because a packing list can hold things nobody else needs to see. Shared kit is visible to everyone on the trip and can be assigned a carrier — a field that only appears once an item is marked as shared — and a read-only share link only ever exposes the group half. Tick items off as they go into the bag, and hand group gear to a specific travel companion. Weight takes grams or kilograms and can be left blank until something has actually been weighed. The tab is off by default and turned on per trip, and it works just as well as a suitcase list checked against an airline weight limit.
 - **Personal Gear Closet & LighterPack Import** — Anything on a trip's list can be saved into a personal closet that lives outside any single trip, then ticked back into the next trip in a couple of taps; the closet skips gear it already holds instead of stacking duplicates. An existing LighterPack list can come in two ways: upload the file from its Share → Export to CSV, or paste the share link. Either way the list is parsed and shown first — how many items, what they weigh, how many rows were skipped — and only then written into the trip list or the closet. Ounces, pounds and kilograms are converted on the way in, and LighterPack's worn / consumable flags land on the matching weight role.
@@ -46,12 +49,16 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 Planned, in rough priority order:
 
 - A trip plan sheet for the person staying behind — emergency contacts, agreed check-in times, retreat plan — built on the read-only share link, printable for permit applications
+- One tap to copy the settlement message — who owes whom how much, ready to paste into the group chat
+- A wishlist and backup plans — save a place before you know when you are going, then drag it onto a day; a place already on a day but optional is marked as a backup and decided on the day itself
+- Daily itinerary push and expense logging in LINE — the day's plan each morning, receipts logged by dropping them into the group, and a settlement summary when the trip ends
 - Turnaround time per itinerary item, marked on the timeline
 - Richer daily weather: sunrise and sunset, feels-like temperature, chance of rain, wind, corrected for altitude
 - A pre-trip training plan counted back from the departure date, generated from the route's own distance, ascent, and pack weight
 - A food and supplement trial log that carries across trips
 - GPX import for distance and ascent statistics and globe tracks
 - Trip templates that only preset which tabs and categories a new trip starts with
+- A public route library — outdoor routes other people can copy into their own trips (under consideration)
 
 Deliberately out of scope: offline maps, GPX navigation, and live track recording.
 
@@ -146,6 +153,7 @@ Run the SQL files in `supabase/` in order via the [Supabase SQL Editor](https://
 | `20_ai_usage.sql` | AI call log: feature, model, token counts, duration, success (safe to re-run) |
 | `21_ai_thinking_tokens.sql` | Thinking tokens on AI calls, billed as output but reported separately (safe to re-run) |
 | `22_api_errors.sql` | Server-side uncaught exceptions, with a dedupe index (safe to re-run) |
+| `23_share_fork.sql` | Whether a share link lets the viewer copy the itinerary into a trip of their own (safe to re-run) |
 
 ### LINE Bot Setup
 
@@ -182,6 +190,8 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 ### 核心功能
 
 - **互動式 3D 地球儀** — WebGL 渲染飛行弧線動畫（預設顯示全部航跡），目的地精確到地區層級座標（Nominatim / OpenStreetMap）。國旗 emoji 從 Nominatim ISO code 自動解析，無需維護硬編碼對照表。旅程清單開頭以說故事語氣呈現旅遊足跡——年份跨度、趟數、國家數（以 ISO 國碼去重）與旅遊總天數。
+- **旅遊護照** — 一本把所有旅程收在一起的護照，自己建立的與被邀請加入的都算 —— 別人開的那趟你也真的去了。封面之後是資料頁：持證人照片做成印刷網點，底下是趟數、國家數與總天數，最下面兩行是機讀碼。接著是入境章——一趟一國一枚，去過三次日本就有三枚章，章的形狀、角度與墨色由國碼決定，所以同一個國家每次蓋出來都一樣。旅行紀錄頁記已記錄航段的總距離、最遠的一段航段、最長的一趟與去最多次的國家；航段只算兩端機場都查得到座標的，其餘會標明未計入——把查不到的當成零，數字會看起來很精確但是錯的。沒有東西可講的那一格就不會出現——每個國家都只去過一次的時候，「去最多次的國家」是沒有意義的。之後每一年一頁，那年的趟數、國家、天數與一張那年 Google 相簿裡的照片，可以存成圖分享出去。它是一本真的會翻的書：拖著頁面走，紙會跟著手指拱起來、繞書脊轉過去，放手時翻得不夠就彈回原位。點左右半邊可以翻頁，方向鍵也可以。裝置沒有 WebGL、或系統設定了減少動態效果時，自動退回不會翻的平面版，兩邊看到的內容一樣。
+- **開 App 時的落點** — 有正在進行的旅程就直接進那趟。全部結束、最近也沒有回頭看任何一趟時，落在旅遊護照——淡季沒有「現在」可以看，但走過的路還在。最近 14 天內開過某趟就留在旅程清單，因為那代表還在回顧，不該被打斷。這個判斷一次開啟只做一次，所以從護照回到清單不會又被帶走。
 - **路線分頁** — 登機證風格的交通段落卡片（航班、火車、巴士）。
 - **筆記分頁（富文字 + AI）** — 完整 Quill 富文字編輯器，六個區塊 Chip 可觸發 AI 生成旅遊內容（旅遊注意事項、該帶什麼、地鐵攻略等），由 Google Gemini 驅動，所有成員共享。預設為閱讀模式、點「編輯」才進入編輯器；未儲存的編輯會自動存成本機草稿（回來時還原並提示），切換分頁不再遺失內容。工具列涵蓋標題、顏色、連結、清單、引言、分隔線與表格；表格以格線選擇尺寸後插入，游標移入表格時會展開增減列／欄與刪除表格的操作列。Shift+Enter 會在同一個區塊內換行，引言、清單項目或段落都能寫成多行，Enter 則照常另起新的一段。閱讀模式與編輯模式使用同一套排版，存檔前後看到的版面完全一致。行程備註與旅程簡介也使用同一個編輯器。
 - **進階行程規劃** — 支援跨日事件與日期時間範圍選擇器（結束時間可留空），時間軸顯示星期標籤、每日即時天氣預報與逐筆類別 icon 節點，備註支援富文字與可點擊連結；每筆行程可上傳多張圖片（上傳前先在瀏覽器端縮圖壓縮，存於 Supabase Storage），第一張以全寬封面呈現於卡片頂部、多張顯示 +N 標記，點擊開啟燈箱可瀏覽全部。跨日行程（連住飯店、租車、周遊券）會出現在它覆蓋的每一天：開始日保留完整卡片，後續每天顯示一條精簡狀態條，標示名稱與「住宿中 3/9 天」，最後一天再加上退房時間，點一下即跳回完整卡片並短暫高亮。住宿期間即使沒有其他安排，那幾天也會出現在時間軸上，天氣預報同時涵蓋整段日期，不再只查到開始日。
@@ -201,6 +211,7 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 - **旅遊照片牆** — 整合 Google Photos 相簿，等比例磚牆佈局、懶加載、Lightbox 瀏覽（手機可滑動換圖、雙擊縮放）與影片內嵌播放。
 - **照片框架匯出** — 為任一張照片加上相機資訊欄後匯出：顯示焦距、光圈、快門、ISO、拍攝時間，以及相機品牌 Logo（Sony、Canon、Fujifilm、Leica、Nikon、Apple、Samsung、Vivo）。可選擇畫面比例（Original / 1:1 / 3:4 / 4:3 / 9:16 / 16:9）、邊框與背景顏色。桌機顯示 Modal，手機顯示底部面板。
 - **分享與共同編輯** — 可生成唯讀分享連結（URL 保留當前分頁狀態）。按分享會先問這條連結要露出哪些分頁：沒勾的分頁不會出現在分享頁，資料也完全不會送到對方的瀏覽器——所以可以只分享行程、把費用留給自己。旅程裡已經關掉的分頁不會出現在選項中，選過的範圍下次打開會記住；因為一趟旅程只有一條分享連結，改了範圍之後，之前貼出去的同一條連結看到的東西也跟著變。連結貼到通訊軟體會顯示「旅程名稱 - Travel Tracker」與該趟旅程的封面照縮圖——封面照來自行程照片，所以沒分享行程的連結會退回顯示 App 圖示。具編輯權限的成員開啟分享連結時自動跳轉至完整編輯介面。成員頭像顯示於 hero pill 列尾端（載入時有骨架佔位）；旅程擁有者可移除成員，成員可自行離開旅程，「分帳綁定」以彈窗設定，桌機版從動作列進入、手機版從旅程選單進入。
+- **從分享連結複製行程** — 看到別人行程的人可以把它變成自己的一趟：選一個出發日，整份行程平移到那天開始，每天的安排與前後順序都不變。帶走的是行程本身 —— 時間、地點、備註、行程照片，戶外路段連途經點一起；費用、成員、Google 相簿與交通票券留在原本那一趟，因為那些屬於那趟旅程，不屬於這份安排。照片是連到原本那幾張、不是另外存一份，所以原旅程被刪掉時複製出來的圖會跟著不見。沒分享行程分頁的連結沒有東西可以複製，分享設定裡也能逐條連結關掉複製。還沒有帳號的人按下去會先去登入，回來直接落在選日期那一步；分享頁最後還有自己的入口，所以一條連結可以是新使用者看到的第一個畫面。
 - **加入旅程後認領身份** — 加入旅程時可認領你對應的既有分帳成員名稱，旅程擁有者可在旅程頁查看與管理「成員名稱 ↔ 帳號」綁定。（為日後支出自動歸戶功能鋪路）
 - **伴手禮與購物清單** — 可切換「卡片」與「列表」兩種檢視，選擇會記住下次沿用。支援自訂標籤篩選、圖片上傳與快速打勾；沒有照片的項目不會顯示佔位圖。顯示完成進度條，已購買項目會以滑動動畫沉到底部，看得出剛剛勾掉的是哪一項。
 - **裝備清單與重量** — 逐件記下裝備、單件重量與數量。頂部第一個數字是「我的負重」——自己的個人裝備加上分配給自己的公裝——旁邊才是全隊總重與還沒分配攜帶者的公裝重量，因為四人隊的總重對任何一個人都不代表要揹多少；決定背包揹不揹得動的三個數字：基準重量、穿著、消耗，同樣只算自己那一袋。認得出「我」的前提是分帳成員綁了帳號，沒綁定時（以及唯讀分享頁）退回顯示全隊總重。每件裝備一個自由分類——單選，因為一件裝備在重量帳上只能屬於一個地方——chip 列顯示各分類的件數與重量。點分類可篩選，也可以從「管理」對整份清單改名或刪除某個分類；刪除是把裝備的分類清空而不是刪掉裝備，它們會落到「未分類」。打包分成個人與公裝：個人裝備只有加入的人看得到，而且是由資料庫擋住而不是在畫面上篩掉，因為打包清單裡可能有不需要給別人看的東西。公裝全隊共享、可以分配攜帶者（這個欄位只在選了公裝時才出現）——而唯讀分享連結只會露出公裝那一半。裝進背包就打勾。重量可用公克或公斤輸入，還沒秤的先留空。分頁預設關閉、每趟旅程自行開啟；一般旅遊當成行李清單、對照航空公司重量限制也一樣好用。
@@ -214,12 +225,16 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 依優先順序排列：
 
 - 留守人頁面 —— 緊急聯絡人、約定的回報時間、撤退計畫 —— 建在唯讀分享連結上，可列印給入園申請使用
+- 結算後一鍵複製催款訊息 —— 誰要付誰多少，直接貼進 LINE 群組
+- 想去清單與備用行程 —— 還沒決定時間的地點先存著，之後拖進某一天；已經排在某天但可去可不去的標成備案，當天再決定
+- LINE 每日行程推播與群組記帳 —— 早上收到當日行程，收據直接丟進群組就入帳，旅程結束推結算摘要
 - 每筆行程的撤退／關門時間，並在時間軸上標記
 - 更完整的每日天氣：日出日落、體感溫度、降雨機率、風速，並依海拔校正
 - 依出發日回推的行前訓練計畫，以該條路線的里程、爬升與背包重量生成
 - 跨旅程累積的補給與行動糧試用紀錄
 - GPX 匯入，取里程與爬升統計並在 3D 地球上畫出軌跡
 - 建立旅程時的範本，只決定新旅程預設開啟哪些分頁與分類
+- 公開路線庫 —— 戶外路線可以被別人複製進自己的旅程（待評估）
 
 明確不做：離線地圖、GPX 導航、即時軌跡記錄。
 
@@ -307,6 +322,7 @@ npm run dev
 | `20_ai_usage.sql` | AI 呼叫紀錄：功能、模型、token 數、耗時、成功與否（可重複執行） |
 | `21_ai_thinking_tokens.sql` | AI 呼叫的思考 token，另外回報但按輸出計費（可重複執行） |
 | `22_api_errors.sql` | 伺服器端未捕捉的例外，附去重索引（可重複執行） |
+| `23_share_fork.sql` | 分享連結是否開放對方把行程複製成自己的旅程（可重複執行） |
 
 ### LINE Bot 設定
 

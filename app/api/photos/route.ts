@@ -386,13 +386,25 @@ async function scrapeShareUrl(shareUrl: string): Promise<{ items: MediaItem[]; n
 
 // ── Route handler ─────────────────────────────────────────────────────────
 
+/**
+ * 相簿連結是使用者貼進來的，貼的時候常常帶著換行與縮排 —— 分享連結很長，從郵件或訊息複製時
+ * 會被折行，折進去的空白就跟著存進資料庫。URL 裡本來就不可能有空白字元，一律清掉。
+ */
+function stripWhitespace(url: string): string {
+  return url.replace(/\s+/g, "");
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const shareUrl = searchParams.get("shareUrl");
   const albumId = searchParams.get("albumId");
   const pageToken = searchParams.get("pageToken");
 
-  const targetUrl = shareUrl ?? (albumId ? `https://photos.google.com/album/${albumId}` : null);
+  const targetUrl = shareUrl
+    ? stripWhitespace(shareUrl)
+    : albumId
+      ? `https://photos.google.com/album/${stripWhitespace(albumId)}`
+      : null;
 
   if (!targetUrl) {
     return NextResponse.json({ error: "missing_param" }, { status: 400 });

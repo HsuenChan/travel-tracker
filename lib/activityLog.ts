@@ -176,6 +176,7 @@ export const ENTITY_SPECS: Record<string, EntitySpec> = {
       people: "成員",
       enabled_tabs: "啟用分頁",
       shared_tabs: "分享分頁",
+      share_allow_copy: "開放複製",
       photo_album_id: "相簿連結",
       notes: "備註",
       destinations: "目的地",

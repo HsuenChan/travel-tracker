@@ -4,9 +4,10 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import { recordTripOpen } from "@/lib/recentTrips";
 import {
   Button, Typography, Input,
-  Skeleton, Popconfirm, Timeline, Tooltip, App, Select, Modal,
+  Skeleton, Popconfirm, Timeline, Tooltip, App, Select, Modal, Switch,
 } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
 import EditTripModal from "@/app/components/EditTripModal";
@@ -105,6 +106,7 @@ export default function TripPage() {
   const [shareTabs, setShareTabs] = useState<string[]>([]);
   const [shareOptions, setShareOptions] = useState<string[]>([]);
   const [shareCopying, setShareCopying] = useState(false);
+  const [shareAllowCopy, setShareAllowCopy] = useState(true);
   const [inviting, setInviting] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
@@ -177,6 +179,11 @@ export default function TripPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip, activeTab, searchParams]);
+
+  // 開 App 的落點要知道最近還在看哪幾趟：還在回顧某趟的人不該被丟去護照
+  useEffect(() => {
+    if (id) recordTripOpen(id);
+  }, [id]);
 
   // 峰終回顧：旅程結束後第一次打開這頁時撒一次 confetti（之後只留回顧卡）
   const tripEnded = !!(trip?.end_date && dayjs().format("YYYY-MM-DD") > trip.end_date);
@@ -499,8 +506,9 @@ export default function TripPage() {
         messageApi.error("產生分享連結失敗，請再試一次");
         return;
       }
-      const { shareUrl: url, sharedTabs, enabledTabs } = await res.json();
+      const { shareUrl: url, sharedTabs, enabledTabs, allowCopy } = await res.json();
       setShareUrl(url);
+      setShareAllowCopy(allowCopy !== false);
       // 可選的只有這趟啟用的分頁；預設勾上次分享的範圍（沒設定過就是全部啟用的分頁）
       setShareOptions(enabledTabs ?? TRIP_TAB_KEYS);
       setShareTabs(sharedTabs ?? enabledTabs ?? TRIP_TAB_KEYS);
@@ -519,7 +527,7 @@ export default function TripPage() {
       const res = await fetchWithAuth(`/api/trips/${id}/share`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tabs: shareTabs }),
+        body: JSON.stringify({ tabs: shareTabs, allowCopy: shareAllowCopy }),
       });
       if (!res.ok) {
         messageApi.error("儲存分享範圍失敗，請再試一次");
@@ -861,6 +869,22 @@ export default function TripPage() {
             <Typography.Text className="text-zinc-600 text-[12px]">
               一趟旅程只有一條分享連結，改完之後之前貼出去的連結看到的範圍也會跟著變。
             </Typography.Text>
+
+            <div className="flex items-start justify-between gap-3 bg-white/[0.03] border border-white/8 rounded-xl px-3.5 py-3">
+              <div className="min-w-0">
+                <div className="text-zinc-200 text-[13px] font-medium mb-0.5">允許對方複製這份行程</div>
+                <div className="text-zinc-600 text-[12px] leading-relaxed">
+                  對方可以把行程複製成自己的旅程（行程、行程照片與途經點，不含費用、成員與 Google 相簿）。
+                  沒分享行程分頁時這個設定不會生效。
+                </div>
+              </div>
+              <Switch
+                checked={shareAllowCopy}
+                onChange={setShareAllowCopy}
+                size="small"
+                className="mt-0.5 shrink-0"
+              />
+            </div>
             <Button
               type="primary"
               block
