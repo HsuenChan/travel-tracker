@@ -7,7 +7,7 @@ import { describeDevice } from "@/lib/userAgent";
 import { relativeTime } from "@/app/components/admin/parts";
 import EventRow, { type ActivityEvent } from "@/app/components/admin/EventRow";
 import { useRestoreEvent } from "@/app/components/admin/useRestoreEvent";
-import { ShieldIcon, LaptopIcon, ArrowRightIcon, SparkleIcon, AlertTriangleIcon } from "@/app/components/Icons";
+import { ShieldIcon, LaptopIcon, ArrowRightIcon, SparkleIcon, AlertTriangleIcon, HealthIcon } from "@/app/components/Icons";
 
 interface Overview {
   logins: {
@@ -200,7 +200,15 @@ export default function AdminOverview() {
                 </p>
               </div>
             ) : (
-              <p className="mt-2 text-[13px] text-zinc-500">7 天內沒有未捕捉的例外。</p>
+              /* 沒有異常也要有 icon，三張卡才對得起來。心電圖折線講的是「還活著」，
+                 跟登入的盾牌、AI 的閃光不撞；用翠綠而不是紅，這是好消息不是警報 */
+              <div className="mt-2">
+                <p className="flex items-center gap-2 text-[17px] font-bold text-zinc-100">
+                  <HealthIcon size={15} className="text-emerald-300" />
+                  沒有異常
+                </p>
+                <p className="mt-1.5 text-[13px] text-zinc-500">7 天內沒有未捕捉的例外。</p>
+              </div>
             )}
           </section>
         )}
