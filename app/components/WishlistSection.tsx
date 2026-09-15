@@ -13,8 +13,9 @@ import { LocationIcon, PlusIcon, CalendarIcon } from "@/app/components/Icons";
  * 放在時間軸上面而不是另開分頁 —— 這些東西的下一步就是被排進某一天，跨分頁就做不到
  * 「看著行程決定放哪天」這件事。
  *
- * 不做拖曳排入。手機上要從一個可收合的區塊拖到很長的時間軸，體驗會很差，而這個 App 是
- * 手機優先；改成選日期，兩邊一樣快。
+ * 兩條路都留著：桌機把卡片拖到某一天（或把某一天的行程拖回這裡），手機用「排入」選日期。
+ * 原生 HTML5 DnD 在觸控裝置上不會觸發，而從收合的區塊拖到很長的時間軸在手機上本來就不好按，
+ * 所以不是二選一，是各自對應各自順手的裝置。
  */
 
 export interface WishlistEntry {
@@ -30,13 +31,20 @@ interface Props {
   readOnly?: boolean;
   /** 日期選擇器的預設落點：這趟的第一天 */
   defaultDate?: string | null;
+  /** 有東西正被拖到這一區上方 */
+  dragOver?: boolean;
   onAdd: (title: string, location: string) => Promise<void>;
   onSchedule: (id: string, date: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  onDragStartItem?: (e: React.DragEvent, id: string) => void;
+  onDragOverZone?: (e: React.DragEvent) => void;
+  onDragLeaveZone?: () => void;
+  onDropZone?: (e: React.DragEvent) => void;
 }
 
 export default function WishlistSection({
-  items, readOnly, defaultDate, onAdd, onSchedule, onRemove,
+  items, readOnly, defaultDate, dragOver,
+  onAdd, onSchedule, onRemove, onDragStartItem, onDragOverZone, onDragLeaveZone, onDropZone,
 }: Props) {
   const [open, setOpen] = useState(true);
   const [title, setTitle] = useState("");
@@ -60,7 +68,16 @@ export default function WishlistSection({
   }
 
   return (
-    <div className="mb-5 rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+    <div
+      className={`mb-5 rounded-2xl overflow-hidden transition-colors duration-150 ${
+        dragOver
+          ? "border-2 border-dashed border-violet-500/60 bg-violet-500/[0.07]"
+          : "border border-white/8 bg-white/[0.02]"
+      }`}
+      onDragOver={onDragOverZone}
+      onDragLeave={onDragLeaveZone}
+      onDrop={onDropZone}
+    >
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between gap-2 px-4 py-3 cursor-pointer hover:bg-white/[0.03] transition-colors"
@@ -90,14 +107,18 @@ export default function WishlistSection({
             <div className="px-4 pb-4 pt-1">
               {items.length === 0 ? (
                 <Typography.Text className="text-zinc-600 text-[12px] block mb-3">
-                  還沒想好哪天去的地方先丟這裡，之後再排進某一天。
+                  還沒想好哪天去的地方先丟這裡，之後拖到某一天，或用「排入」選日期。
                 </Typography.Text>
               ) : (
                 <div className="flex flex-col gap-2 mb-3">
                   {items.map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5"
+                      draggable={!readOnly}
+                      onDragStart={(e) => onDragStartItem?.(e, item.id)}
+                      className={`rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5 ${
+                        readOnly ? "" : "cursor-grab active:cursor-grabbing"
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">

@@ -535,6 +535,32 @@ export default function ItineraryTab({
     }
   }
 
+  /*
+    拖曳。
+
+    原生 HTML5 DnD：桌機上直接把想去清單的卡片拖到某一天，或把某一天的行程拖回想去清單。
+    觸控裝置不會觸發這組事件，所以「排入」按鈕與卡片上的「移到想去」都留著 —— 手機從收合的
+    區塊拖到很長的時間軸本來就不好按，兩條路各自對應各自順手的裝置。
+  */
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [dragOverWishlist, setDragOverWishlist] = useState(false);
+
+  function startDrag(e: React.DragEvent, id: string) {
+    e.dataTransfer.setData("text/plain", id);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  /** 丟回想去清單：日期清掉，狀態改回 wishlist */
+  async function unschedule(id: string) {
+    const res = await fetchWithAuth("/api/itinerary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status: "wishlist", date: null }),
+    });
+    if (!res.ok) { message.error("移動失敗，請再試一次"); return; }
+    fetchItems();
+  }
+
   /** 想去清單：沒有日期，所以走 status=wishlist 而不是隨便填一天 */
   async function addWishlist(title: string, location: string) {
     const res = await fetchWithAuth("/api/itinerary", {
@@ -937,7 +963,18 @@ export default function ItineraryTab({
       content: (
         <div
           id={`itinerary-date-${date}`}
-          className={showDateChips ? "scroll-mt-[116px] md:scroll-mt-[180px]" : "scroll-mt-20 md:scroll-mt-36"}
+          className={`${showDateChips ? "scroll-mt-[116px] md:scroll-mt-[180px]" : "scroll-mt-20 md:scroll-mt-36"} ${
+            dragOverDate === date ? "rounded-xl ring-2 ring-violet-500/50 bg-violet-500/[0.06]" : ""
+          }`}
+          onDragOver={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverDate(date); }}
+          onDragLeave={readOnly ? undefined : () => setDragOverDate((d) => (d === date ? null : d))}
+          onDrop={readOnly ? undefined : (e) => {
+            e.preventDefault();
+            setDragOverDate(null);
+            const id = e.dataTransfer.getData("text/plain");
+            // 拖到它原本就在的那一天不用打 API
+            if (id && items.find((i) => i.id === id)?.date !== date) scheduleWishlist(id, date);
+          }}
         >
           {/* 有 chips 列時它已經在標「現在是哪一天」，日期標題就不用再黏一層 */}
           <div
@@ -1064,6 +1101,14 @@ export default function ItineraryTab({
             const actionButtons = !readOnly ? (
               <div className="flex items-center gap-1.5 shrink-0 ml-1">
                 <button
+                  aria-label="移到想去清單"
+                  title="移到想去清單"
+                  onClick={() => unschedule(item.id)}
+                  className="h-8 px-2.5 rounded-full text-[11px] font-medium text-zinc-600 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
+                >
+                  想去
+                </button>
+                <button
                   aria-label={item.status === "backup" ? "改回一般行程" : "標為備案"}
                   title={item.status === "backup" ? "改回一般行程" : "標為備案"}
                   onClick={() => toggleBackup(item)}
@@ -1176,7 +1221,15 @@ export default function ItineraryTab({
               }`}
               style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
             >
-              <div className="block md:flex">
+              {/*
+                拖曳掛在這層純 div 而不是外面的 motion.div：framer-motion 有自己的 onDragStart
+                （它的拖曳是 pointer 事件），和原生 DragEvent 的簽章不是同一個東西。
+              */}
+              <div
+                className="block md:flex"
+                draggable={!readOnly}
+                onDragStart={readOnly ? undefined : (e) => startDrag(e, item.id)}
+              >
               {item.image_urls && item.image_urls.length > 0 && (() => {
                 const cover = parseCoverPos(item.image_urls[0]);
                 return (
@@ -1427,9 +1480,20 @@ export default function ItineraryTab({
           items={wishlistItems}
           readOnly={readOnly}
           defaultDate={dates[0] ?? null}
+          dragOver={dragOverWishlist}
           onAdd={addWishlist}
           onSchedule={scheduleWishlist}
           onRemove={handleDelete}
+          onDragStartItem={startDrag}
+          onDragOverZone={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverWishlist(true); }}
+          onDragLeaveZone={readOnly ? undefined : () => setDragOverWishlist(false)}
+          onDropZone={readOnly ? undefined : (e) => {
+            e.preventDefault();
+            setDragOverWishlist(false);
+            const id = e.dataTransfer.getData("text/plain");
+            // 本來就在想去清單裡的不用打 API
+            if (id && items.find((i) => i.id === id)?.status !== "wishlist") unschedule(id);
+          }}
         />
       )}
 
