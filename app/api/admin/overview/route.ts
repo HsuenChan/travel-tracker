@@ -32,7 +32,7 @@ export async function GET() {
       .limit(5),
     service
       .from("ai_usage")
-      .select("feature, prompt_tokens, output_tokens, ok, created_at")
+      .select("feature, actor_id, actor_name, prompt_tokens, output_tokens, thinking_tokens, ok, created_at")
       .gte("created_at", monthStart),
   ]);
 
@@ -50,8 +50,8 @@ export async function GET() {
     monthCalls: aiRows.length,
     monthFailed: aiRows.filter((r) => !r.ok).length,
     todayCalls: aiRows.filter((r) => r.created_at >= todayStart).length,
-    monthTokens: aiRows.reduce((n, r) => n + (r.prompt_tokens ?? 0) + (r.output_tokens ?? 0), 0),
-    monthCostUsd: aiRows.reduce((n, r) => n + estimateCost(r.prompt_tokens ?? 0, r.output_tokens ?? 0), 0),
+    monthTokens: aiRows.reduce((n, r) => n + (r.prompt_tokens ?? 0) + (r.output_tokens ?? 0) + (r.thinking_tokens ?? 0), 0),
+    monthCostUsd: aiRows.reduce((n, r) => n + estimateCost(r.prompt_tokens ?? 0, r.output_tokens ?? 0, r.thinking_tokens ?? 0), 0),
     byFeature: (Object.keys(AI_FEATURE_LABELS) as AiFeature[])
       .map((key) => {
         const rows = aiRows.filter((r) => r.feature === key);
@@ -60,10 +60,26 @@ export async function GET() {
           label: AI_FEATURE_LABELS[key],
           calls: rows.length,
           failed: rows.filter((r) => !r.ok).length,
-          costUsd: rows.reduce((n, r) => n + estimateCost(r.prompt_tokens ?? 0, r.output_tokens ?? 0), 0),
+          costUsd: rows.reduce((n, r) => n + estimateCost(r.prompt_tokens ?? 0, r.output_tokens ?? 0, r.thinking_tokens ?? 0), 0),
         };
       })
       .filter((f) => f.calls > 0),
+    /*
+      依帳號。actor_name 存的是 email，後台只有管理員看得到。
+      名字用 Map 收斂而不是直接 group by actor_id —— 匿名或記錄失敗的列 actor_id 是 null，
+      用 id 當 key 會把它們全部併成同一個「使用者」。
+    */
+    byActor: Object.values(
+      aiRows.reduce((acc: Record<string, { name: string; calls: number; tokens: number; costUsd: number }>, r) => {
+        const key = r.actor_id ?? r.actor_name ?? "unknown";
+        const entry = acc[key] ?? { name: r.actor_name ?? "（未知帳號）", calls: 0, tokens: 0, costUsd: 0 };
+        entry.calls += 1;
+        entry.tokens += (r.prompt_tokens ?? 0) + (r.output_tokens ?? 0) + (r.thinking_tokens ?? 0);
+        entry.costUsd += estimateCost(r.prompt_tokens ?? 0, r.output_tokens ?? 0, r.thinking_tokens ?? 0);
+        acc[key] = entry;
+        return acc;
+      }, {})
+    ).sort((a, b) => b.costUsd - a.costUsd),
   };
 
   const rows = logins.data ?? [];

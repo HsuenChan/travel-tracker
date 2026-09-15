@@ -26,10 +26,16 @@ export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
  */
 export const PRICE_PER_MTOK = { input: 0.30, output: 2.50 };
 
-/** token 數 → 估計美元 */
-export function estimateCost(promptTokens: number, outputTokens: number): number {
+/**
+ * token 數 → 估計美元。
+ *
+ * 思考 token 一定要算進去：2.5 Flash 是思考模型，thoughtsTokenCount 不含在
+ * candidatesTokenCount 裡，但它是按 output 費率計費的。實測一次呼叫 output 只有 394，
+ * 思考卻有 2,665 —— 漏掉就會把成本低估六倍以上，而這個功能的全部意義就是不要低估成本。
+ */
+export function estimateCost(promptTokens: number, outputTokens: number, thinkingTokens = 0): number {
   return (promptTokens / 1_000_000) * PRICE_PER_MTOK.input
-    + (outputTokens / 1_000_000) * PRICE_PER_MTOK.output;
+    + ((outputTokens + thinkingTokens) / 1_000_000) * PRICE_PER_MTOK.output;
 }
 
 /** 每月花費上限（美元）。設 0 或負數等於不限制 */
@@ -42,6 +48,8 @@ export function monthlyBudgetUsd(): number {
 interface UsageMetadata {
   promptTokenCount?: number;
   candidatesTokenCount?: number;
+  /** 思考模型才有；不含在 candidatesTokenCount 裡，但按 output 費率計費 */
+  thoughtsTokenCount?: number;
   totalTokenCount?: number;
 }
 
@@ -71,6 +79,14 @@ export async function recordAiUsage(input: AiUsageRecord): Promise<void> {
       prompt_tokens: u.promptTokenCount ?? null,
       output_tokens: u.candidatesTokenCount ?? null,
       total_tokens: u.totalTokenCount ?? null,
+      /*
+        SDK 沒回 thoughtsTokenCount 時，用 total - prompt - output 反推。
+        總量是對的，差額就是思考 —— 寧可推算也不要記成 0，那等於宣告「沒花到錢」。
+      */
+      thinking_tokens: u.thoughtsTokenCount
+        ?? (u.totalTokenCount != null
+          ? Math.max(0, u.totalTokenCount - (u.promptTokenCount ?? 0) - (u.candidatesTokenCount ?? 0))
+          : null),
       duration_ms: input.durationMs ?? null,
       ok: input.ok,
       // 錯誤訊息可能很長，截短；要細節的話看伺服器日誌
@@ -106,11 +122,11 @@ export async function checkAiBudget(): Promise<BudgetState> {
   try {
     const { data } = await createServiceClient()
       .from("ai_usage")
-      .select("prompt_tokens,output_tokens")
+      .select("prompt_tokens,output_tokens,thinking_tokens")
       .gte("created_at", monthStart());
 
     const spentUsd = (data ?? []).reduce(
-      (sum, r) => sum + estimateCost(r.prompt_tokens ?? 0, r.output_tokens ?? 0),
+      (sum, r) => sum + estimateCost(r.prompt_tokens ?? 0, r.output_tokens ?? 0, r.thinking_tokens ?? 0),
       0
     );
     return { spentUsd, budgetUsd, exceeded: budgetUsd > 0 && spentUsd >= budgetUsd };

@@ -25,6 +25,7 @@ interface Overview {
     monthTokens: number;
     monthCostUsd: number;
     byFeature: { key: string; label: string; calls: number; failed: number; costUsd: number }[];
+    byActor: { name: string; calls: number; tokens: number; costUsd: number }[];
   } | null;
   recentChanges: ActivityEvent[];
 }
@@ -78,112 +79,129 @@ export default function AdminOverview() {
     <div className="pt-6">
       <h1 className="sr-only">後台總覽</h1>
 
-      <section>
-        <SectionHead title="登入狀態" href="/admin/logins" />
-        {logins.last ? (
-          <div className="mt-2">
-            <p className="flex items-center gap-2 text-[17px] font-bold text-zinc-100">
-              <ShieldIcon size={15} className={suspicious ? "text-amber-300" : "text-emerald-300"} />
-              最近一次登入 {relativeTime(logins.last.created_at)}
-            </p>
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-zinc-400">
-              <LaptopIcon size={13} className="text-zinc-600" />
-              <span>{describeDevice(logins.last.user_agent)}</span>
-              {logins.last.ip && (
-                <>
-                  <span aria-hidden className="text-zinc-700">·</span>
-                  <span className="admin-nums">{logins.last.ip}</span>
-                </>
-              )}
-            </p>
-            <p className="mt-2.5 text-[13px] text-zinc-500">
-              30 天內 <span className="admin-nums text-zinc-300">{logins.count30d}</span> 次登入
-              <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
-              <span className="admin-nums text-zinc-300">{logins.deviceCount}</span> 台裝置
-              <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
-              <span className={suspicious ? "font-semibold text-amber-300" : ""}>
-                <span className="admin-nums">{logins.failed30d}</span> 次失敗
-              </span>
-            </p>
-          </div>
-        ) : (
-          <p className="mt-2 text-[13px] text-zinc-500">還沒有登入紀錄。下次登入就會出現在這裡。</p>
-        )}
-      </section>
-
-      <hr className="my-7 border-white/[0.06]" />
-
       {/*
-        AI 用量。專案用的是 Gemini 付費層，一天 10,000 次的速率上限實際只用到個位數 ——
-        所以這裡盯的是花費而不是次數，估計金額才是會先出事的那個數字。
+        電腦版把「登入狀態」與「AI 用量」並排：兩者都是短摘要，各自獨佔一整列會讓
+        首屏要捲兩次才看得到最新異動。手機維持上下堆疊。
+        items-start 是必要的 —— 兩區內容高度不一樣，預設拉伸會讓短的那區被撐開。
       */}
-      {ai && (
-        <>
-          <section>
-            <h2 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">AI 用量</h2>
-            {ai.monthCalls === 0 ? (
-              <p className="mt-2 text-[13px] text-zinc-500">本月還沒有 AI 呼叫。</p>
-            ) : (
-              <div className="mt-2">
-                <p className="flex items-center gap-2 text-[17px] font-bold text-zinc-100">
-                  <SparkleIcon size={15} className={overBudget ? "text-amber-300" : "text-violet-300"} />
-                  本月估計 <span className="admin-nums">${usd(ai.monthCostUsd)}</span>
-                  {ai.budgetUsd > 0 && (
-                    <span className="text-[13px] font-medium text-zinc-500">
-                      / 上限 <span className="admin-nums">${usd(ai.budgetUsd)}</span>
-                    </span>
-                  )}
-                </p>
+      <div className="grid items-start gap-7 lg:grid-cols-2 lg:gap-x-10">
+        <section>
+          <SectionHead title="登入狀態" href="/admin/logins" />
+          {logins.last ? (
+            <div className="mt-2">
+              <p className="flex items-center gap-2 text-[17px] font-bold text-zinc-100">
+                <ShieldIcon size={15} className={suspicious ? "text-amber-300" : "text-emerald-300"} />
+                最近一次登入 {relativeTime(logins.last.created_at)}
+              </p>
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-zinc-400">
+                <LaptopIcon size={13} className="text-zinc-600" />
+                <span>{describeDevice(logins.last.user_agent)}</span>
+                {logins.last.ip && (
+                  <>
+                    <span aria-hidden className="text-zinc-700">·</span>
+                    <span className="admin-nums">{logins.last.ip}</span>
+                  </>
+                )}
+              </p>
+              <p className="mt-2.5 text-[13px] text-zinc-500">
+                30 天內 <span className="admin-nums text-zinc-300">{logins.count30d}</span> 次登入
+                <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+                <span className="admin-nums text-zinc-300">{logins.deviceCount}</span> 台裝置
+                <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+                <span className={suspicious ? "font-semibold text-amber-300" : ""}>
+                  <span className="admin-nums">{logins.failed30d}</span> 次失敗
+                </span>
+              </p>
+            </div>
+          ) : (
+            <p className="mt-2 text-[13px] text-zinc-500">還沒有登入紀錄。下次登入就會出現在這裡。</p>
+          )}
+        </section>
 
-                {ai.budgetUsd > 0 && (
-                  <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                    <div
-                      className={`h-full rounded-full ${overBudget ? "bg-amber-400" : "bg-violet-400/70"}`}
-                      style={{ width: `${Math.min(100, (ai.monthCostUsd / ai.budgetUsd) * 100)}%` }}
-                    />
+        {ai && (
+    <section>
+                <h2 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">AI 用量</h2>
+                {ai.monthCalls === 0 ? (
+                  <p className="mt-2 text-[13px] text-zinc-500">本月還沒有 AI 呼叫。</p>
+                ) : (
+                  <div className="mt-2">
+                    <p className="flex items-center gap-2 text-[17px] font-bold text-zinc-100">
+                      <SparkleIcon size={15} className={overBudget ? "text-amber-300" : "text-violet-300"} />
+                      本月估計 <span className="admin-nums">${usd(ai.monthCostUsd)}</span>
+                      {ai.budgetUsd > 0 && (
+                        <span className="text-[13px] font-medium text-zinc-500">
+                          / 上限 <span className="admin-nums">${usd(ai.budgetUsd)}</span>
+                        </span>
+                      )}
+                    </p>
+
+                    {ai.budgetUsd > 0 && (
+                      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                        <div
+                          className={`h-full rounded-full ${overBudget ? "bg-amber-400" : "bg-violet-400/70"}`}
+                          style={{ width: `${Math.min(100, (ai.monthCostUsd / ai.budgetUsd) * 100)}%` }}
+                        />
+                      </div>
+                    )}
+
+                    <p className="mt-2.5 text-[13px] text-zinc-500">
+                      本月 <span className="admin-nums text-zinc-300">{ai.monthCalls}</span> 次
+                      <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+                      今日 <span className="admin-nums text-zinc-300">{ai.todayCalls}</span> 次
+                      <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+                      <span className="admin-nums text-zinc-300">{(ai.monthTokens / 1000).toFixed(1)}K</span> tokens
+                      {ai.monthFailed > 0 && (
+                        <>
+                          <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+                          {/* 失敗次數要看得到：被擋下來時也是失敗，只看成功數會以為用量很低 */}
+                          <span className="font-semibold text-amber-300">
+                            <span className="admin-nums">{ai.monthFailed}</span> 次失敗
+                          </span>
+                        </>
+                      )}
+                    </p>
+
+                    <ul className="mt-3 flex flex-col gap-1.5">
+                      {ai.byFeature.map((f) => (
+                        <li key={f.key} className="flex items-baseline gap-2 text-[13px]">
+                          <span className="text-zinc-400">{f.label}</span>
+                          <span aria-hidden className="flex-1 border-b border-dashed border-white/[0.08]" />
+                          <span className="admin-nums text-zinc-500">{f.calls} 次</span>
+                          {f.failed > 0 && <span className="admin-nums text-amber-300/80">{f.failed} 失敗</span>}
+                          <span className="admin-nums w-16 text-right text-zinc-300">${usd(f.costUsd)}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {ai.byActor.length > 0 && (
+                      <>
+                        <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-600">依帳號</p>
+                        <ul className="mt-1.5 flex flex-col gap-1.5">
+                          {ai.byActor.map((a) => (
+                            <li key={a.name} className="flex items-baseline gap-2 text-[13px]">
+                              <span className="min-w-0 truncate text-zinc-400" title={a.name}>{a.name}</span>
+                              <span aria-hidden className="flex-1 border-b border-dashed border-white/[0.08]" />
+                              <span className="admin-nums shrink-0 text-zinc-500">{a.calls} 次</span>
+                              <span className="admin-nums shrink-0 text-zinc-500">{(a.tokens / 1000).toFixed(1)}K</span>
+                              <span className="admin-nums w-16 shrink-0 text-right text-zinc-300">${usd(a.costUsd)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+
+                    <p className="mt-3 text-[11px] leading-relaxed text-zinc-600">
+                      金額依 Gemini 2.5 Flash 的公告費率換算（輸入 $0.30、輸出 $2.50 / 百萬 token），
+                      思考 token 併入輸出計價。是估計值不是帳單金額。
+                      上限由 AI_MONTHLY_BUDGET_USD 設定，超過時 AI 功能會先停用。
+                    </p>
                   </div>
                 )}
+              </section>
+        )}
+      </div>
 
-                <p className="mt-2.5 text-[13px] text-zinc-500">
-                  本月 <span className="admin-nums text-zinc-300">{ai.monthCalls}</span> 次
-                  <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
-                  今日 <span className="admin-nums text-zinc-300">{ai.todayCalls}</span> 次
-                  <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
-                  <span className="admin-nums text-zinc-300">{(ai.monthTokens / 1000).toFixed(1)}K</span> tokens
-                  {ai.monthFailed > 0 && (
-                    <>
-                      <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
-                      {/* 失敗次數要看得到：被擋下來時也是失敗，只看成功數會以為用量很低 */}
-                      <span className="font-semibold text-amber-300">
-                        <span className="admin-nums">{ai.monthFailed}</span> 次失敗
-                      </span>
-                    </>
-                  )}
-                </p>
-
-                <ul className="mt-3 flex flex-col gap-1.5">
-                  {ai.byFeature.map((f) => (
-                    <li key={f.key} className="flex items-baseline gap-2 text-[13px]">
-                      <span className="text-zinc-400">{f.label}</span>
-                      <span aria-hidden className="flex-1 border-b border-dashed border-white/[0.08]" />
-                      <span className="admin-nums text-zinc-500">{f.calls} 次</span>
-                      {f.failed > 0 && <span className="admin-nums text-amber-300/80">{f.failed} 失敗</span>}
-                      <span className="admin-nums w-16 text-right text-zinc-300">${usd(f.costUsd)}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <p className="mt-3 text-[11px] leading-relaxed text-zinc-600">
-                  金額依 Gemini 2.5 Flash 的公告費率換算（輸入 $0.30、輸出 $2.50 / 百萬 token），
-                  是估計值不是帳單金額。上限由 AI_MONTHLY_BUDGET_USD 設定，超過時 AI 功能會先停用。
-                </p>
-              </div>
-            )}
-          </section>
-
-          <hr className="my-7 border-white/[0.06]" />
-        </>
-      )}
+      <hr className="my-7 border-white/[0.06]" />
 
       <section>
         <SectionHead title="最新異動" href="/admin/activity" />
