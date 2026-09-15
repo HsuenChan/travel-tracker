@@ -90,7 +90,16 @@ export async function POST(
   const requestedStart = typeof body?.startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.startDate)
     ? body.startDate
     : null;
-  const baseDate = items[0].date as string;
+
+  /*
+    基準日只能從有日期的那些算。想去清單（status = wishlist）沒有日期，被當成基準的話
+    整份行程會位移到 NaN 去。它們照樣複製，只是不套位移 —— 對方拿到的一樣是「還沒決定哪天」。
+  */
+  const dated = items.filter((i) => i.date);
+  if (dated.length === 0) {
+    return NextResponse.json({ error: "這趟旅程還沒有排定日期的行程可以複製" }, { status: 400 });
+  }
+  const baseDate = dated[0].date as string;
   const shift = requestedStart ? toDayNumber(requestedStart) - toDayNumber(baseDate) : 0;
 
   const sourceStart = (source.start_date as string | null) ?? baseDate;
@@ -128,7 +137,7 @@ export async function POST(
     return {
       ...rest,
       trip_id: trip.id,
-      date: shiftDate(date as string, shift),
+      date: date ? shiftDate(date as string, shift) : null,
       end_date: end_date ? shiftDate(end_date as string, shift) : null,
     };
   });

@@ -80,6 +80,8 @@ export async function POST(
     .from("itinerary_items")
     .select("date, time, end_time, title, category, location")
     .eq("trip_id", id)
+    // 想去清單還沒排進哪一天，不該被當成「這一天已經有什麼」餵給 AI
+    .neq("status", "wishlist")
     .order("date", { ascending: true })
     .order("time", { ascending: true, nullsFirst: true });
   const items = rawItems ?? [];

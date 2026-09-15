@@ -16,7 +16,8 @@ export interface ExportTrip {
 
 export interface ExportItem {
   id: string;
-  date: string;
+  date: string | null;
+  status?: string | null;
   title: string;
   category: string | null;
   time: string | null;
@@ -94,11 +95,40 @@ export function spreadsheetTitle(trip: ExportTrip): string {
  * 一列一個行程項目，順序沿用時間軸（日期 → 時間 → 手動排序）。
  * 距離／上升／下降只在這趟真的有戶外數字時才出現，一般旅遊行程不用看三個空欄。
  */
+/**
+ * 想去清單另起一張工作表。
+ *
+ * 它沒有日期，塞進「一列一天」的行程表只會多出一堆空的日期欄，排序也會亂掉。
+ * 一個都沒有的話整張不出現。
+ */
+function wishlistSheet(items: ExportItem[]): SheetSpec | null {
+  const wishes = items.filter((i) => i.status === "wishlist");
+  if (wishes.length === 0) return null;
+
+  return {
+    title: "想去",
+    columns: [
+      { label: "項目", width: 220 },
+      { label: "分類", width: 62 },
+      { label: "地點", width: 260 },
+      { label: "備註", width: 320 },
+    ],
+    rows: wishes.map((i) => [
+      i.title,
+      i.category ? CATEGORY_LABEL[i.category] ?? i.category : "",
+      i.location ?? "",
+      htmlToPlainText(i.notes),
+    ] satisfies Cell[]),
+  };
+}
+
 function itinerarySheet(items: ExportItem[]): SheetSpec {
   const hasOutdoor = items.some(
     (i) => i.distance_km !== null || i.ascent_m !== null || i.descent_m !== null
   );
   const hasMultiDay = items.some((i) => i.end_date && i.end_date !== i.date);
+  // 備案也在行程表裡（它有日期、就排在那一天），只是標明它是備案
+  const hasBackup = items.some((i) => i.status === "backup");
 
   const columns = [
     { label: "日期", width: 92 },
@@ -108,6 +138,7 @@ function itinerarySheet(items: ExportItem[]): SheetSpec {
     ...(hasMultiDay ? [{ label: "結束日期", width: 92 }] : []),
     { label: "分類", width: 62 },
     { label: "項目", width: 220 },
+    ...(hasBackup ? [{ label: "備案", width: 48 }] : []),
     { label: "地點", width: 180 },
     ...(hasOutdoor
       ? [
@@ -120,13 +151,14 @@ function itinerarySheet(items: ExportItem[]): SheetSpec {
   ];
 
   const rows = items.map((i) => [
-    i.date,
-    weekday(i.date),
+    i.date ?? "",
+    i.date ? weekday(i.date) : "",
     i.time ?? "",
     i.end_time ?? "",
     ...(hasMultiDay ? [i.end_date && i.end_date !== i.date ? i.end_date : ""] : []),
     i.category ? CATEGORY_LABEL[i.category] ?? i.category : "",
     i.title,
+    ...(hasBackup ? [i.status === "backup" ? "備案" : ""] : []),
     i.location ?? "",
     ...(hasOutdoor ? [i.distance_km, i.ascent_m, i.descent_m] : []),
     htmlToPlainText(i.notes),
@@ -177,8 +209,12 @@ function waypointSheet(items: ExportItem[], waypoints: ExportWaypoint[]): SheetS
 }
 
 export function buildSheets(items: ExportItem[], waypoints: ExportWaypoint[]): SheetSpec[] {
-  const sheets = [itinerarySheet(items)];
-  if (waypoints.length > 0) sheets.push(waypointSheet(items, waypoints));
+  // 行程表只放有日期的；想去清單沒有日期，另起一張放在最後
+  const scheduled = items.filter((i) => i.status !== "wishlist");
+  const sheets = [itinerarySheet(scheduled)];
+  if (waypoints.length > 0) sheets.push(waypointSheet(scheduled, waypoints));
+  const wishes = wishlistSheet(items);
+  if (wishes) sheets.push(wishes);
   return sheets;
 }
 

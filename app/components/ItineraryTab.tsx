@@ -17,6 +17,7 @@ import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
 import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
 import PillButton from "@/app/components/PillButton";
+import WishlistSection from "@/app/components/WishlistSection";
 import QuickExpenseModal from "@/app/components/QuickExpenseModal";
 import { parseCoverPos, withCoverPos } from "@/lib/coverPos";
 import { compressImage } from "@/lib/compressImage";
@@ -37,10 +38,19 @@ function processLinks(html: string): string {
   });
 }
 
+/**
+ *  planned   已排進行程，會去
+ *  wishlist  想去，還沒決定哪一天 —— 這種沒有日期
+ *  backup    已排在某一天，但可去可不去
+ */
+type ItineraryStatus = "planned" | "wishlist" | "backup";
+
 interface ItineraryItem {
   id: string;
   trip_id: string;
+  /** 想去清單還沒決定日期，所以可能是 null */
   date: string;
+  status?: ItineraryStatus | null;
   sort_order: number;
   title: string;
   category: string | null;
@@ -430,9 +440,11 @@ export default function ItineraryTab({
 
   // 只依賴日期範圍字串，items 參照變動不會重打天氣 API
   const weatherRange = useMemo(() => {
-    if (items.length === 0) return null;
-    const starts = items.map((item) => item.date).sort();
-    const ends = items
+    // 想去清單沒有日期，混進來會讓範圍字串變成 "undefined~..."，天氣整個查不到
+    const dated = items.filter((item) => item.status !== "wishlist" && item.date);
+    if (dated.length === 0) return null;
+    const starts = dated.map((item) => item.date).sort();
+    const ends = dated
       .map((item) => (item.end_date && item.end_date > item.date ? item.end_date : item.date))
       .sort();
     const start = starts[0];
@@ -521,6 +533,40 @@ export default function ItineraryTab({
     } finally {
       setSaving(false);
     }
+  }
+
+  /** 想去清單：沒有日期，所以走 status=wishlist 而不是隨便填一天 */
+  async function addWishlist(title: string, location: string) {
+    const res = await fetchWithAuth("/api/itinerary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tripId, title, location: location || null, status: "wishlist", date: null }),
+    });
+    if (!res.ok) { message.error("加入失敗，請再試一次"); return; }
+    fetchItems();
+  }
+
+  /** 排進某一天：日期與狀態一起改，中間不會出現「有日期卻還在想去清單」的狀態 */
+  async function scheduleWishlist(id: string, date: string) {
+    const res = await fetchWithAuth("/api/itinerary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status: "planned", date }),
+    });
+    if (!res.ok) { message.error("排入失敗，請再試一次"); return; }
+    fetchItems();
+  }
+
+  /** 備案 ↔ 一般：只切狀態，日期不動 */
+  async function toggleBackup(item: ItineraryItem) {
+    const next = item.status === "backup" ? "planned" : "backup";
+    const res = await fetchWithAuth("/api/itinerary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: item.id, status: next }),
+    });
+    if (!res.ok) { message.error("切換失敗，請再試一次"); return; }
+    fetchItems();
   }
 
   async function handleDelete(id: string) {
@@ -832,6 +878,15 @@ export default function ItineraryTab({
     setAIPreview((prev) => prev.map((item) => item._id === id ? { ...item, removed: !item.removed } : item));
   }
 
+  /*
+    想去清單與時間軸分流。
+
+    想去清單沒有日期，混進時間軸的分組會變成一個 key 是 undefined 的「日子」，
+    排序、天氣、跨日展開全部會跟著壞掉。備案有日期，所以照常排在它那一天。
+  */
+  const wishlistItems = items.filter((i) => i.status === "wishlist");
+  const scheduled = items.filter((i) => i.status !== "wishlist" && i.date);
+
   /** 從續日精簡條跳回開始日的完整卡片，並短暫高亮 */
   function jumpToItem(id: string) {
     const el = document.getElementById(`itinerary-item-${id}`);
@@ -841,15 +896,15 @@ export default function ItineraryTab({
     window.setTimeout(() => el.classList.remove("item-flash"), 1400);
   }
 
-  const spans = new Map(items.map((item) => [item.id, getSpan(item)] as const));
+  const spans = new Map(scheduled.map((item) => [item.id, getSpan(item)] as const));
   // 開始日 → 完整卡片
-  const startsOn = items.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
+  const startsOn = scheduled.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
     if (!acc[item.date]) acc[item.date] = [];
     acc[item.date].push(item);
     return acc;
   }, {});
   // 跨日行程的續日 → 精簡條（不含開始日，避免同一天出現兩次）
-  const continuesOn = items.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
+  const continuesOn = scheduled.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
     (spans.get(item.id)?.days ?? []).slice(1).forEach((d) => {
       if (!acc[d]) acc[d] = [];
       acc[d].push(item);
@@ -1009,6 +1064,18 @@ export default function ItineraryTab({
             const actionButtons = !readOnly ? (
               <div className="flex items-center gap-1.5 shrink-0 ml-1">
                 <button
+                  aria-label={item.status === "backup" ? "改回一般行程" : "標為備案"}
+                  title={item.status === "backup" ? "改回一般行程" : "標為備案"}
+                  onClick={() => toggleBackup(item)}
+                  className={`h-8 px-2.5 rounded-full text-[11px] font-medium transition-colors cursor-pointer ${
+                    item.status === "backup"
+                      ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25"
+                      : "text-zinc-600 hover:bg-white/[0.08] hover:text-zinc-300"
+                  }`}
+                >
+                  備案
+                </button>
+                <button
                   aria-label="編輯行程"
                   onClick={() => openEdit(item)}
                   className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
@@ -1098,7 +1165,15 @@ export default function ItineraryTab({
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.28, ease: "easeOut", delay: itemIndex * 0.05 }}
               id={`itinerary-item-${item.id}`}
-              className="relative bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden"
+              /*
+                備案用虛線框並壓低存在感：它排在那一天，但可去可不去。
+                和一般行程長得一樣的話，當天看行程會以為每一項都要跑完。
+              */
+              className={`relative bg-white/[0.03] rounded-[18px] overflow-hidden ${
+                item.status === "backup"
+                  ? "border border-dashed border-white/15 opacity-75"
+                  : "border border-white/[0.07]"
+              }`}
               style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
             >
               <div className="block md:flex">
@@ -1341,6 +1416,21 @@ export default function ItineraryTab({
             ))}
           </div>
         </div>
+      )}
+
+      {/*
+        想去清單放在時間軸上面、而且在 loading 判斷之外 —— 一趟還沒有任何行程時，這一塊正是
+        使用者第一個會用到的東西，被空狀態擋住就沒意義了。
+      */}
+      {!loading && (
+        <WishlistSection
+          items={wishlistItems}
+          readOnly={readOnly}
+          defaultDate={dates[0] ?? null}
+          onAdd={addWishlist}
+          onSchedule={scheduleWishlist}
+          onRemove={handleDelete}
+        />
       )}
 
       {loading ? (

@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   // 排序與 /api/itinerary 一致，匯出的順序就是時間軸上看到的順序
   const { data: itemRows, error: itemsError } = await supabase
     .from("itinerary_items")
-    .select("id,date,title,category,time,end_date,end_time,location,notes,distance_km,ascent_m,descent_m")
+    .select("id,date,title,category,time,end_date,end_time,location,notes,distance_km,ascent_m,descent_m,status")
     .eq("trip_id", tripId)
     .order("date", { ascending: true })
     .order("time", { ascending: true, nullsFirst: true })
