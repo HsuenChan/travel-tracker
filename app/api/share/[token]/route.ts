@@ -43,6 +43,18 @@ export async function GET(
     request,
   });
 
+  /*
+    share_allow_copy 是 23_share_fork.sql 才有的欄位，單獨查一次而不是併進上面的 select：
+    併進去的話，少了這個欄位會讓整個查詢退回不帶 shared_tabs 的版本，分享範圍會無聲地
+    從「勾選的分頁」變寬成「啟用的分頁」。查不到就當作開放。
+  */
+  const allowRow = await supabase
+    .from("trips")
+    .select("share_allow_copy")
+    .eq("share_token", token)
+    .maybeSingle();
+  const allowCopy = allowRow.error ? true : allowRow.data?.share_allow_copy ?? true;
+
   // ai_notes 是「筆記」分頁的內容（{ content }），與 trips.notes（旅程簡介）不同
   const { ai_notes: note, shared_tabs, enabled_tabs, ...rest } = tripRow as typeof tripRow & { shared_tabs?: string[] | null };
   const tabs = resolveSharedTabs(shared_tabs, enabled_tabs);
@@ -130,6 +142,8 @@ export async function GET(
 
   return NextResponse.json({
     trip,
+    // 這條連結允不允許對方把行程複製成自己的旅程
+    allowCopy,
     segments,
     itinerary,
     expenses,

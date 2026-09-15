@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { Layout, Typography, Tag, Timeline, Spin, ConfigProvider, theme } from "antd";
+import { Layout, Typography, Tag, Timeline, Spin, ConfigProvider, theme, Modal, Button, DatePicker, App } from "antd";
+import dayjs, { type Dayjs } from "dayjs";
 import SegmentCard from "@/app/components/SegmentCard";
 import TripHero from "@/app/components/TripHero";
 import MobileNav from "@/app/components/MobileNav";
+import PillButton from "@/app/components/PillButton";
 import { PlaneIcon, PhotoIcon, CalendarIcon, CoinIcon, NotepadIcon, GiftIcon, CarabinerIcon } from "@/app/components/Icons";
 import PhotoWall from "@/app/components/PhotoWall";
 import ItineraryTab from "@/app/components/ItineraryTab";
@@ -62,6 +64,14 @@ export default function SharePageClient() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
+  const { message: messageApi } = App.useApp();
+  const [allowCopy, setAllowCopy] = useState(true);
+  const [forkOpen, setForkOpen] = useState(false);
+  const [forkStart, setForkStart] = useState<Dayjs | null>(null);
+  const [forking, setForking] = useState(false);
+  // 登入後帶著 ?fork=1 回來時只自動開一次，關掉之後不要又被 effect 開起來
+  const forkResumed = useRef(false);
+
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "itinerary");
 
   useEffect(() => {
@@ -95,6 +105,7 @@ export default function SharePageClient() {
         }
 
         setTrip(data.trip);
+        setAllowCopy(data.allowCopy !== false);
         setSegments(data.segments);
         setItinerary(data.itinerary || []);
         setExpenses(data.expenses || []);
@@ -119,10 +130,66 @@ export default function SharePageClient() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (loading || !trip || forkResumed.current) return;
+    if (searchParams.get("fork") !== "1") return;
+    forkResumed.current = true;
+    openForkModal();
+  }, [loading, trip, searchParams]);
+
   const handleTabChange = (key: string) => {
     setActiveTab(key);
     router.push(`/share/${token}?tab=${key}`, { scroll: false });
   };
+
+  /** 行程第一天就是複製時的基準日：使用者選的出發日對應的是第一筆行程那天 */
+  function firstItineraryDate(): Dayjs {
+    const first = itinerary[0]?.date;
+    return first ? dayjs(first) : dayjs();
+  }
+
+  function openForkModal() {
+    setForkStart(firstItineraryDate());
+    setForkOpen(true);
+  }
+
+  async function handleCopyClick() {
+    // 沒登入的人先去登入，回來時帶 ?fork=1 直接把日期視窗開起來，不用再按一次
+    try {
+      const res = await fetch("/api/auth/status");
+      const { authenticated } = await res.json();
+      if (!authenticated) {
+        window.location.href = `/api/auth/google?next=${encodeURIComponent(`/share/${token}?fork=1`)}`;
+        return;
+      }
+    } catch {
+      window.location.href = `/api/auth/google?next=${encodeURIComponent(`/share/${token}?fork=1`)}`;
+      return;
+    }
+    openForkModal();
+  }
+
+  async function handleFork() {
+    setForking(true);
+    try {
+      const res = await fetch(`/api/share/${token}/fork`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate: (forkStart ?? firstItineraryDate()).format("YYYY-MM-DD") }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        messageApi.error(data.error ?? "複製失敗，請稍後再試");
+        return;
+      }
+      messageApi.success(`已複製 ${data.itemCount} 筆行程`);
+      router.push(`/trips/${data.tripId}`);
+    } catch {
+      messageApi.error("複製失敗，請檢查網路連線");
+    } finally {
+      setForking(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -169,6 +236,9 @@ export default function SharePageClient() {
 
   // URL 或預設的分頁沒被啟用時，內容區不該整片空白：夾到第一個可見分頁
   const visibleTab = tabs.some((t) => t.key === activeTab) ? activeTab : (tabs[0]?.key ?? activeTab);
+
+  // 沒分享行程的連結沒有東西可以複製；連結本身也可以關掉複製
+  const canCopy = allowCopy && tabs.some((t) => t.key === "itinerary") && itinerary.length > 0;
 
   return (
     <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }}>
@@ -312,7 +382,74 @@ export default function SharePageClient() {
               )}
             </motion.div>
           </AnimatePresence>
+
+          {/*
+            分享連結唯一的出口。看到別人行程的人，在這裡要嘛把它變成自己的一趟，
+            要嘛從這裡開始用 —— 不然看完就只能關掉。
+          */}
+          <div className="mt-12 rounded-3xl border border-white/8 bg-white/[0.02] px-5 py-6 md:px-7 md:py-7 text-center"
+            style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.08) 0%, transparent 70%)' }}
+          >
+            <Typography.Text className="text-zinc-100 text-[15px] font-medium block mb-1.5">
+              {canCopy ? "想照這份行程走一次？" : "也想把旅程記下來？"}
+            </Typography.Text>
+            <Typography.Text className="text-zinc-500 text-[13px] block mb-5 leading-relaxed">
+              {canCopy
+                ? "複製成你自己的旅程，日期改成你出發的那天。行程照片會一起過去，費用與成員不會。"
+                : "行程、分帳、照片與筆記都放在同一趟旅程裡。"}
+            </Typography.Text>
+            <div className="flex flex-col sm:flex-row gap-2.5 justify-center">
+              {canCopy && (
+                <PillButton variant="primary" size="lg" onClick={handleCopyClick}>
+                  複製這份行程
+                </PillButton>
+              )}
+              {/*
+                沒有「複製這份行程」時這顆就是唯一的行動呼籲，直接用主按鈕。
+                並存時壓成次要，但比 PillButton 的 default 亮一級 —— default 是給工具列用的，
+                放到這種整寬的 CTA 上靜態幾乎看不見，手機版尤其明顯。
+              */}
+              <PillButton
+                variant={canCopy ? "default" : "primary"}
+                size="lg"
+                className={canCopy ? "bg-white/10! border-white/20! text-white! hover:bg-white/20!" : ""}
+                onClick={() => router.push("/")}
+              >
+                開始使用 Travel Tracker
+              </PillButton>
+            </div>
+          </div>
         </Layout.Content>
+
+        <Modal
+          open={forkOpen}
+          onCancel={() => setForkOpen(false)}
+          footer={null}
+          title="複製這份行程"
+          centered
+        >
+          <div className="flex flex-col gap-3 pt-1">
+            <Typography.Text className="text-zinc-500 text-[13px]">
+              選一個出發日，整份行程會平移到那一天開始，每天的安排與前後順序維持不變。
+            </Typography.Text>
+            <DatePicker
+              value={forkStart}
+              onChange={setForkStart}
+              allowClear={false}
+              size="large"
+              className="w-full"
+              inputReadOnly
+              placeholder="選擇出發日"
+            />
+            <Typography.Text className="text-zinc-600 text-[12px] leading-relaxed">
+              會帶走的是行程安排本身 —— 時間、地點、備註與行程照片，戶外路段連途經點一起。
+              費用、成員、Google 相簿與交通票券留在原本那一趟。
+            </Typography.Text>
+            <Button type="primary" block size="large" loading={forking} onClick={handleFork}>
+              建立我的旅程
+            </Button>
+          </div>
+        </Modal>
 
         <MobileNav
           className="md:hidden"

@@ -18,6 +18,8 @@ import {
 import { getCountryFlags, getCountryCodes } from "@/lib/countries";
 import { parseCoverPos } from "@/lib/coverPos";
 import PillButton from "@/app/components/PillButton";
+import { openedWithinDays } from "@/lib/recentTrips";
+import { readFlag, RETURN_KEY } from "@/lib/passportTransition";
 import { UserOutlined, AimOutlined, LoadingOutlined } from "@ant-design/icons";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
@@ -27,6 +29,8 @@ import {
 const TripGlobe = dynamic(() => import("./components/TripGlobe"), { ssr: false });
 const LoginGlobe = dynamic(() => import("./components/LoginGlobe"), { ssr: false });
 const GlobeLoader = dynamic(() => import("./components/GlobeLoader"), { ssr: false });
+// 護照封面要用到 canvas 繪圖，跟著地球一起延後載入
+const PassportTeaser = dynamic(() => import("./components/PassportTeaser"), { ssr: false });
 
 interface Trip {
   id: string;
@@ -280,6 +284,48 @@ export default function Home() {
     checkAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+    開 App 時的落點。不是首頁的 redirect —— 那會讓人從護照按返回又被送回護照，出不來，
+    而且「新增旅程」會變難按。所以它一個 session 只跑一次，之後回到首頁就真的留在首頁。
+
+      進行中的旅程        → 進那趟
+      14 天內開過某趟     → 留在首頁（還在回顧，不要打斷）
+      全部結束且最近沒開  → 護照（淡季唯一還有東西看的地方）
+      沒有旅程            → 留在首頁的空狀態
+  */
+  // 從護照關回來時整面是黑的，在這裡淡出 —— 不然會從一片黑直接跳出地球
+  const [returningFromPassport, setReturningFromPassport] = useState(false);
+  useEffect(() => {
+    if (readFlag(RETURN_KEY)) setReturningFromPassport(true);
+  }, []);
+
+  const landedRef = useRef(false);
+  useEffect(() => {
+    if (!authenticated || loading || landedRef.current || trips.length === 0) return;
+    landedRef.current = true;
+
+    try {
+      if (sessionStorage.getItem("travel_landed") === "1") return;
+      sessionStorage.setItem("travel_landed", "1");
+    } catch {
+      // 存不起來就不自動導向：寧可不跳，也不要每次回首頁都被彈走
+      return;
+    }
+
+    // 用本地日期，不用 toISOString —— UTC+8 的凌晨會算成前一天，旅途中模式就少一天
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+    const ongoing = trips.find(
+      (t) => t.start_date && t.end_date && t.start_date <= today && today <= t.end_date
+    );
+    if (ongoing) { router.push(`/trips/${ongoing.id}`); return; }
+
+    if (openedWithinDays(14)) return;
+
+    if (trips.every((t) => t.end_date && t.end_date < today)) router.push("/passport");
+  }, [authenticated, loading, trips, router]);
 
   async function fetchAll() {
     const cachedTrips = localStorage.getItem("travel_trips");
@@ -623,6 +669,30 @@ export default function Home() {
           showAllTracks={showAllTracks}
         />
       </div>
+
+      {/*
+        地球左下角斜插的護照。放在這一層而不是清單裡：它要能被看見、能被點，而清單面板在手機上
+        是蓋起來的。角落的偏移量綁著它自己的尺寸，所以由元件自己決定，這裡只給定位與層級。
+      */}
+      {authenticated && trips.length > 0 && (
+        <PassportTeaser
+          firstYear={minYear}
+          lastYear={maxYear}
+          className="absolute z-20 pointer-events-auto"
+        />
+      )}
+
+      <AnimatePresence>
+        {returningFromPassport && (
+          <motion.div
+            className="fixed inset-0 z-[190] bg-[#09090b] pointer-events-none"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            onAnimationComplete={() => setReturningFromPassport(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* 2. Main UI Layer */}
       <Layout className="relative z-10 h-full w-full !bg-transparent flex flex-col pointer-events-none">

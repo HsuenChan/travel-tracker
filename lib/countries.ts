@@ -614,6 +614,91 @@ export function getCountryFlags(countriesStr: string, countryCodes?: string): st
     .join(" ");
 }
 
+/**
+ * ISO 3166-1 alpha-2 → 國名，護照入境章與年度回顧用。
+ *
+ * 不從 COUNTRY_CODES 反查：那張表是 name → code 的多對一，反查要靠物件的插入順序才會拿到
+ * 「日本」而不是「東京」—— 有人在上面插一個城市，章上的國名就無聲換掉了。
+ * 英文名是給章面與機讀碼用的，真的護照章本來就是雙語。
+ */
+export const COUNTRY_NAME_BY_CODE: Record<string, { zh: string; en: string }> = {
+  AE: { zh: "阿聯", en: "UNITED ARAB EMIRATES" },
+  AR: { zh: "阿根廷", en: "ARGENTINA" },
+  AT: { zh: "奧地利", en: "AUSTRIA" },
+  AU: { zh: "澳洲", en: "AUSTRALIA" },
+  BE: { zh: "比利時", en: "BELGIUM" },
+  BR: { zh: "巴西", en: "BRAZIL" },
+  BT: { zh: "不丹", en: "BHUTAN" },
+  CA: { zh: "加拿大", en: "CANADA" },
+  CH: { zh: "瑞士", en: "SWITZERLAND" },
+  CN: { zh: "中國", en: "CHINA" },
+  CU: { zh: "古巴", en: "CUBA" },
+  CZ: { zh: "捷克", en: "CZECHIA" },
+  DE: { zh: "德國", en: "GERMANY" },
+  DK: { zh: "丹麥", en: "DENMARK" },
+  EG: { zh: "埃及", en: "EGYPT" },
+  ES: { zh: "西班牙", en: "SPAIN" },
+  FI: { zh: "芬蘭", en: "FINLAND" },
+  FJ: { zh: "斐濟", en: "FIJI" },
+  FR: { zh: "法國", en: "FRANCE" },
+  GB: { zh: "英國", en: "UNITED KINGDOM" },
+  GR: { zh: "希臘", en: "GREECE" },
+  GU: { zh: "關島", en: "GUAM" },
+  HK: { zh: "香港", en: "HONG KONG" },
+  HR: { zh: "克羅埃西亞", en: "CROATIA" },
+  HU: { zh: "匈牙利", en: "HUNGARY" },
+  ID: { zh: "印尼", en: "INDONESIA" },
+  IE: { zh: "愛爾蘭", en: "IRELAND" },
+  IL: { zh: "以色列", en: "ISRAEL" },
+  IN: { zh: "印度", en: "INDIA" },
+  IS: { zh: "冰島", en: "ICELAND" },
+  IT: { zh: "義大利", en: "ITALY" },
+  JO: { zh: "約旦", en: "JORDAN" },
+  JP: { zh: "日本", en: "JAPAN" },
+  KE: { zh: "肯亞", en: "KENYA" },
+  KH: { zh: "柬埔寨", en: "CAMBODIA" },
+  KR: { zh: "韓國", en: "KOREA" },
+  LA: { zh: "寮國", en: "LAOS" },
+  LK: { zh: "斯里蘭卡", en: "SRI LANKA" },
+  MA: { zh: "摩洛哥", en: "MOROCCO" },
+  MM: { zh: "緬甸", en: "MYANMAR" },
+  MO: { zh: "澳門", en: "MACAO" },
+  MP: { zh: "塞班", en: "NORTHERN MARIANA IS" },
+  MV: { zh: "馬爾地夫", en: "MALDIVES" },
+  MX: { zh: "墨西哥", en: "MEXICO" },
+  MY: { zh: "馬來西亞", en: "MALAYSIA" },
+  NL: { zh: "荷蘭", en: "NETHERLANDS" },
+  NO: { zh: "挪威", en: "NORWAY" },
+  NP: { zh: "尼泊爾", en: "NEPAL" },
+  NZ: { zh: "紐西蘭", en: "NEW ZEALAND" },
+  PE: { zh: "秘魯", en: "PERU" },
+  PH: { zh: "菲律賓", en: "PHILIPPINES" },
+  PL: { zh: "波蘭", en: "POLAND" },
+  PT: { zh: "葡萄牙", en: "PORTUGAL" },
+  PW: { zh: "帛琉", en: "PALAU" },
+  RU: { zh: "俄羅斯", en: "RUSSIA" },
+  SE: { zh: "瑞典", en: "SWEDEN" },
+  SG: { zh: "新加坡", en: "SINGAPORE" },
+  SI: { zh: "斯洛維尼亞", en: "SLOVENIA" },
+  TH: { zh: "泰國", en: "THAILAND" },
+  TR: { zh: "土耳其", en: "TURKIYE" },
+  TW: { zh: "台灣", en: "TAIWAN" },
+  TZ: { zh: "坦尚尼亞", en: "TANZANIA" },
+  US: { zh: "美國", en: "UNITED STATES" },
+  VN: { zh: "越南", en: "VIETNAM" },
+  ZA: { zh: "南非", en: "SOUTH AFRICA" },
+};
+
+/** 章面與清單共用：查不到的國碼就用國碼本身，不要顯示空白 */
+export function countryName(code: string): { zh: string; en: string } {
+  return COUNTRY_NAME_BY_CODE[code] ?? { zh: code, en: code };
+}
+
+/** 國旗 emoji（給護照頁與年度回顧用，與卡片上的國旗同一套） */
+export function countryFlag(code: string): string {
+  return flagEmoji(code);
+}
+
 export const TRIP_GRADIENTS = [
   ["#1d4ed8", "#7c3aed"],
   ["#be123c", "#ea580c"],
