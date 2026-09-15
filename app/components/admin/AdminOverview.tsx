@@ -86,11 +86,13 @@ export default function AdminOverview() {
       <h1 className="sr-only">後台總覽</h1>
 
       {/*
-        電腦版把「登入狀態」與「AI 用量」並排：兩者都是短摘要，各自獨佔一整列會讓
-        首屏要捲兩次才看得到最新異動。手機維持上下堆疊。
-        items-start 是必要的 —— 兩區內容高度不一樣，預設拉伸會讓短的那區被撐開。
+        電腦版把三張摘要卡並排：各自獨佔一整列會讓首屏要捲好幾次才看得到最新異動。
+        手機維持上下堆疊。
+
+        刻意不加 items-start：grid 預設的 stretch 會讓三張卡一樣高，邊框才對得齊。
+        內容本來就是由上往下排，所以高度拉齊之後仍然是靠上對齊的。
       */}
-      <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-x-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-x-5">
         <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
           <SectionHead title="登入狀態" href="/admin/logins" />
           {logins.last ? (
