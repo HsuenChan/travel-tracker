@@ -362,3 +362,57 @@ export async function logAuth(input: LogAuthInput): Promise<void> {
     // 同上
   }
 }
+
+/** 同一條連結、同一個來源 IP，這段時間內只記一筆 */
+const SHARE_VIEW_DEDUPE_MS = 30 * 60_000;
+
+export interface LogShareViewInput {
+  tripId: string;
+  tripName: string | null;
+  request?: { headers: Headers } | null;
+}
+
+/**
+ * 分享連結被打開。
+ *
+ * 看的人沒有帳號，所以 actor_id 是 null、actor_name 記成「分享連結訪客」——
+ * 能辨識的只有 IP 與裝置字串，跟登入失敗記的東西同一個層級，不會多記什麼。
+ *
+ * 去重是必要的而不是優化：分享頁一重整就是一次瀏覽，手機上讀個行程可以按十幾次，
+ * 不擋的話「存取」頁會被同一個人洗成幾十列，真正想看的「有沒有人來看過」反而讀不出來。
+ */
+export async function logShareView(input: LogShareViewInput): Promise<void> {
+  try {
+    const { ip, userAgent } = requestMeta(input.request);
+    const supabase = createServiceClient();
+
+    const since = new Date(Date.now() - SHARE_VIEW_DEDUPE_MS).toISOString();
+    let recent = supabase
+      .from("activity_log")
+      .select("id")
+      .eq("kind", "view")
+      .eq("trip_id", input.tripId)
+      .gte("created_at", since)
+      .limit(1);
+    // IP 取不到時（本機、某些代理）就不靠 IP 分辨，改成整條連結在這段時間內只記一筆，
+    // 寧可少記也不要把同一個人記成好幾個訪客
+    recent = ip ? recent.eq("ip", ip) : recent.is("ip", null);
+
+    const { data: existing } = await recent;
+    if (existing && existing.length > 0) return;
+
+    await supabase.from("activity_log").insert({
+      kind: "view",
+      action: "share_view",
+      actor_id: null,
+      actor_name: "分享連結訪客",
+      actor_source: "web",
+      trip_id: input.tripId,
+      trip_name: input.tripName,
+      ip,
+      user_agent: userAgent,
+    });
+  } catch {
+    // 記錄失敗不能影響看行程這件事本身
+  }
+}

@@ -43,6 +43,13 @@ function kindOf(w: TopoWaypoint): Kind {
   return (w.type && TYPE_TO_KIND[w.type]) || "N";
 }
 
+/**
+ * 進場與後勤的點位，不屬於峽谷本身。
+ *
+ * 入溪點與出溪點刻意不在這裡：那兩個是峽谷的起訖，畫在圖上才知道剖面從哪裡開始。
+ */
+const APPROACH_TYPES = new Set(["trailhead", "hut", "camp", "water", "junction", "gauge"]);
+
 /* ---------------------------------------------------------------- 幾何 */
 
 /** 每公尺落差畫幾 px */
@@ -61,6 +68,19 @@ function estimateWidth(text: string): number {
   let w = 0;
   for (const c of text) w += c.charCodeAt(0) > 255 ? 10 : 5.6;
   return w;
+}
+
+/**
+ * 圖上只畫得下短註記（官方 topo 的 `TR X X` 那種代號）。
+ *
+ * 太長的一句話會把相鄰標籤推開到整張圖散掉，或直接疊在一起變成看不懂的一團 ——
+ * 那種說明屬於途經點清單，不屬於這張圖。
+ */
+const MAX_ANCHOR_NOTE = 18;
+function anchorNoteOf(w: TopoWaypoint): string | null {
+  const t = w.anchor_note?.trim();
+  if (!t) return null;
+  return [...t].length <= MAX_ANCHOR_NOTE ? t : null;
 }
 
 interface PlacedItem {
@@ -114,8 +134,10 @@ function place(rows: TopoWaypoint[]): Placed {
     }
     const x1 = x, y1 = y;
 
-    rightmost = Math.max(rightmost, x0 + 2 + estimateWidth(label));
-    x += Math.max(RUN_W[kind], estimateWidth(label) + 8 - dropW);
+    // 錨點註記畫在標籤正下方，一樣會往右佔位；只算標籤的話註記就會壓到下一個障礙
+    const textW = Math.max(estimateWidth(label), estimateWidth(anchorNoteOf(w) ?? ""));
+    rightmost = Math.max(rightmost, x0 + 2 + textW);
+    x += Math.max(RUN_W[kind], textW + 8 - dropW);
     points.push([x, y]);
 
     items.push({ w, kind, label, x0, y0, x1, y1, x2: x, index });
@@ -186,7 +208,7 @@ function Section({ rows, title }: { rows: TopoWaypoint[]; title: string | null }
           height={placed.height}
           viewBox={`0 0 ${placed.width} ${placed.height}`}
           role="img"
-          aria-label={`${title ?? "路線"}縱剖面，總落差約 ${Math.round(placed.totalDrop)} 公尺`}
+          aria-label={`${title ? `${title} ` : ""}縱剖面，總落差約 ${Math.round(placed.totalDrop)} 公尺`}
         >
           {/* 落水潭畫在河床下面，才不會蓋住折線 */}
           {placed.items.map((it) => {
@@ -254,14 +276,14 @@ function Section({ rows, title }: { rows: TopoWaypoint[]; title: string | null }
                 >
                   {it.label}
                 </text>
-                {it.w.anchor_note && (
+                {anchorNoteOf(it.w) && (
                   <text
                     x={lx} y={ly + 9.5}
                     fill="#71717a"
                     fontFamily="ui-monospace, SFMono-Regular, monospace"
                     fontSize="8"
                   >
-                    {it.w.anchor_note}
+                    {anchorNoteOf(it.w)}
                   </text>
                 )}
               </g>
@@ -275,16 +297,14 @@ function Section({ rows, title }: { rows: TopoWaypoint[]; title: string | null }
 
 export default function RouteTopoProfile({ waypoints }: { waypoints: TopoWaypoint[] }) {
   /*
-    只畫得出剖面的點位才進圖：進場的停車點、渡溪點沒有落差也不是障礙，
-    畫進來只會變成一長排看不懂的註記，把真正的落差擠到看不見。
+    只排除進場與後勤的點位。停車處、山屋、渡溪岔路本身不是峽谷的一部分，
+    畫進來會在真正的落差前面排一長串平的註記。
+
+    沒有類型的註記（「CW 100m」「The Throne Room」「連續三個迴流潭」）要留著 ——
+    那是官方 topo 上就有的段落說明，照原圖畫成斜體註解。
   */
   const rows = useMemo(
-    () => waypoints.filter((w) => {
-      const kind = kindOf(w);
-      if (kind !== "N") return true;
-      // 註記類只留現場真的要看的：危險點、脫逃點、深潭
-      return w.type === "hazard" || w.type === "exit" || w.type === "pool";
-    }),
+    () => waypoints.filter((w) => !APPROACH_TYPES.has(w.type ?? "")),
     [waypoints]
   );
 

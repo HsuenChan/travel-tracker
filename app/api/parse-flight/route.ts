@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@/lib/supabase/server";
+import { trackGemini, aiBudgetGuard, type TrackMeta } from "@/lib/aiUsage";
 
 const PROMPT = `Extract ALL flight segments from this document or image (including connecting flights).
 Return ONLY a JSON array. Each element represents one flight leg:
@@ -22,10 +23,13 @@ Return ONLY a JSON array. Each element represents one flight leg:
 If there is only one flight, still return an array with one element.
 Return only the JSON array, no markdown, no explanation.`;
 
-async function runGemini(mimeType: string, base64: string) {
+async function runGemini(mimeType: string, base64: string, meta: Omit<TrackMeta, "model">) {
+  const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash" });
-  const result = await model.generateContent([{ inlineData: { mimeType, data: base64 } }, PROMPT]);
+  const model = genAI.getGenerativeModel({ model: modelName });
+  const result = await trackGemini({ ...meta, model: modelName }, () =>
+    model.generateContent([{ inlineData: { mimeType, data: base64 } }, PROMPT])
+  );
   return result.response.text().trim().replace(/^```json\s*/i, "").replace(/```\s*$/, "");
 }
 
@@ -37,6 +41,10 @@ export async function POST(request: NextRequest) {
   if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json({ error: "GEMINI_API_KEY is not configured on the server." }, { status: 500 });
   }
+
+  // 付費層按 token 計價，超過設定的每月預算就先擋下來，訊息講清楚是什麼狀況
+  const overBudget = await aiBudgetGuard();
+  if (overBudget) return NextResponse.json({ error: overBudget.error }, { status: overBudget.status });
 
   const contentType = request.headers.get("content-type") ?? "";
   let mimeType: string;
@@ -63,7 +71,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const raw = await runGemini(mimeType, base64);
+    const raw = await runGemini(mimeType, base64, { feature: "flight", actorId: user.id, actorName: user.email ?? null });
     try {
       return NextResponse.json(JSON.parse(raw));
     } catch {

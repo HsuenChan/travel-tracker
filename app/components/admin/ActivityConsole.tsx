@@ -12,6 +12,14 @@ import { useRestoreEvent } from "@/app/components/admin/useRestoreEvent";
 
 const POLL_MS = 20_000;
 
+/**
+ * 這一頁只看行程異動。登入／登出／登入失敗是 kind=auth，有自己的「登入」分頁。
+ *
+ * API 沒收到 kind 就會把兩種都撈回來 —— 漏傳這個參數時，登入紀錄會混進異動清單，
+ * 而這一頁的篩選 chips 根本沒有登入相關的選項，篩不掉也解釋不了。
+ */
+const KIND = "kind=change";
+
 export default function ActivityConsole() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,7 +51,7 @@ export default function ActivityConsole() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchWithAuth(`/api/admin/activity?q=${encodeURIComponent(q)}`);
+      const res = await fetchWithAuth(`/api/admin/activity?${KIND}&q=${encodeURIComponent(q)}`);
       if (!res.ok) throw new Error("讀取失敗");
       const data = await res.json();
       setEvents(data.events);
@@ -72,7 +80,7 @@ export default function ActivityConsole() {
     const timer = setInterval(async () => {
       if (document.hidden) return;
       try {
-        const res = await fetchWithAuth(`/api/admin/activity?q=${encodeURIComponent(queryRef.current)}`);
+        const res = await fetchWithAuth(`/api/admin/activity?${KIND}&q=${encodeURIComponent(queryRef.current)}`);
         if (!res.ok) return;
         const data = await res.json();
         setEvents((current) => {
@@ -101,7 +109,7 @@ export default function ActivityConsole() {
     setLoadingMore(true);
     try {
       const res = await fetchWithAuth(
-        `/api/admin/activity?q=${encodeURIComponent(query)}&offset=${nextOffset}`
+        `/api/admin/activity?${KIND}&q=${encodeURIComponent(query)}&offset=${nextOffset}`
       );
       const data = await res.json();
       setEvents((current) => [...current, ...data.events]);

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { resolveSharedTabs } from "@/lib/tripTabs";
+import { logShareView } from "@/lib/activityLog";
 
 /**
  * 唯讀分享頁的資料來源。
@@ -9,7 +10,7 @@ import { resolveSharedTabs } from "@/lib/tripTabs";
  * 上藏起來（那種藏法打開 devtools 就看得到）。
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
@@ -31,6 +32,16 @@ export async function GET(
   if (error || !tripRow) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  /*
+    確定連結有效之後才記一筆瀏覽。放在 404 判斷之後，亂猜 token 的請求就不會變成
+    「有人看過這趟旅程」。不 await —— 記錄失敗或變慢都不該拖累看行程這件事。
+  */
+  void logShareView({
+    tripId: tripRow.id as string,
+    tripName: (tripRow.name as string) ?? null,
+    request,
+  });
 
   // ai_notes 是「筆記」分頁的內容（{ content }），與 trips.notes（旅程簡介）不同
   const { ai_notes: note, shared_tabs, enabled_tabs, ...rest } = tripRow as typeof tripRow & { shared_tabs?: string[] | null };

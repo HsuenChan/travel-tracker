@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { trackGemini, aiBudgetGuard } from "@/lib/aiUsage";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const VALID_SECTIONS = ["travel_tips", "packing_list", "driving", "metro", "bus", "transit"];
@@ -70,6 +71,10 @@ export async function POST(
 
   if (!trip) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
 
+  // 付費層按 token 計價，超過設定的每月預算就先擋下來，訊息講清楚是什麼狀況
+  const overBudget = await aiBudgetGuard();
+  if (overBudget) return NextResponse.json({ error: overBudget.error }, { status: overBudget.status });
+
   const destNames = trip.destinations?.length
     ? (trip.destinations as { name: string }[]).map((d) => d.name).join("、")
     : (trip.countries ?? "未指定目的地");
@@ -126,9 +131,13 @@ export async function POST(
   const prompt = buildPrompt(section, trip.name, destNames, trip.start_date, trip.end_date, weatherSummary, categories);
 
   try {
+    const modelName = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash" });
-    const result = await model.generateContent(prompt);
+    const model = genAI.getGenerativeModel({ model: modelName });
+    const result = await trackGemini(
+      { feature: "notes", model: modelName, actorId: user.id, actorName: user.email ?? null, tripId: id, tripName: trip.name },
+      () => model.generateContent(prompt)
+    );
     const content = result.response.text().trim();
     return NextResponse.json({ content });
   } catch (err) {
