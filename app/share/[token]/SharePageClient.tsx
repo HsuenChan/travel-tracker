@@ -329,6 +329,7 @@ export default function SharePageClient() {
               {visibleTab === "expenses" && (
                 <ExpensesTab
                   tripId={trip.id}
+                  tripName={trip.name}
                   people={trip.people || []}
                   currency={primaryCurrency}
                   currencies={currencies}
