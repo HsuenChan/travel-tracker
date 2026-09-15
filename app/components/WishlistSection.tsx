@@ -14,7 +14,7 @@ import { LocationIcon, PlusIcon, CalendarIcon } from "@/app/components/Icons";
  * 「看著行程決定放哪天」這件事。
  *
  * 兩條路都留著：桌機把卡片拖到某一天（或把某一天的行程拖回這裡），手機用「排入」選日期。
- * 原生 HTML5 DnD 在觸控裝置上不會觸發，而從收合的區塊拖到很長的時間軸在手機上本來就不好按，
+ * 原生 HTML5 DnD 在觸控裝置上不見得會觸發，而從收合的區塊拖到很長的時間軸在手機上本來就不好按，
  * 所以不是二選一，是各自對應各自順手的裝置。
  */
 
@@ -36,7 +36,7 @@ interface Props {
   onAdd: (title: string, location: string) => Promise<void>;
   onSchedule: (id: string, date: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
-  onDragStartItem?: (e: React.DragEvent, id: string) => void;
+  onDragStartItem?: (e: React.DragEvent, id: string, label: string) => void;
   onDragOverZone?: (e: React.DragEvent) => void;
   onDragLeaveZone?: () => void;
   onDropZone?: (e: React.DragEvent) => void;
@@ -115,7 +115,7 @@ export default function WishlistSection({
                     <div
                       key={item.id}
                       draggable={!readOnly}
-                      onDragStart={(e) => onDragStartItem?.(e, item.id)}
+                      onDragStart={(e) => onDragStartItem?.(e, item.id, item.title)}
                       className={`rounded-xl border border-white/8 bg-white/[0.03] px-3.5 py-2.5 ${
                         readOnly ? "" : "cursor-grab active:cursor-grabbing"
                       }`}

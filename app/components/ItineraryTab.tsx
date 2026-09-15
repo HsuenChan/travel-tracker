@@ -539,15 +539,37 @@ export default function ItineraryTab({
     拖曳。
 
     原生 HTML5 DnD：桌機上直接把想去清單的卡片拖到某一天，或把某一天的行程拖回想去清單。
-    觸控裝置不會觸發這組事件，所以「排入」按鈕與卡片上的「移到想去」都留著 —— 手機從收合的
+    觸控裝置不見得會觸發這組事件，所以「排入」按鈕與卡片上的「移到想去」都留著 —— 手機從收合的
     區塊拖到很長的時間軸本來就不好按，兩條路各自對應各自順手的裝置。
   */
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [dragOverWishlist, setDragOverWishlist] = useState(false);
 
-  function startDrag(e: React.DragEvent, id: string) {
+  /**
+   * 拖曳影像自己指定一顆小膠囊。
+   *
+   * 不指定的話瀏覽器會把整張卡片拍成殘影 —— 行程卡有封面照、連結與備註，拖起來是一大塊半透明
+   * 的東西，而且會被視窗邊緣裁掉，看不出自己正在拖什麼。膠囊上只放標題，跟著游標走就夠了。
+   */
+  function startDrag(e: React.DragEvent, id: string, label: string) {
     e.dataTransfer.setData("text/plain", id);
     e.dataTransfer.effectAllowed = "move";
+
+    const ghost = document.createElement("div");
+    ghost.textContent = label;
+    ghost.style.cssText = [
+      "position:fixed", "top:-1000px", "left:-1000px",
+      "max-width:260px", "overflow:hidden", "text-overflow:ellipsis", "white-space:nowrap",
+      "padding:8px 16px", "border-radius:999px",
+      "background:#1c1726", "color:#e4e4e7",
+      "font-size:13px", "font-weight:500",
+      "border:1px solid rgba(139,92,246,0.45)",
+      "box-shadow:0 8px 24px rgba(0,0,0,0.5)",
+    ].join(";");
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 16, 16);
+    // setDragImage 是同步取快照，但立刻移除在部分瀏覽器會拿不到，排到下一輪事件迴圈
+    window.setTimeout(() => ghost.remove(), 0);
   }
 
   /** 丟回想去清單：日期清掉，狀態改回 wishlist */
@@ -1228,7 +1250,7 @@ export default function ItineraryTab({
               <div
                 className="block md:flex"
                 draggable={!readOnly}
-                onDragStart={readOnly ? undefined : (e) => startDrag(e, item.id)}
+                onDragStart={readOnly ? undefined : (e) => startDrag(e, item.id, item.title)}
               >
               {item.image_urls && item.image_urls.length > 0 && (() => {
                 const cover = parseCoverPos(item.image_urls[0]);
@@ -1485,6 +1507,7 @@ export default function ItineraryTab({
           onSchedule={scheduleWishlist}
           onRemove={handleDelete}
           onDragStartItem={startDrag}
+
           onDragOverZone={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverWishlist(true); }}
           onDragLeaveZone={readOnly ? undefined : () => setDragOverWishlist(false)}
           onDropZone={readOnly ? undefined : (e) => {
