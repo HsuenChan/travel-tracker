@@ -628,6 +628,11 @@ export default function RouteProfileModal({
   useEffect(() => {
     centerTab(currentTab);
     syncTabFades();
+    /*
+      換分頁時回到頂部。不然從途經點第 30 筆切到快速資訊，會落在新分頁的半空中，
+      看起來像內容少了一截。抬頭與分頁列是 sticky 的，捲回 0 之後它們仍在原位。
+    */
+    tabScroller.current?.closest<HTMLElement>(".ant-modal-body")?.scrollTo({ top: 0 });
     window.addEventListener("resize", syncTabFades);
     return () => window.removeEventListener("resize", syncTabFades);
   }, [currentTab]);

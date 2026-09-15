@@ -2,6 +2,14 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { actorFrom, logChange } from "@/lib/activityLog";
 
+/*
+  里程／爬升／下降（distance_km / ascent_m / descent_m）刻意不由這支寫入。
+
+  那三個數字是從途經點導出來的，唯一的寫入者是 /api/itinerary/waypoints 的
+  deriveWaypointStats。兩支都寫的話會變成後寫的贏：存一次行程就把途經點算出來的
+  值蓋掉，而且沒有任何提示。
+*/
+
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -28,11 +36,11 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { tripId, date, title, category, time, end_date, end_time, location, notes, image_urls, distance_km, ascent_m, descent_m } = body;
+  const { tripId, date, title, category, time, end_date, end_time, location, notes, image_urls } = body;
 
   const { data: created, error } = await supabase
     .from("itinerary_items")
-    .insert({ trip_id: tripId, user_id: user.id, date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [], distance_km: distance_km ?? null, ascent_m: ascent_m ?? null, descent_m: descent_m ?? null })
+    .insert({ trip_id: tripId, user_id: user.id, date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [] })
     .select()
     .single();
 
@@ -47,14 +55,14 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json();
-  const { id, date, title, category, time, end_date, end_time, location, notes, image_urls, distance_km, ascent_m, descent_m } = body;
+  const { id, date, title, category, time, end_date, end_time, location, notes, image_urls } = body;
 
   // 後台的欄位級 diff 與還原都靠這份舊值，所以覆寫前先讀一次
   const { data: before } = await supabase.from("itinerary_items").select("*").eq("id", id).maybeSingle();
 
   const { data: after, error } = await supabase
     .from("itinerary_items")
-    .update({ date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [], distance_km: distance_km ?? null, ascent_m: ascent_m ?? null, descent_m: descent_m ?? null })
+    .update({ date, title, category, time, end_date: end_date ?? null, end_time: end_time ?? null, location, notes, image_urls: image_urls ?? [] })
     .eq("id", id)
     .select()
     .single();

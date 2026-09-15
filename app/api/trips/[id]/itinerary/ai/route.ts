@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { trackGemini, aiBudgetGuard, type TrackMeta } from "@/lib/aiUsage";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 function extractJSON(text: string): unknown {
@@ -87,8 +88,23 @@ export async function POST(
     ? (trip.destinations as { name: string }[]).map((d) => d.name).join("、")
     : (trip.countries ?? "未指定目的地");
 
+  const modelName = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: modelName });
+
+  // 兩個 action（健康檢查、自動排程）共用這份出處資訊
+  const usageMeta: TrackMeta = {
+    feature: "itinerary",
+    model: modelName,
+    actorId: user.id,
+    actorName: user.email ?? null,
+    tripId: id,
+    tripName: trip.name,
+  };
+
+  // 付費層按 token 計價，超過設定的每月預算就先擋下來，訊息講清楚是什麼狀況
+  const overBudget = await aiBudgetGuard();
+  if (overBudget) return NextResponse.json({ error: overBudget.error }, { status: overBudget.status });
 
   // ── Health check ──────────────────────────────────────────
   if (action === "health_check") {
@@ -130,7 +146,7 @@ level 定義：
 只輸出 JSON，不要任何前言或解釋。`;
 
     try {
-      const result = await model.generateContent(prompt);
+      const result = await trackGemini(usageMeta, () => model.generateContent(prompt));
       const issues = extractJSON(result.response.text().trim());
       return NextResponse.json({ issues });
     } catch (err) {
@@ -199,7 +215,7 @@ ${existingStr}
 - 必去地點必須全部出現，依地理位置安排最有效率的順序`;
 
     try {
-      const result = await model.generateContent(prompt);
+      const result = await trackGemini(usageMeta, () => model.generateContent(prompt));
       const raw = extractJSON(result.response.text().trim()) as Array<{
         date: string; time: string; end_time?: string;
         title: string; category?: string; location?: string; notes?: string;

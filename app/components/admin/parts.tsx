@@ -15,13 +15,17 @@ const ACTION_STYLE: Record<string, { bg: string; text: string; ring: string }> =
   login:   { bg: "rgba(96,165,250,0.12)",  text: "#93c5fd", ring: "rgba(96,165,250,0.30)" },
   logout:  { bg: "rgba(161,161,170,0.10)", text: "#d4d4d8", ring: "rgba(161,161,170,0.26)" },
   login_failed: { bg: "rgba(251,113,133,0.16)", text: "#fda4af", ring: "rgba(251,113,133,0.40)" },
+  // 分享瀏覽：沒有帳號的人來看過，用青色跟登入那組藍分開
+  share_view: { bg: "rgba(45,212,191,0.12)", text: "#5eead4", ring: "rgba(45,212,191,0.30)" },
 };
 
 export function ActionBadge({ action }: { action: string }) {
   const s = ACTION_STYLE[action] ?? ACTION_STYLE.logout;
   return (
     <span
-      className="shrink-0 rounded-full px-2 py-[3px] text-[11px] font-bold leading-none"
+      // whitespace-nowrap 是必要的：「登入失敗」在窄欄裡會被折成兩行，
+      // 而膠囊是 rounded-full + leading-none，第二行會直接撐破外框
+      className="shrink-0 whitespace-nowrap rounded-full px-2 py-[3px] text-[11px] font-bold leading-none"
       style={{ background: s.bg, color: s.text, boxShadow: `inset 0 0 0 1px ${s.ring}` }}
     >
       {ACTION_LABELS[action] ?? action}

@@ -43,7 +43,7 @@ export default function EventTable({
 
   const headers =
     variant === "auth"
-      ? ["動作", "帳號", "裝置", "IP", "時間"]
+      ? ["動作", "帳號／旅程", "裝置", "IP", "時間"]
       : ["動作", "對象", "旅程", "分頁", "時間", ...(showRestore ? ["還原"] : [])];
 
   const colWidths =
@@ -81,9 +81,15 @@ export default function EventTable({
             const isAuth = event.kind === "auth";
             const restorable = showRestore && canRestore(event);
 
-            const label = isAuth
-              ? event.actor_name ?? "未知帳號"
-              : event.entity_label ?? event.entity_table ?? "（未命名）";
+            /*
+              分享瀏覽（kind='view'）沒有 entity，要看的是「哪一趟旅程被打開了」。
+              少了這一支，它會掉進 change 的分支顯示成「（未命名）」。
+            */
+            const label = event.kind === "view"
+              ? event.trip_name ?? "（未命名旅程）"
+              : isAuth
+                ? event.actor_name ?? "未知帳號"
+                : event.entity_label ?? event.entity_table ?? "（未命名）";
 
             return (
               <Fragment key={event.id}>

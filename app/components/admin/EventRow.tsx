@@ -8,7 +8,8 @@ import { describeDevice } from "@/lib/userAgent";
 
 export interface ActivityEvent {
   id: string;
-  kind: "change" | "auth";
+  /** change：資料異動；auth：登入登出；view：分享連結被打開 */
+  kind: "change" | "auth" | "view";
   action: string;
   actor_name: string | null;
   actor_source: string;
@@ -36,7 +37,7 @@ export function canRestore(e: ActivityEvent): boolean {
 
 /** 沒有欄位變化、沒有備註的資料異動點開只會是一片空白，那就不給點 */
 export function isExpandable(e: ActivityEvent): boolean {
-  return (e.changes?.length ?? 0) > 0 || !!e.note || e.kind === "auth";
+  return (e.changes?.length ?? 0) > 0 || !!e.note || e.kind === "auth" || e.kind === "view";
 }
 
 /**
@@ -66,7 +67,7 @@ export function EventDetail({ event }: { event: ActivityEvent }) {
         </dl>
       )}
 
-      {isAuth && (
+      {(isAuth || event.kind === "view") && (
         <dl className="space-y-1 text-zinc-400">
           <div className="flex gap-3">
             <dt className="w-20 shrink-0 text-right text-zinc-500">時間</dt>
@@ -83,7 +84,7 @@ export function EventDetail({ event }: { event: ActivityEvent }) {
         </dl>
       )}
 
-      {!isAuth && changes.length === 0 && !event.note && (
+      {!isAuth && event.kind !== "view" && changes.length === 0 && !event.note && (
         <p className="text-zinc-500">這次異動沒有記錄到欄位變化。</p>
       )}
     </>
@@ -103,13 +104,18 @@ export default function EventRow({
   const isAuth = event.kind === "auth";
   const expandable = isExpandable(event);
 
-  const meta = isAuth
+  // 分享瀏覽跟登入一樣是「存取」，看的是裝置與 IP；但標題要放旅程名稱而不是訪客字樣
+  const isView = event.kind === "view";
+
+  const meta = isAuth || isView
     ? [describeDevice(event.user_agent), event.ip, relativeTime(event.created_at)]
     : [event.trip_name, event.tab ? TAB_LABEL[event.tab] ?? event.tab : null, relativeTime(event.created_at)];
 
-  const headline = isAuth
-    ? event.actor_name ?? "未知帳號"
-    : event.entity_label ?? event.entity_table ?? "（未命名）";
+  const headline = isView
+    ? event.trip_name ?? "（未命名旅程）"
+    : isAuth
+      ? event.actor_name ?? "未知帳號"
+      : event.entity_label ?? event.entity_table ?? "（未命名）";
 
   return (
     <li className="border-b border-white/[0.05] last:border-b-0">
