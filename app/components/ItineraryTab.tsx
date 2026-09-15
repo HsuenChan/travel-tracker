@@ -544,6 +544,7 @@ export default function ItineraryTab({
   */
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [dragOverWishlist, setDragOverWishlist] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   /**
    * 拖曳影像自己指定一顆小膠囊。
@@ -554,6 +555,7 @@ export default function ItineraryTab({
   function startDrag(e: React.DragEvent, id: string, label: string) {
     e.dataTransfer.setData("text/plain", id);
     e.dataTransfer.effectAllowed = "move";
+    setDragging(true);
 
     const ghost = document.createElement("div");
     ghost.textContent = label;
@@ -571,6 +573,52 @@ export default function ItineraryTab({
     // setDragImage 是同步取快照，但立刻移除在部分瀏覽器會拿不到，排到下一輪事件迴圈
     window.setTimeout(() => ghost.remove(), 0);
   }
+
+  /*
+    拖到畫面上下緣時自動捲動。
+
+    原生 HTML5 拖曳不會幫你捲頁面，所以行程一長，想放到畫面外的那一天就根本碰不到 ——
+    手指按著不放，畫面卻不動。監聽 document 的 dragover 取游標高度，靠近邊緣就用 rAF 持續捲，
+    越靠近捲越快。這裡不 preventDefault，只是要位置；能不能放仍然由各自的放置區決定。
+  */
+  useEffect(() => {
+    if (readOnly) return;
+    const EDGE = 96;
+    const MAX_SPEED = 20;
+    let raf = 0;
+    let speed = 0;
+
+    const step = () => {
+      if (speed === 0) { raf = 0; return; }
+      window.scrollBy(0, speed);
+      raf = requestAnimationFrame(step);
+    };
+    const onDragOver = (e: DragEvent) => {
+      const h = window.innerHeight;
+      if (e.clientY < EDGE) speed = -Math.ceil(((EDGE - e.clientY) / EDGE) * MAX_SPEED);
+      else if (e.clientY > h - EDGE) speed = Math.ceil(((e.clientY - (h - EDGE)) / EDGE) * MAX_SPEED);
+      else speed = 0;
+      if (speed !== 0 && !raf) raf = requestAnimationFrame(step);
+    };
+    const stop = () => {
+      speed = 0;
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      setDragging(false);
+      setDragOverDate(null);
+      setDragOverWishlist(false);
+    };
+
+    document.addEventListener("dragover", onDragOver);
+    document.addEventListener("drop", stop);
+    document.addEventListener("dragend", stop);
+    return () => {
+      document.removeEventListener("dragover", onDragOver);
+      document.removeEventListener("drop", stop);
+      document.removeEventListener("dragend", stop);
+      speed = 0;
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [readOnly]);
 
   /** 丟回想去清單：日期清掉，狀態改回 wishlist */
   async function unschedule(id: string) {
@@ -1520,6 +1568,33 @@ export default function ItineraryTab({
         />
       )}
 
+      {/*
+        拖曳中浮出來的「放回想去」。
+
+        想去清單在整個時間軸的最上面，從很下面的日子拖回去得一路靠自動捲動撐著 —— 手指按在
+        邊緣等畫面爬上去，那不是一個能用的操作。這顆固定在畫面下緣，反向永遠是一手的距離。
+        位置避開手機底部導覽列。
+      */}
+      {dragging && !readOnly && (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOverWishlist(true); }}
+          onDragLeave={() => setDragOverWishlist(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOverWishlist(false);
+            const id = e.dataTransfer.getData("text/plain");
+            if (id && items.find((i) => i.id === id)?.status !== "wishlist") unschedule(id);
+          }}
+          className={`fixed left-1/2 -translate-x-1/2 bottom-24 md:bottom-8 z-[60] px-5 h-11 rounded-full flex items-center gap-2 text-[13px] font-medium pointer-events-auto transition-colors ${
+            dragOverWishlist
+              ? "bg-violet-500/30 border-2 border-dashed border-violet-400 text-zinc-100"
+              : "bg-[#18181b]/95 border border-dashed border-white/25 text-zinc-400 backdrop-blur-md"
+          }`}
+        >
+          放回想去
+        </div>
+      )}
+
       {loading ? (
         <div className="flex flex-col gap-3 animate-pulse">
           <div className="h-4 w-36 rounded-full bg-white/[0.06] mb-1" />
@@ -1568,7 +1643,9 @@ export default function ItineraryTab({
             <div
               ref={chipRowRef}
               aria-label="跳到某一天"
-              className="chip-row sticky top-16 md:top-32 z-50 mb-1 flex gap-1 overflow-x-auto bg-[#09090b] py-2"
+              className={`chip-row sticky top-16 md:top-32 z-50 mb-1 flex gap-1 overflow-x-auto bg-[#09090b] py-2 ${
+                dragging ? "ring-1 ring-violet-500/30 rounded-full" : ""
+              }`}
             >
               {dates.map((d) => {
                 const active = d === activeDate;
@@ -1584,7 +1661,21 @@ export default function ItineraryTab({
                         .getElementById(`itinerary-date-${d}`)
                         ?.scrollIntoView({ behavior: "smooth", block: "start" })
                     }
-                    className={`shrink-0 h-8 rounded-full px-2.5 text-[13px] font-semibold transition-colors cursor-pointer ${active
+                    /*
+                      chips 列是黏在頂部的，每一天都在上面 —— 拖到這裡放，就不必為了搆到畫面外
+                      的那一天先捲半天。自動捲動是備案，這個才是常用的路。
+                    */
+                    onDragOver={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverDate(d); }}
+                    onDragLeave={readOnly ? undefined : () => setDragOverDate((cur) => (cur === d ? null : cur))}
+                    onDrop={readOnly ? undefined : (e) => {
+                      e.preventDefault();
+                      setDragOverDate(null);
+                      const id = e.dataTransfer.getData("text/plain");
+                      if (id && items.find((i) => i.id === id)?.date !== d) scheduleWishlist(id, d);
+                    }}
+                    className={`shrink-0 h-8 rounded-full px-2.5 text-[13px] font-semibold transition-colors cursor-pointer ${
+                      dragOverDate === d ? "ring-2 ring-violet-500/70 bg-violet-500/25 text-zinc-100" : ""
+                    } ${active
                       ? "bg-violet-500/20 text-zinc-200"
                       : chipToday
                         ? "text-violet-400 hover:bg-white/[0.06]"
