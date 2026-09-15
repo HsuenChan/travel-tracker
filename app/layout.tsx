@@ -77,16 +77,26 @@ export const viewport = {
   viewportFit: "cover",
 };
 
+/**
+ * passport 是一個 parallel slot：從首頁點開護照時，app/@passport/(.)passport 會把 /passport
+ * 攔下來塞進這裡，children（首頁）留在原地不卸載 —— 地球與已載入的旅程因此不會重來。
+ * 沒有開護照、或直接開 /passport 網址時，這個 slot 是 app/@passport/default.tsx（空的）。
+ */
 export default function RootLayout({
   children,
+  passport,
 }: Readonly<{
   children: React.ReactNode;
+  passport: React.ReactNode;
 }>) {
   return (
     <html lang="zh-TW" className={`${geistSans.variable} ${geistMono.variable} ${comfortaa.variable} ${lineSeed.variable}`}>
       <body>
         <AntdRegistry>
-          <Providers>{children}</Providers>
+          <Providers>
+            {children}
+            {passport}
+          </Providers>
         </AntdRegistry>
       </body>
     </html>

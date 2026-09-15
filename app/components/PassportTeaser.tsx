@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { useRouter, usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { coverSpan, drawCoverInto, PAGE_W, PAGE_H } from "@/lib/passportPages";
 import {
-  teaserPlacement, writeFlag, writeSpan, ENTER_KEY,
-  TEASER_WIDTH, TEASER_ROTATE, HIDDEN_BOTTOM, HIDDEN_LEFT, type Placement,
+  writeSpan, TEASER_WIDTH, TEASER_ROTATE, HIDDEN_BOTTOM, HIDDEN_LEFT,
 } from "@/lib/passportTransition";
 
 /**
@@ -14,9 +13,9 @@ import {
  *
  * 畫的是護照封面本身（和書裡第一頁同一組繪圖），不是一個「像護照的圖示」。
  *
- * 點下去之後它**不會**在這裡飛 —— 飛行跑在 /passport，因為換路由時這一頁會被卸載。這裡只做
- * 一件事：把背景壓黑，護照原地不動，然後換頁。/passport 接手時畫的是同一張、同一個位置的
- * 封面，所以那一刀落在沒有動作的時候。
+ * 點下去之後它**不會**在這裡飛 —— /passport 會被 app/@passport/(.)passport 攔截，疊在這一頁
+ * 上面，而這一頁留在底下不卸載。飛行跑在那一層，起點就是這本護照現在的位置；因為它還在底下
+ * 沒消失，淡入的前幾格看到的是同一個位置上的同一張封面，交接看不出來。
  */
 
 /** 飛行途中會被放大到中央，先照那個尺寸畫才不會糊 */
@@ -33,9 +32,6 @@ const HOVER_LIFT = 44;
 const LIFT_X = HOVER_LIFT * Math.sin((TEASER_ROTATE * Math.PI) / 180);
 const LIFT_Y = -HOVER_LIFT * Math.cos((TEASER_ROTATE * Math.PI) / 180);
 
-/** 壓黑的時間；換頁在這之後才發生，所以切過去時畫面已經是全黑加一本靜止的護照 */
-const FADE_MS = 260;
-
 interface Props {
   firstYear: number | null;
   lastYear: number | null;
@@ -44,9 +40,15 @@ interface Props {
 
 export default function PassportTeaser({ firstYear, lastYear, className }: Props) {
   const router = useRouter();
+  /*
+    護照開著的時候把這本藏起來。
+
+    現在首頁不會被卸載了，所以關閉時那本飛回左下角的封面，會和原地不動的這一本同時出現在
+    畫面上 —— 兩本護照。用網址判斷：被攔截時網址仍然是 /passport，所以關閉動畫跑完、
+    router.back() 之後才會換回來，剛好是飛行落地的那一刻，接上去看不出交接。
+  */
+  const hidden = usePathname() === "/passport";
   const [art, setArt] = useState<string | null>(null);
-  // 換頁那一刻要停在哪，存成狀態而不是 ref —— render 期間讀 ref 的值是不允許的
-  const [place, setPlace] = useState<Placement | null>(null);
 
   useEffect(() => {
     let url: string | null = null;
@@ -65,22 +67,18 @@ export default function PassportTeaser({ firstYear, lastYear, className }: Props
   }, [firstYear, lastYear, router]);
 
   function launch() {
-    if (place) return;
-    setPlace(teaserPlacement());
+    // 載入中的封面要畫出一模一樣的那張，年份區間先留給它
     writeSpan(coverSpan(firstYear, lastYear));
-    writeFlag(ENTER_KEY);
-    window.setTimeout(() => router.push("/passport"), FADE_MS);
+    router.push("/passport");
   }
 
-  const leaving = place !== null;
-
   return (
-    <>
-      {/* 三層：外層定位與裁切、中層閒置浮動、內層 hover 抬起，分開才不會兩個動畫搶同一個 y */}
-      <div
-        className={className}
-        style={{ bottom: -HIDDEN_BOTTOM, left: -HIDDEN_LEFT, opacity: leaving ? 0 : 1 }}
-      >
+    /* 三層：外層定位與裁切、中層閒置浮動、內層 hover 抬起，分開才不會兩個動畫搶同一個 y */
+    <div
+      className={className}
+      // visibility 而不是卸載：封面那張圖是 blob URL，重掛一次就要重畫重轉一遍
+      style={{ bottom: -HIDDEN_BOTTOM, left: -HIDDEN_LEFT, visibility: hidden ? "hidden" : "visible" }}
+    >
         <motion.div
           animate={{ y: [0, -7, 0] }}
           transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
@@ -107,33 +105,6 @@ export default function PassportTeaser({ firstYear, lastYear, className }: Props
             </div>
           </motion.button>
         </motion.div>
-      </div>
-
-      <AnimatePresence>
-        {place && art && (
-          <motion.div className="fixed inset-0 z-[200]" style={{ pointerEvents: "none" }}>
-            <motion.div
-              className="absolute inset-0 bg-[#09090b]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: FADE_MS / 1000, ease: "easeOut" }}
-            />
-            {/* 原地不動的一張複本：換頁之後 /passport 會從同樣的位置接著飛 */}
-            <img
-              src={art}
-              alt=""
-              className="absolute rounded-[6px] shadow-[0_14px_38px_rgba(0,0,0,0.6),0_0_26px_rgba(201,169,97,0.16)]"
-              style={{
-                left: place.left,
-                top: place.top,
-                width: place.width,
-                height: place.height,
-                transform: `rotate(${place.rotate}deg)`,
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+    </div>
   );
 }

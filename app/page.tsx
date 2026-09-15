@@ -19,7 +19,6 @@ import { getCountryFlags, getCountryCodes } from "@/lib/countries";
 import { parseCoverPos } from "@/lib/coverPos";
 import PillButton from "@/app/components/PillButton";
 import { openedWithinDays } from "@/lib/recentTrips";
-import { readFlag, RETURN_KEY } from "@/lib/passportTransition";
 import { UserOutlined, AimOutlined, LoadingOutlined } from "@ant-design/icons";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
@@ -294,12 +293,6 @@ export default function Home() {
       全部結束且最近沒開  → 護照（淡季唯一還有東西看的地方）
       沒有旅程            → 留在首頁的空狀態
   */
-  // 從護照關回來時整面是黑的，在這裡淡出 —— 不然會從一片黑直接跳出地球
-  const [returningFromPassport, setReturningFromPassport] = useState(false);
-  useEffect(() => {
-    if (readFlag(RETURN_KEY)) setReturningFromPassport(true);
-  }, []);
-
   const landedRef = useRef(false);
   useEffect(() => {
     if (!authenticated || loading || landedRef.current || trips.length === 0) return;
@@ -681,18 +674,6 @@ export default function Home() {
           className="absolute z-20 pointer-events-auto"
         />
       )}
-
-      <AnimatePresence>
-        {returningFromPassport && (
-          <motion.div
-            className="fixed inset-0 z-[190] bg-[#09090b] pointer-events-none"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            onAnimationComplete={() => setReturningFromPassport(false)}
-          />
-        )}
-      </AnimatePresence>
 
       {/* 2. Main UI Layer */}
       <Layout className="relative z-10 h-full w-full !bg-transparent flex flex-col pointer-events-none">
