@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Typography, Input, DatePicker } from "antd";
+import { Typography, Input } from "antd";
 import { motion, AnimatePresence } from "framer-motion";
-import dayjs, { type Dayjs } from "dayjs";
 import PillButton from "@/app/components/PillButton";
-import { LocationIcon, PlusIcon, CalendarIcon } from "@/app/components/Icons";
+import { LocationIcon, PlusIcon } from "@/app/components/Icons";
 
 /**
  * 想去清單：還沒決定哪一天的地點。
@@ -13,9 +12,8 @@ import { LocationIcon, PlusIcon, CalendarIcon } from "@/app/components/Icons";
  * 放在時間軸上面而不是另開分頁 —— 這些東西的下一步就是被排進某一天，跨分頁就做不到
  * 「看著行程決定放哪天」這件事。
  *
- * 兩條路都留著：桌機把卡片拖到某一天（或把某一天的行程拖回這裡），手機用「排入」選日期。
- * 原生 HTML5 DnD 在觸控裝置上不見得會觸發，而從收合的區塊拖到很長的時間軸在手機上本來就不好按，
- * 所以不是二選一，是各自對應各自順手的裝置。
+ * 排進某一天的方式是把卡片拖到那一天（頂部那排黏著的日期也是放置目標，所以不必為了搆到
+ * 畫面外的日子先捲半天）。
  */
 
 export interface WishlistEntry {
@@ -29,12 +27,9 @@ export interface WishlistEntry {
 interface Props {
   items: WishlistEntry[];
   readOnly?: boolean;
-  /** 日期選擇器的預設落點：這趟的第一天 */
-  defaultDate?: string | null;
   /** 有東西正被拖到這一區上方 */
   dragOver?: boolean;
   onAdd: (title: string, location: string) => Promise<void>;
-  onSchedule: (id: string, date: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
   onDragStartItem?: (e: React.DragEvent, id: string, label: string) => void;
   onDragOverZone?: (e: React.DragEvent) => void;
@@ -43,14 +38,13 @@ interface Props {
 }
 
 export default function WishlistSection({
-  items, readOnly, defaultDate, dragOver,
-  onAdd, onSchedule, onRemove, onDragStartItem, onDragOverZone, onDragLeaveZone, onDropZone,
+  items, readOnly, dragOver,
+  onAdd, onRemove, onDragStartItem, onDragOverZone, onDragLeaveZone, onDropZone,
 }: Props) {
   const [open, setOpen] = useState(true);
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
-  const [schedulingId, setSchedulingId] = useState<string | null>(null);
 
   // 唯讀分享頁上，沒有東西就整塊不出現
   if (readOnly && items.length === 0) return null;
@@ -107,7 +101,7 @@ export default function WishlistSection({
             <div className="px-4 pb-4 pt-1">
               {items.length === 0 ? (
                 <Typography.Text className="text-zinc-600 text-[12px] block mb-3">
-                  還沒想好哪天去的地方先丟這裡，之後拖到某一天，或用「排入」選日期。
+                  還沒想好哪天去的地方先丟這裡，之後把它拖到某一天。
                 </Typography.Text>
               ) : (
                 <div className="flex flex-col gap-2 mb-3">
@@ -131,40 +125,15 @@ export default function WishlistSection({
                           )}
                         </div>
                         {!readOnly && (
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <PillButton
-                              onClick={() => setSchedulingId(schedulingId === item.id ? null : item.id)}
-                            >
-                              <CalendarIcon size={12} />
-                              排入
-                            </PillButton>
-                            <button
-                              onClick={() => onRemove(item.id)}
-                              aria-label="刪除"
-                              className="text-zinc-600 hover:text-red-400 text-[12px] transition-colors cursor-pointer px-1"
-                            >
-                              刪除
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => onRemove(item.id)}
+                            aria-label="刪除"
+                            className="shrink-0 text-zinc-600 hover:text-red-400 text-[12px] transition-colors cursor-pointer px-1"
+                          >
+                            刪除
+                          </button>
                         )}
                       </div>
-
-                      {schedulingId === item.id && (
-                        <div className="mt-2.5 flex items-center gap-2">
-                          <DatePicker
-                            autoFocus
-                            open
-                            className="w-full"
-                            placeholder="排到哪一天"
-                            defaultValue={defaultDate ? dayjs(defaultDate) : undefined}
-                            onChange={async (d: Dayjs | null) => {
-                              if (!d) return;
-                              setSchedulingId(null);
-                              await onSchedule(item.id, d.format("YYYY-MM-DD"));
-                            }}
-                          />
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

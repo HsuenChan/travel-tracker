@@ -1549,10 +1549,8 @@ export default function ItineraryTab({
         <WishlistSection
           items={wishlistItems}
           readOnly={readOnly}
-          defaultDate={dates[0] ?? null}
           dragOver={dragOverWishlist}
           onAdd={addWishlist}
-          onSchedule={scheduleWishlist}
           onRemove={handleDelete}
           onDragStartItem={startDrag}
 
