@@ -21,7 +21,9 @@ export function ActionBadge({ action }: { action: string }) {
   const s = ACTION_STYLE[action] ?? ACTION_STYLE.logout;
   return (
     <span
-      className="shrink-0 rounded-full px-2 py-[3px] text-[11px] font-bold leading-none"
+      // whitespace-nowrap 是必要的：「登入失敗」在窄欄裡會被折成兩行，
+      // 而膠囊是 rounded-full + leading-none，第二行會直接撐破外框
+      className="shrink-0 whitespace-nowrap rounded-full px-2 py-[3px] text-[11px] font-bold leading-none"
       style={{ background: s.bg, color: s.text, boxShadow: `inset 0 0 0 1px ${s.ring}` }}
     >
       {ACTION_LABELS[action] ?? action}

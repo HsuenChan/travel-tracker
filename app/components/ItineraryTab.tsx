@@ -4,7 +4,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, InputNumber, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown } from "antd";
+import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon, SheetIcon } from "@/app/components/Icons";
 import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
@@ -490,10 +490,11 @@ export default function ItineraryTab({
       location: values.location ?? null,
       notes: (values.notes && values.notes !== "<p><br></p>") ? values.notes as string : null,
       image_urls: imageUrls,
-      // 只有戶外路段才填這三個；其他類型留空，卡片上就不會多出一列
-      distance_km: values.category === "outdoor" ? (values.distanceKm ?? null) : null,
-      ascent_m: values.category === "outdoor" ? (values.ascentM ?? null) : null,
-      descent_m: values.category === "outdoor" ? (values.descentM ?? null) : null,
+      /*
+        里程／爬升／下降刻意不在這裡送。那三個數字由途經點算出來（見
+        /api/itinerary/waypoints 的 deriveWaypointStats），這支再寫一次就會有兩個
+        寫入者互相覆蓋 —— 表單存一次就把途經點算出來的值清成 null。
+      */
     };
 
     try {
@@ -605,9 +606,6 @@ export default function ItineraryTab({
         category: editingItem.category,
         location: editingItem.location,
         notes: editingItem.notes,
-        distanceKm: editingItem.distance_km,
-        ascentM: editingItem.ascent_m,
-        descentM: editingItem.descent_m,
       });
       setImageUrls(editingItem.image_urls ?? []);
     } else if (urlModal === "addItinerary") {
@@ -1460,24 +1458,6 @@ export default function ItineraryTab({
           </Form.Item>
           <Form.Item name="category" label="類型">
             <Select placeholder="選擇類型" allowClear options={CATEGORIES} />
-          </Form.Item>
-          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.category !== cur.category}>
-            {({ getFieldValue }) => getFieldValue("category") !== "outdoor" ? null : (
-              <div className="flex flex-col gap-1.5 mb-6">
-                <div className="flex gap-2">
-                  <Form.Item name="distanceKm" label="里程 (km)" className="flex-1 !mb-0">
-                    <InputNumber min={0} step={0.1} placeholder="8.5" />
-                  </Form.Item>
-                  <Form.Item name="ascentM" label="爬升 (m)" className="flex-1 !mb-0">
-                    <InputNumber min={0} step={10} precision={0} placeholder="1010" />
-                  </Form.Item>
-                  <Form.Item name="descentM" label="下降 (m)" className="flex-1 !mb-0">
-                    <InputNumber min={0} step={10} precision={0} placeholder="320" />
-                  </Form.Item>
-                </div>
-                <span className="text-zinc-600 text-[11px]">填了途經點之後，這三個數字會改由途經點自動計算</span>
-              </div>
-            )}
           </Form.Item>
           <Form.Item name="location" label="地點">
             <Input placeholder="地點名稱，或貼上 Google Maps 連結" />
