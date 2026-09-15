@@ -134,6 +134,16 @@ async function main() {
     ["Major Mayhem Canyon", "MAYHEM_TOPO"],
   ];
 
+  // 逐條讀官方 topo 轉寫的那份，key 直接就是行程標題
+  const transcribed = JSON.parse(readFileSync(join(root, "scripts/data/nz-topo-transcribed.json"), "utf8")) as Record<string, { sections?: Section[] }>;
+  for (const [title, entry] of Object.entries(transcribed)) {
+    // 底線開頭的是說明用的欄位，不是路線
+    if (title.startsWith("_") || !entry.sections) continue;
+    const key = `transcribed:${title}`;
+    demo[key] = entry.sections;
+    append.push([title, key]);
+  }
+
   for (const [title, key] of append) {
     const items = (await db(`itinerary_items?select=id,title&title=eq.${encodeURIComponent(title)}`)) as Item[];
     if (items.length === 0) { console.log(`略過  ${title}（找不到行程）`); continue; }
