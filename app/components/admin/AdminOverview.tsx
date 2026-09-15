@@ -84,8 +84,8 @@ export default function AdminOverview() {
         首屏要捲兩次才看得到最新異動。手機維持上下堆疊。
         items-start 是必要的 —— 兩區內容高度不一樣，預設拉伸會讓短的那區被撐開。
       */}
-      <div className="grid items-start gap-7 lg:grid-cols-2 lg:gap-x-10">
-        <section>
+      <div className="grid items-start gap-4 lg:grid-cols-2 lg:gap-x-5">
+        <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
           <SectionHead title="登入狀態" href="/admin/logins" />
           {logins.last ? (
             <div className="mt-2">
@@ -119,8 +119,8 @@ export default function AdminOverview() {
         </section>
 
         {ai && (
-    <section>
-                <h2 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">AI 用量</h2>
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+            <SectionHead title="AI 用量" href="/admin/ai" />
                 {ai.monthCalls === 0 ? (
                   <p className="mt-2 text-[13px] text-zinc-500">本月還沒有 AI 呼叫。</p>
                 ) : (
@@ -159,41 +159,6 @@ export default function AdminOverview() {
                           </span>
                         </>
                       )}
-                    </p>
-
-                    <ul className="mt-3 flex flex-col gap-1.5">
-                      {ai.byFeature.map((f) => (
-                        <li key={f.key} className="flex items-baseline gap-2 text-[13px]">
-                          <span className="text-zinc-400">{f.label}</span>
-                          <span aria-hidden className="flex-1 border-b border-dashed border-white/[0.08]" />
-                          <span className="admin-nums text-zinc-500">{f.calls} 次</span>
-                          {f.failed > 0 && <span className="admin-nums text-amber-300/80">{f.failed} 失敗</span>}
-                          <span className="admin-nums w-16 text-right text-zinc-300">${usd(f.costUsd)}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    {ai.byActor.length > 0 && (
-                      <>
-                        <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-600">依帳號</p>
-                        <ul className="mt-1.5 flex flex-col gap-1.5">
-                          {ai.byActor.map((a) => (
-                            <li key={a.name} className="flex items-baseline gap-2 text-[13px]">
-                              <span className="min-w-0 truncate text-zinc-400" title={a.name}>{a.name}</span>
-                              <span aria-hidden className="flex-1 border-b border-dashed border-white/[0.08]" />
-                              <span className="admin-nums shrink-0 text-zinc-500">{a.calls} 次</span>
-                              <span className="admin-nums shrink-0 text-zinc-500">{(a.tokens / 1000).toFixed(1)}K</span>
-                              <span className="admin-nums w-16 shrink-0 text-right text-zinc-300">${usd(a.costUsd)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-
-                    <p className="mt-3 text-[11px] leading-relaxed text-zinc-600">
-                      金額依 Gemini 2.5 Flash 的公告費率換算（輸入 $0.30、輸出 $2.50 / 百萬 token），
-                      思考 token 併入輸出計價。是估計值不是帳單金額。
-                      上限由 AI_MONTHLY_BUDGET_USD 設定，超過時 AI 功能會先停用。
                     </p>
                   </div>
                 )}
