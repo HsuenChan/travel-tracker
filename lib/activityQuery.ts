@@ -22,6 +22,7 @@ export const ACTION_LABELS: Record<string, string> = {
   login: "登入",
   logout: "登出",
   login_failed: "登入失敗",
+  share_view: "分享瀏覽",
 };
 
 const ACTION_ALIASES: Record<string, string> = {

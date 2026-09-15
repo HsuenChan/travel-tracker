@@ -15,6 +15,8 @@ const ACTION_STYLE: Record<string, { bg: string; text: string; ring: string }> =
   login:   { bg: "rgba(96,165,250,0.12)",  text: "#93c5fd", ring: "rgba(96,165,250,0.30)" },
   logout:  { bg: "rgba(161,161,170,0.10)", text: "#d4d4d8", ring: "rgba(161,161,170,0.26)" },
   login_failed: { bg: "rgba(251,113,133,0.16)", text: "#fda4af", ring: "rgba(251,113,133,0.40)" },
+  // 分享瀏覽：沒有帳號的人來看過，用青色跟登入那組藍分開
+  share_view: { bg: "rgba(45,212,191,0.12)", text: "#5eead4", ring: "rgba(45,212,191,0.30)" },
 };
 
 export function ActionBadge({ action }: { action: string }) {
