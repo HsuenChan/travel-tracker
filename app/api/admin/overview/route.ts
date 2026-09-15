@@ -17,7 +17,10 @@ export async function GET() {
   // AI 用量的統計視窗跟帳單對齊（當月），跟登入那段的「最近 30 天」是不同的東西
   const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString();
 
-  const [logins, recent, ai] = await Promise.all([
+  const since7d = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+  const since24h = new Date(Date.now() - 24 * 3600_000).toISOString();
+
+  const [logins, recent, ai, errors] = await Promise.all([
     service
       .from("activity_log")
       .select("action, ip, user_agent, actor_name, created_at")
@@ -34,6 +37,11 @@ export async function GET() {
       .from("ai_usage")
       .select("feature, actor_id, actor_name, prompt_tokens, output_tokens, thinking_tokens, ok, created_at")
       .gte("created_at", monthStart),
+    service
+      .from("api_errors")
+      .select("message, route_path, created_at")
+      .gte("created_at", since7d)
+      .order("created_at", { ascending: false }),
   ]);
 
   if (logins.error) return NextResponse.json({ error: logins.error.message }, { status: 500 });
@@ -86,7 +94,19 @@ export async function GET() {
   const succeeded = rows.filter((r) => r.action === "login");
   const devices = new Set(succeeded.map((r) => deviceKey(r.user_agent)));
 
+  /*
+    伺服器異常。api_errors 是 22_api_errors.sql 才有的表，還沒跑 migration 時回 null，
+    總覽其餘照常 —— 一張新卡片不該把整個首屏變成錯誤頁。
+  */
+  const errorRows = errors.error ? null : (errors.data ?? []);
+  const errorSummary = errorRows && {
+    last: errorRows[0] ?? null,
+    count24h: errorRows.filter((r) => r.created_at >= since24h).length,
+    count7d: errorRows.length,
+  };
+
   return NextResponse.json({
+    errors: errorSummary,
     logins: {
       last: succeeded[0] ?? null,
       count30d: succeeded.length,

@@ -7,7 +7,7 @@ import { describeDevice } from "@/lib/userAgent";
 import { relativeTime } from "@/app/components/admin/parts";
 import EventRow, { type ActivityEvent } from "@/app/components/admin/EventRow";
 import { useRestoreEvent } from "@/app/components/admin/useRestoreEvent";
-import { ShieldIcon, LaptopIcon, ArrowRightIcon, SparkleIcon } from "@/app/components/Icons";
+import { ShieldIcon, LaptopIcon, ArrowRightIcon, SparkleIcon, AlertTriangleIcon } from "@/app/components/Icons";
 
 interface Overview {
   logins: {
@@ -26,6 +26,12 @@ interface Overview {
     monthCostUsd: number;
     byFeature: { key: string; label: string; calls: number; failed: number; costUsd: number }[];
     byActor: { name: string; calls: number; tokens: number; costUsd: number }[];
+  } | null;
+  /** api_errors 是 22_api_errors.sql 才有的表，還沒跑 migration 時是 null */
+  errors: {
+    last: { message: string; route_path: string | null; created_at: string } | null;
+    count24h: number;
+    count7d: number;
   } | null;
   recentChanges: ActivityEvent[];
 }
@@ -65,7 +71,7 @@ export default function AdminOverview() {
     );
   }
 
-  const { logins, recentChanges, ai } = data;
+  const { logins, recentChanges, ai, errors } = data;
   /*
     小額要多給幾位小數。toFixed(2) 會把 $0.0012 顯示成「$0.00」—— 在一個專門用來
     盯花費的區塊裡寫「沒花錢」是最不該出的錯。
@@ -84,7 +90,7 @@ export default function AdminOverview() {
         首屏要捲兩次才看得到最新異動。手機維持上下堆疊。
         items-start 是必要的 —— 兩區內容高度不一樣，預設拉伸會讓短的那區被撐開。
       */}
-      <div className="grid items-start gap-4 lg:grid-cols-2 lg:gap-x-5">
+      <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-x-5">
         <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
           <SectionHead title="登入狀態" href="/admin/logins" />
           {logins.last ? (
@@ -163,6 +169,38 @@ export default function AdminOverview() {
                   </div>
                 )}
               </section>
+        )}
+
+        {errors && (
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+            <SectionHead title="異常" href="/admin/errors" />
+            {errors.last ? (
+              <div className="mt-2">
+                <p className="flex items-center gap-2 text-[17px] font-bold text-zinc-100">
+                  <AlertTriangleIcon size={15} className="text-rose-400" />
+                  最近一次 {relativeTime(errors.last.created_at)}
+                </p>
+                <p className="mt-1.5 truncate text-[13px] text-zinc-400" title={errors.last.message}>
+                  {errors.last.message}
+                </p>
+                {errors.last.route_path && (
+                  <p className="admin-nums mt-0.5 truncate text-[12px] text-zinc-600" title={errors.last.route_path}>
+                    {errors.last.route_path}
+                  </p>
+                )}
+                <p className="mt-2.5 text-[13px] text-zinc-500">
+                  {/* 24 小時內有錯就轉紅：那是「現在正在壞」而不是「上週壞過」 */}
+                  <span className={errors.count24h > 0 ? "font-semibold text-rose-300" : ""}>
+                    24 小時內 <span className="admin-nums">{errors.count24h}</span> 筆
+                  </span>
+                  <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+                  7 天內 <span className="admin-nums text-zinc-300">{errors.count7d}</span> 筆
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-[13px] text-zinc-500">7 天內沒有未捕捉的例外。</p>
+            )}
+          </section>
         )}
       </div>
 
