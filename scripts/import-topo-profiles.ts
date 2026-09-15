@@ -165,7 +165,8 @@ async function main() {
   if (wilson.length > 0) {
     const rows = (await db(`route_waypoints?select=id,name,pool_type,anchor_note,section&itinerary_item_id=eq.${wilson[0].id}&order=order_index`)) as
       { id: string; name: string; pool_type: string | null; anchor_note: string | null; section: string | null }[];
-    let touched = 0, unmatched: string[] = [];
+    let touched = 0;
+    const unmatched: string[] = [];
     for (const row of rows) {
       const fill = WILSON_BACKFILL[row.name];
       if (!fill) { unmatched.push(row.name); continue; }
