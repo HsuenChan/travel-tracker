@@ -1044,7 +1044,7 @@ export default function TripPage() {
                 {activeTab === "notes" && <NotesTab tripId={id} />}
                 {activeTab === "souvenirs" && <SouvenirsTab tripId={id} />}
                 {activeTab === "gear" && <GearTab tripId={id} people={people} myName={myPersonName} />}
-                {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} tripEndDate={trip.end_date} />}
+                {activeTab === "expenses" && <ExpensesTab tripId={id} people={people} currency={primaryCurrency} currencies={currencies} tripEndDate={trip.end_date} tripName={trip.name} />}
                 {activeTab === "photos" && (
                   trip.photo_album_id ? (
                     <PhotoWall albumUrl={trip.photo_album_id} />

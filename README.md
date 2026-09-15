@@ -26,6 +26,7 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 - **Server Error Log** — Uncaught exceptions from route handlers, Server Components and Server Actions are captured through Next's `onRequestError` hook rather than a try/catch in every endpoint, so nothing is missed and new endpoints are covered the moment they are written. Each entry keeps the request path, the route file, the method, the stack and Next's error digest, and the same error on the same route is recorded once every five minutes — a broken endpoint being polled would otherwise bury every other error under thousands of identical rows. Responses that merely return a 500 without throwing are deliberately not recorded: those are expected outcomes, and mixing them in would hide the crashes that actually need attention.
 - **Export the Itinerary to Google Sheets** — One button on the itinerary tab turns the plan into a spreadsheet in your own Google Drive. Google asks for permission the first time, and only ever grants access to the files this app creates — nothing else in the Drive is reachable. The sheet is one row per itinerary item in timeline order, with date, weekday, start and end time, category, item, location and notes; an end-date column appears only when the trip has a multi-day item, and distance / ascent / descent only when it has outdoor legs. A trip with outdoor waypoints gets a second sheet listing them by leg — date, order, name, type, altitude, cumulative distance, drop, leg time and notes. The spreadsheet opens in a new tab, and the notification carries the link in case the browser blocks it.
 - **Multi-Currency Expenses** — Track costs across currencies (TWD, EUR, JPY, …) with live exchange rates, sortable list, and automatic settlement calculations (all amounts converted to the trip's base currency). Settlement rows can be marked as paid, persisted to the database for all members. The form remembers the last payer and offers save-and-add-another for fast consecutive entry. Stats tab includes a clickable pie chart (desktop), a stacked proportion bar with category grid (mobile), monospaced amounts, and a per-member perspective view. Ended trips open the stats sub-tab by default.
+- **Settlement Reminder** — One tap after settling turns who-owes-whom into a message that goes straight into the group chat. Only unpaid rows are listed — repeating one that is already settled just makes someone think they owe it twice. Every amount is in the trip's base currency, so a single message never mixes currencies. On a phone it opens the share sheet, so picking LINE sends it to the group directly rather than through copy, switch app, find the group, paste; on a desktop it goes to the clipboard, and if neither is available the text is shown in a selectable box. The button disappears once everything is settled.
 - **Expenses Linked to the Itinerary** — Every itinerary card carries a running total of what has been spent on it, sitting at the end of the time / category / location row (per currency, no conversion). Tapping that amount opens a compact expense form already filled in with the item's name, category, and date, so a cost can be logged without leaving the itinerary. Items with nothing spent yet show a zero amount that works as the same entry point. The expense list can be filtered down to a single itinerary item, and a link can be changed or removed from the expense form.
 - **AI Receipt Scan** — Photograph or upload a receipt and let Gemini extract the amount, currency, category, and description automatically into the expense form.
 - **LINE Bot Expense Input** — Link a LINE group or DM to any trip via a one-time trip token. Quickly log expenses from LINE chat with support for description, amount, currency, payer, and split — synced to the web app in real time.
@@ -49,7 +50,6 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 Planned, in rough priority order:
 
 - A trip plan sheet for the person staying behind — emergency contacts, agreed check-in times, retreat plan — built on the read-only share link, printable for permit applications
-- One tap to copy the settlement message — who owes whom how much, ready to paste into the group chat
 - A wishlist and backup plans — save a place before you know when you are going, then drag it onto a day; a place already on a day but optional is marked as a backup and decided on the day itself
 - Daily itinerary push and expense logging in LINE — the day's plan each morning, receipts logged by dropping them into the group, and a settlement summary when the trip ends
 - Turnaround time per itinerary item, marked on the timeline
@@ -204,6 +204,7 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 - **旅途中模式與快速記帳** — 旅程進行期間打開旅程頁直接落在今日行程；落點一律遵守該旅程的「顯示分頁」設定 —— 沒有啟用行程分頁時會落在啟用清單的第一個分頁，把目前所在的分頁關掉時也會自動跳到第一個分頁；hero 以行程第一張照片為封面並顯示「第 N / M 天」進度 pill 與進度條，首頁旅程卡片同步顯示封面照，時間軸已走過的路段會上色。手機版右下常駐「記帳」懸浮按鈕，任何分頁一鍵記帳。
 - **旅程回顧與慶祝** — 旅程結束後 hero 下方顯示回顧卡（天數・行程數・地點數），首次打開撒一次彩帶；結算最後一筆繳清時也會有彩帶慶祝。
 - **多幣別費用追蹤** — 支援多種貨幣（TWD、EUR、JPY…）含即時匯率換算、可排序列表與自動結算（結算前一律換算成旅程主幣別）。應付款項可勾選「已繳清」並存入資料庫，全體成員同步。表單會記住上次付款人，並提供「儲存並繼續」快速連續記帳。統計分頁支援圓餅圖（桌機）與堆疊比例條＋類別格（手機）、金額等寬字型、個人視角切換；旅程結束後預設進入統計。
+- **催款訊息** — 結算完按一下，誰要付誰多少變成一則可以直接送進群組的訊息。只列還沒繳清的——已經付過的再列一次，只會讓人以為還要再付一次。金額都是旅程主幣別，同一則訊息裡不會混幣別。手機上會叫出分享面板，選 LINE 就直接送進群組，不必複製、切到 LINE、找群組、再貼上；桌機複製到剪貼簿，兩者都不行時把文字放在可全選的框裡。全部繳清之後按鈕就收起來。
 - **行程與記帳打通** — 每張行程卡在「時間 / 類型 / 地點」那一列的尾端顯示掛在該行程的花費合計（跨幣別並列，不換匯）。點金額直接開記帳表單，行程名稱、類型與日期都已帶入，不用切到費用分頁；還沒有花費的行程顯示 0，點下去就是新增第一筆。費用列表可依關聯行程篩選，也能在費用表單裡改綁或解除關聯。
 - **AI 收據掃描** — 拍攝或上傳收據，Gemini 自動解析金額、幣別、類別與摘要，直接填入費用表單。
 - **LINE Bot 快速記帳** — 以旅程 Token 連結 LINE 群組或私訊，無需帳號綁定。支援金額、幣別、付款人與分攤設定，即時同步至網頁。
@@ -225,7 +226,6 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 依優先順序排列：
 
 - 留守人頁面 —— 緊急聯絡人、約定的回報時間、撤退計畫 —— 建在唯讀分享連結上，可列印給入園申請使用
-- 結算後一鍵複製催款訊息 —— 誰要付誰多少，直接貼進 LINE 群組
 - 想去清單與備用行程 —— 還沒決定時間的地點先存著，之後拖進某一天；已經排在某天但可去可不去的標成備案，當天再決定
 - LINE 每日行程推播與群組記帳 —— 早上收到當日行程，收據直接丟進群組就入帳，旅程結束推結算摘要
 - 每筆行程的撤退／關門時間，並在時間軸上標記

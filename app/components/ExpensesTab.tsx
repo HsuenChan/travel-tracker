@@ -55,6 +55,8 @@ interface Props {
   initialExpenses?: Expense[];
   /** 旅程結束日：已結束時子分頁預設進「統計」 */
   tripEndDate?: string | null;
+  /** 催款訊息的開頭要寫哪一趟 */
+  tripName?: string;
 }
 
 const PERSON_COLORS = ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#f97316"];
@@ -115,7 +117,31 @@ function calculateSettlement(
   return { balances, transactions };
 }
 
-export default function ExpensesTab({ tripId, people, currency, currencies, readOnly, initialExpenses, tripEndDate }: Props) {
+/**
+ * 催款訊息。
+ *
+ * 只列還沒繳清的 —— 這是要貼進群組催人付錢的，已經付過的再列一次只會讓人以為還要再付一次。
+ * 金額全部是旅程主幣別（結算本來就換算過），所以不會出現同一則訊息裡混幣別。
+ */
+function buildReminder(
+  tripName: string | undefined,
+  currency: string,
+  unpaid: { from: string; to: string; amount: number }[]
+): string {
+  const money = (n: number) =>
+    `${currency} ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const total = unpaid.reduce((sum, t) => sum + t.amount, 0);
+
+  return [
+    tripName ? `【${tripName}】結算` : "結算",
+    "",
+    ...unpaid.map((t) => `・${t.from} → ${t.to}　${money(t.amount)}`),
+    "",
+    `未付 ${unpaid.length} 筆，共 ${money(total)}`,
+  ].join("\n");
+}
+
+export default function ExpensesTab({ tripId, people, currency, currencies, readOnly, initialExpenses, tripEndDate, tripName }: Props) {
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses || []);
   const [form] = Form.useForm();
   const router = useRouter();
@@ -1165,6 +1191,45 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     </>
   );
 
+  /*
+    催款訊息的送出。
+
+    和分享連結同一條路：手機上有 navigator.share 就叫出分享面板，選 LINE 直接送進群組 ——
+    複製再貼中間會斷在「切到 LINE、找到群組、長按貼上」那幾步。桌機退回剪貼簿，
+    兩者都失敗（權限被擋、非安全來源）才跳出可全選的文字框，至少人工複製得到。
+  */
+  const unpaidTransactions = transactions.filter(
+    (t) => !paidTransactions.has(`${t.from}→${t.to}:${t.amount.toFixed(2)}`)
+  );
+
+  async function sendReminder() {
+    const text = buildReminder(tripName, currency, unpaidTransactions);
+    const canShare =
+      typeof navigator !== "undefined" &&
+      typeof navigator.share === "function" &&
+      window.matchMedia("(max-width: 767px)").matches;
+
+    if (canShare) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch (err) {
+        // 使用者自己取消就不要再退回複製，那會變成他沒要求的動作
+        if ((err as DOMException)?.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      message.success("已複製催款訊息");
+    } catch {
+      modal.info({
+        title: "無法自動複製",
+        content: <Input.TextArea readOnly value={text} autoSize onFocus={(e) => e.target.select()} />,
+        okText: "關閉",
+      });
+    }
+  }
+
   const settlementContent = (
     <>
       <div className="flex justify-between items-center my-4 gap-2">
@@ -1202,9 +1267,15 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
 
           {transactions.length > 0 ? (
             <>
-              <Typography.Text className="text-zinc-500 text-[13px] block mb-2.5">
-                應付款項
-              </Typography.Text>
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <Typography.Text className="text-zinc-500 text-[13px]">
+                  應付款項
+                </Typography.Text>
+                {/* 全部繳清之後就沒有人要催了，按鈕跟著收起來 */}
+                {!readOnly && unpaidTransactions.length > 0 && (
+                  <PillButton onClick={sendReminder}>催款訊息</PillButton>
+                )}
+              </div>
               {transactions.map((t, i) => {
                 // key 含金額：結算金額一變，舊的繳清標記自動失效，不會誤導
                 const txKey = `${t.from}→${t.to}:${t.amount.toFixed(2)}`;
