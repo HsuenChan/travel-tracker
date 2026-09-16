@@ -233,11 +233,27 @@ function TripCard({
   );
 }
 
+/**
+ * 這份 document 有沒有跑過開場動畫。
+ *
+ * 模組層級的變數，真的重新載入頁面才會回到 false —— 從旅程頁 router.push("/") 回來時，
+ * 首頁是重新掛載的，authenticated 又變回 null，開場動畫就會再跑一次。但那個動畫的意思是
+ * 「App 開起來了」，不是「回到首頁」。
+ */
+let appLaunched = false;
+
 export default function Home() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [authError, setAuthError] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
+
+  // 初始化函式一次掛載只跑一次，所以第一次掛載拿到 true，之後回到首頁都是 false
+  const [isLaunch] = useState(() => {
+    if (appLaunched) return false;
+    appLaunched = true;
+    return true;
+  });
 
   // 開場過場動畫只保留給 PWA（加入主畫面後的 standalone 模式）
   useEffect(() => {
@@ -412,7 +428,7 @@ export default function Home() {
     );
   }
 
-  if (authenticated === null && !isPWA) {
+  if (authenticated === null && !(isPWA && isLaunch)) {
     return (
       <div className="min-h-[100dvh] bg-[#09090b] flex items-center justify-center">
         <LoadingOutlined className="!text-zinc-600" style={{ fontSize: 22 }} />
