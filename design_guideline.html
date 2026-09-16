@@ -10,6 +10,19 @@
     .swatch { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; }
     .swatch-box { width: 56px; height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
     .swatch-label { font-size: 10px; color: #71717a; font-family: monospace; }
+    /* Tooltip demo：純 CSS hover，值跟著 ConfigProvider 的 Tooltip token 走 */
+    .tt-demo { position: relative; display: inline-flex; }
+    .tt-demo::after {
+      content: attr(data-tip);
+      position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px);
+      max-width: 300px; width: max-content;
+      background: #1f1d26; color: #e4e4e7;
+      font-size: 12px; line-height: 1.5; padding: 6px 10px; border-radius: 10px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+      opacity: 0; pointer-events: none; transition: opacity .15s ease, transform .15s ease; z-index: 20;
+    }
+    .tt-demo:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
     .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #52525b; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .token-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
     .token-name { font-size: 11px; color: #71717a; font-family: monospace; width: 160px; flex-shrink: 0; }
@@ -529,6 +542,22 @@
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
   <section>
     <div class="section-title">9 · Tooltip</div>
+
+    <p class="text-zinc-500 text-xs mb-5">用 antd <code class="font-mono">&lt;Tooltip&gt;</code>；這裡是純 HTML 的外觀示意，滑過下面三個元素看效果（實際元件的觸發、定位與動畫由 antd 處理）。</p>
+
+    <div class="flex flex-wrap items-center gap-8 mb-6 p-6 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
+      <span class="tt-demo" data-tip="在地球上聚焦這趟旅程">
+        <button class="w-9 h-9 rounded-full flex items-center justify-center" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#a1a1aa">◎</button>
+      </span>
+
+      <span class="tt-demo" data-tip="把每日行程匯出成 Google 試算表">
+        <button class="h-7 px-2.5 rounded-full text-xs font-medium" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#d4d4d8">匯出</button>
+      </span>
+
+      <span class="tt-demo" data-tip="已記錄障礙的落差總和，不是實測垂直落差 —— 同一處若同時能垂降或跳水，topo 記成一個點位就只算一次。">
+        <span class="text-xs" style="color:#71717a;cursor:help;border-bottom:1px dotted #52525b">落差合計 320 m</span>
+      </span>
+    </div>
 
     <div class="space-y-3">
       <div class="rule-block">
