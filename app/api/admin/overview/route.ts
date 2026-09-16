@@ -3,6 +3,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getAdminUser } from "@/lib/adminAuth";
 import { deviceKey } from "@/lib/userAgent";
 import { estimateCost, monthlyBudgetUsd, AI_FEATURE_LABELS, type AiFeature } from "@/lib/aiUsage";
+import { storageStats } from "@/lib/storageScan";
+import type { StorageStats } from "@/lib/storageUsage";
 
 /**
  * /admin 首屏要的東西，一次給完：登入狀態摘要 + 最新幾筆異動。
@@ -90,6 +92,14 @@ export async function GET() {
     ).sort((a, b) => b.costUsd - a.costUsd),
   };
 
+  /* 要打 Storage API 列檔案，比其他幾段慢；壞掉就回 null，總覽其餘照常 */
+  let storage: StorageStats | null = null;
+  try {
+    storage = await storageStats(service);
+  } catch {
+    storage = null;
+  }
+
   const rows = logins.data ?? [];
   const succeeded = rows.filter((r) => r.action === "login");
   const devices = new Set(succeeded.map((r) => deviceKey(r.user_agent)));
@@ -114,6 +124,7 @@ export async function GET() {
       failed30d: rows.filter((r) => r.action === "login_failed").length,
     },
     ai: aiSummary,
+    storage,
     recentChanges: recent.data ?? [],
   });
 }

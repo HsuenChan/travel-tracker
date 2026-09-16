@@ -138,14 +138,7 @@ const STATUS_OPTIONS = [
   { value: "wishlist", label: "想去" },
 ] as const;
 
-/**
- * 狀態選擇器。
- *
- * 用專案自己的 chip 樣式（與分享範圍設定同一套），不是 antd 的 Segmented —— 那個元件自帶
- * 淺色的滑塊與外框，在這個深色介面上是一塊突兀的灰色方框，怎麼調大小都一樣。
- *
- * value / onChange 是 Form.Item 注入的，所以它在表單裡就是一個一般的受控欄位。
- */
+/** 不用 antd Segmented：它自帶的淺色滑塊與外框在深色介面上是一塊突兀的方框 */
 function StatusPicker({
   value = "planned",
   onChange,
@@ -274,7 +267,6 @@ export default function ItineraryTab({
     return items.find(i => i.id === urlItemId) ?? null;
   }, [urlModal, urlItemId, items]);
   const [saving, setSaving] = useState(false);
-  /** 表單目前選的狀態：選「想去」時日期欄位收起來，也不再必填 */
   const formStatus = Form.useWatch("status", form) ?? "planned";
   const [loading, setLoading] = useState(true);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -542,7 +534,6 @@ export default function ItineraryTab({
     const payload = {
       tripId,
       status,
-      // 想去清單一律沒有日期；帶了日期後端會擋（狀態與日期必須對得上）
       date: status === "wishlist" ? null : dateVal ? dateVal.format("YYYY-MM-DD") : "",
       time: timeStartVal ? timeStartVal.format("HH:mm") : null,
       end_date: endDateVal ? endDateVal.format("YYYY-MM-DD") : null,
@@ -585,23 +576,11 @@ export default function ItineraryTab({
     }
   }
 
-  /*
-    拖曳。
-
-    原生 HTML5 DnD：桌機上直接把想去清單的卡片拖到某一天，或把某一天的行程拖回想去清單。
-    觸控裝置不見得會觸發這組事件，所以「排入」按鈕與卡片上的「移到想去」都留著 —— 手機從收合的
-    區塊拖到很長的時間軸本來就不好按，兩條路各自對應各自順手的裝置。
-  */
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [dragOverWishlist, setDragOverWishlist] = useState(false);
   const [dragging, setDragging] = useState(false);
 
-  /**
-   * 拖曳影像自己指定一顆小膠囊。
-   *
-   * 不指定的話瀏覽器會把整張卡片拍成殘影 —— 行程卡有封面照、連結與備註，拖起來是一大塊半透明
-   * 的東西，而且會被視窗邊緣裁掉，看不出自己正在拖什麼。膠囊上只放標題，跟著游標走就夠了。
-   */
+  /** 不指定拖曳影像的話，瀏覽器會把整張卡片（含封面照與備註）拍成殘影，還會被視窗裁掉 */
   function startDrag(e: React.DragEvent, id: string, label: string) {
     e.dataTransfer.setData("text/plain", id);
     e.dataTransfer.effectAllowed = "move";
@@ -620,17 +599,11 @@ export default function ItineraryTab({
     ].join(";");
     document.body.appendChild(ghost);
     e.dataTransfer.setDragImage(ghost, 16, 16);
-    // setDragImage 是同步取快照，但立刻移除在部分瀏覽器會拿不到，排到下一輪事件迴圈
+    // 立刻移除在部分瀏覽器會讓快照拿不到
     window.setTimeout(() => ghost.remove(), 0);
   }
 
-  /*
-    拖到畫面上下緣時自動捲動。
-
-    原生 HTML5 拖曳不會幫你捲頁面，所以行程一長，想放到畫面外的那一天就根本碰不到 ——
-    手指按著不放，畫面卻不動。監聽 document 的 dragover 取游標高度，靠近邊緣就用 rAF 持續捲，
-    越靠近捲越快。這裡不 preventDefault，只是要位置；能不能放仍然由各自的放置區決定。
-  */
+  /** 原生拖曳不會捲頁面，行程一長就碰不到畫面外的日子。不 preventDefault，只是要游標位置 */
   useEffect(() => {
     if (readOnly) return;
     const EDGE = 96;
@@ -1013,12 +986,7 @@ export default function ItineraryTab({
     setAIPreview((prev) => prev.map((item) => item._id === id ? { ...item, removed: !item.removed } : item));
   }
 
-  /*
-    想去清單與時間軸分流。
-
-    想去清單沒有日期，混進時間軸的分組會變成一個 key 是 undefined 的「日子」，
-    排序、天氣、跨日展開全部會跟著壞掉。備案有日期，所以照常排在它那一天。
-  */
+  // 想去清單沒有日期，混進分組會變成一個 key 是 undefined 的「日子」
   const wishlistItems = items.filter((i) => i.status === "wishlist");
   const scheduled = items.filter((i) => i.status !== "wishlist" && i.date);
 
@@ -1165,13 +1133,7 @@ export default function ItineraryTab({
     });
 
     const itemNodes = (startsOn[date] ?? []).map((item, itemIndex) => {
-            /*
-              沒有自己上傳的照片時，戶外路段退回用路線檔案裡的代表照片。
-
-              那些照片本來就在這一筆行程底下（只是收在路線檢視的分頁裡），卡片卻長得像一張
-              沒有圖的空卡 —— 溪降那種卡片一整排灰底，光看名字認不出是哪一條。
-              routePhotos 已經濾掉相對路徑那種載不到的來源。
-            */
+            /* 路線檔案裡的照片本來就屬於這一筆，只是收在路線檢視裡；空卡認不出是哪一條溪 */
             const ownPhotos = item.image_urls ?? [];
             const cardPhotos = ownPhotos.length > 0
               ? ownPhotos
@@ -1242,7 +1204,6 @@ export default function ItineraryTab({
                 </button>
               </div>
             ) : null;
-            /* 虛線框只是暗示，還是要有一個字說它是什麼；灰的就好，這種東西不需要搶顏色 */
             const backupTag = item.status === "backup" ? (
               <span className="shrink-0 text-[11px] leading-4 px-1.5 rounded border border-white/12 text-zinc-500">
                 備案
@@ -1318,10 +1279,7 @@ export default function ItineraryTab({
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.28, ease: "easeOut", delay: itemIndex * 0.05 }}
               id={`itinerary-item-${item.id}`}
-              /*
-                備案用虛線框並壓低存在感：它排在那一天，但可去可不去。
-                和一般行程長得一樣的話，當天看行程會以為每一項都要跑完。
-              */
+              // 備案和一般行程長得一樣的話，當天看行程會以為每一項都要跑完
               className={`relative bg-white/[0.03] rounded-[18px] overflow-hidden ${
                 item.status === "backup"
                   ? "border border-dashed border-white/[0.14] opacity-65"
@@ -1329,10 +1287,7 @@ export default function ItineraryTab({
               }`}
               style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
             >
-              {/*
-                拖曳掛在這層純 div 而不是外面的 motion.div：framer-motion 有自己的 onDragStart
-                （它的拖曳是 pointer 事件），和原生 DragEvent 的簽章不是同一個東西。
-              */}
+              {/* 拖曳掛這層而不是外面的 motion.div：framer-motion 的 onDragStart 是另一個簽章 */}
               <div
                 className="block md:flex"
                 draggable={!readOnly}
@@ -1580,10 +1535,7 @@ export default function ItineraryTab({
         </div>
       )}
 
-      {/*
-        想去清單放在時間軸上面、而且在 loading 判斷之外 —— 一趟還沒有任何行程時，這一塊正是
-        使用者第一個會用到的東西，被空狀態擋住就沒意義了。
-      */}
+      {/* 在 loading 判斷之外：一趟還沒有行程時，這一塊正是第一個會用到的東西 */}
       {!loading && (
         <WishlistSection
           items={wishlistItems}
@@ -1613,13 +1565,7 @@ export default function ItineraryTab({
         />
       )}
 
-      {/*
-        拖曳中浮出來的「放回想去」。
-
-        想去清單在整個時間軸的最上面，從很下面的日子拖回去得一路靠自動捲動撐著 —— 手指按在
-        邊緣等畫面爬上去，那不是一個能用的操作。這顆固定在畫面下緣，反向永遠是一手的距離。
-        位置避開手機底部導覽列。
-      */}
+      {/* 想去清單在最上面，從下面的日子拖回去得一路等畫面爬上來；這顆讓反向永遠是一手的距離 */}
       {dragging && !readOnly && (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOverWishlist(true); }}
@@ -1706,10 +1652,7 @@ export default function ItineraryTab({
                         .getElementById(`itinerary-date-${d}`)
                         ?.scrollIntoView({ behavior: "smooth", block: "start" })
                     }
-                    /*
-                      chips 列是黏在頂部的，每一天都在上面 —— 拖到這裡放，就不必為了搆到畫面外
-                      的那一天先捲半天。自動捲動是備案，這個才是常用的路。
-                    */
+                    /* chips 列黏在頂部，每一天都在上面：拖到這裡放就不必捲 */
                     onDragOver={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverDate(d); }}
                     onDragLeave={readOnly ? undefined : () => setDragOverDate((cur) => (cur === d ? null : cur))}
                     onDrop={readOnly ? undefined : (e) => {
@@ -1741,7 +1684,6 @@ export default function ItineraryTab({
       )}
 
       <Modal
-        // 想去清單的那一筆還不是「行程」，開起來說「編輯行程」會讓人以為它已經排進去了
         title={editingItem ? (editingItem.status === "wishlist" ? "想去的地方" : "編輯行程") : "新增行程"}
         open={showModal}
         onCancel={closeModal}
@@ -1751,13 +1693,7 @@ export default function ItineraryTab({
         centered={true}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4" disabled={saving}>
-          {/*
-            名稱在最上面 —— 那是這張表單真正的主體。
-
-            狀態跟在名稱下方：它是一個欄位三種值，所以是一個選擇器，不是散在卡片上的幾顆按鈕。
-            擺在日期之前，是因為選「想去」會把日期時間收起來，控制項要在被它收掉的欄位上面，
-            不然畫面會從下面塌一塊。不用 block：三個短選項撐滿整列看起來像三顆大按鈕。
-          */}
+          {/* 狀態擺在日期之前：選「想去」會收起日期時間，控制項要在被它收掉的欄位上面 */}
           <Form.Item name="title" label="行程名稱" rules={[{ required: true, message: "請輸入行程名稱" }]}>
             <Input placeholder="例如：淺草寺參觀" />
           </Form.Item>

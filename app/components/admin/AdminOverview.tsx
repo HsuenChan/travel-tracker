@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Tooltip } from "antd";
 import Link from "next/link";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { describeDevice } from "@/lib/userAgent";
 import { relativeTime } from "@/app/components/admin/parts";
 import EventRow, { type ActivityEvent } from "@/app/components/admin/EventRow";
 import { useRestoreEvent } from "@/app/components/admin/useRestoreEvent";
-import { ShieldIcon, LaptopIcon, ArrowRightIcon, SparkleIcon, AlertTriangleIcon, HealthIcon } from "@/app/components/Icons";
+import { ShieldIcon, LaptopIcon, ArrowRightIcon, SparkleIcon, AlertTriangleIcon, HealthIcon, PhotoIcon } from "@/app/components/Icons";
+import { formatBytes, type StorageStats } from "@/lib/storageUsage";
 
 interface Overview {
   logins: {
@@ -33,6 +35,8 @@ interface Overview {
     count24h: number;
     count7d: number;
   } | null;
+  /** 讀不到 Storage 時是 null */
+  storage: StorageStats | null;
   recentChanges: ActivityEvent[];
 }
 
@@ -71,7 +75,7 @@ export default function AdminOverview() {
     );
   }
 
-  const { logins, recentChanges, ai, errors } = data;
+  const { logins, recentChanges, ai, errors, storage } = data;
   /*
     小額要多給幾位小數。toFixed(2) 會把 $0.0012 顯示成「$0.00」—— 在一個專門用來
     盯花費的區塊裡寫「沒花錢」是最不該出的錯。
@@ -79,6 +83,8 @@ export default function AdminOverview() {
   const usd = (n: number) => (n > 0 && n < 1 ? n.toFixed(3) : n.toFixed(2));
   // 超過上限時整區轉成琥珀色，跟登入那邊「可疑」的視覺語彙一致
   const overBudget = !!ai && ai.budgetUsd > 0 && ai.monthCostUsd >= ai.budgetUsd;
+  const storagePct = storage ? (storage.totalBytes / storage.limitBytes) * 100 : 0;
+  const storageTight = storagePct >= 80;
   const suspicious = logins.failed30d > 0;
 
   return (
@@ -173,6 +179,42 @@ export default function AdminOverview() {
               </section>
         )}
 
+        {storage && (
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+            <SectionHead title="圖片儲存" href="/admin/storage" />
+            <div className="mt-2">
+              <p className="flex flex-wrap items-center gap-2 text-[17px] font-bold text-zinc-100">
+                <PhotoIcon size={15} stroke={storageTight ? "#fcd34d" : "#a78bfa"} />
+                <span className="admin-nums">{formatBytes(storage.totalBytes)}</span>
+                <span className="text-[13px] font-medium text-zinc-500">
+                  / 上限 <span className="admin-nums">1 GB</span>
+                </span>
+              </p>
+
+              <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                <div
+                  className={`h-full rounded-full ${storageTight ? "bg-amber-400" : "bg-violet-400/70"}`}
+                  style={{ width: `${Math.min(100, storagePct)}%` }}
+                />
+              </div>
+
+              <p className="mt-2.5 text-[13px] text-zinc-500">
+                <span className="admin-nums text-zinc-300">{storage.totalFiles}</span> 個檔案
+                <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+                已用 <span className="admin-nums text-zinc-300">{storagePct < 0.1 ? "<0.1" : storagePct.toFixed(1)}%</span>
+                {storage.orphanFiles > 0 && (
+                  <>
+                    <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+                    <span className="font-semibold text-amber-300">
+                      <span className="admin-nums">{storage.orphanFiles}</span> 個可清理
+                    </span>
+                  </>
+                )}
+              </p>
+            </div>
+          </section>
+        )}
+
         {errors && (
           <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
             <SectionHead title="異常" href="/admin/errors" />
@@ -234,17 +276,21 @@ export default function AdminOverview() {
   );
 }
 
+/** 每一張卡都掛一次「查看全部」，同一個畫面上會重複五遍；留箭頭就好，說明走 tooltip */
 function SectionHead({ title, href }: { title: string; href: string }) {
+  const label = `進入${title}頁面`;
   return (
     <div className="flex items-baseline justify-between gap-3">
       <h2 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">{title}</h2>
-      <Link
-        href={href}
-        className="admin-focus flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[13px] font-semibold !text-violet-300/90 transition-colors hover:!bg-violet-400/10 hover:!text-violet-200"
-      >
-        查看全部
-        <ArrowRightIcon size={11} />
-      </Link>
+      <Tooltip title={label} placement="left">
+        <Link
+          href={href}
+          aria-label={label}
+          className="admin-focus flex h-7 w-7 shrink-0 items-center justify-center rounded-full !text-violet-300/80 transition-colors hover:!bg-violet-400/10 hover:!text-violet-200"
+        >
+          <ArrowRightIcon size={12} />
+        </Link>
+      </Tooltip>
     </div>
   );
 }

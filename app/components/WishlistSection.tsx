@@ -6,14 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LocationIcon, PlusIcon, DreamCloudIcon, MountainIcon } from "@/app/components/Icons";
 
 /**
- * 想去清單：還沒決定哪一天的地點。
- *
- * 放在時間軸上面而不是另開分頁 —— 這些東西的下一步就是被排進某一天，跨分頁就做不到
- * 「看著行程決定放哪天」這件事。既然它只是暫存，就不該比行程本身還占版面：一行 chip，
- * 新增表單平常收起來。地點放在 chip 的 title 上，滑過去才看得到。
- *
- * 排進某一天的方式是把 chip 拖到那一天（頂部那排黏著的日期也是放置目標，所以不必為了搆到
- * 畫面外的日子先捲半天）。
+ * 放在時間軸上面而不是另開分頁：這些東西的下一步就是被排進某一天，跨分頁就做不到
+ * 「看著行程決定放哪天」。它只是暫存，所以不該比行程本身還占版面。
  */
 
 export interface WishlistEntry {
@@ -27,13 +21,10 @@ export interface WishlistEntry {
 interface Props {
   items: WishlistEntry[];
   readOnly?: boolean;
-  /** 有東西正被拖到這一區上方 */
   dragOver?: boolean;
   onAdd: (title: string, location: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
-  /** 點 chip 打開那一筆的完整內容；唯讀分享頁不給（那邊沒有編輯畫面） */
   onOpen?: (id: string) => void;
-  /** 打開戶外路線檢視（高度圖與途經點）；唯讀也看得到 */
   onOpenRoute?: (id: string) => void;
   onDragStartItem?: (e: React.DragEvent, id: string, label: string) => void;
   onDragOverZone?: (e: React.DragEvent) => void;
@@ -50,7 +41,6 @@ export default function WishlistSection({
   const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // 唯讀分享頁上沒有東西就整塊不出現
   if (readOnly && items.length === 0) return null;
 
   async function submit() {
@@ -77,7 +67,6 @@ export default function WishlistSection({
       onDrop={onDropZone}
     >
       <div className="flex items-center gap-2 flex-wrap">
-        {/* 一個 icon 就說完它是什麼，不用一句話 */}
         <span className="shrink-0 flex items-center gap-1 text-zinc-500" title="想去清單">
           <DreamCloudIcon size={13} />
           <span className="text-[12px]">想去</span>
@@ -99,10 +88,7 @@ export default function WishlistSection({
                 : "pl-2.5 pr-1.5 cursor-grab active:cursor-grabbing hover:border-violet-500/40"
             }`}
           >
-            {/*
-              標題本身就是打開的入口 —— chip 上塞不下一顆「查看」，而使用者第一個會做的事
-              就是點它。拖曳掛在外層，所以點與拖不會互相吃掉。
-            */}
+            {/* 拖曳掛在外層 span，點擊掛在這裡，兩者不會互相吃掉 */}
             <button
               type="button"
               onClick={() => onOpen?.(item.id)}
@@ -112,10 +98,6 @@ export default function WishlistSection({
               {item.location && <LocationIcon size={10} />}
               <span className="truncate">{item.title}</span>
             </button>
-            {/*
-              戶外的還沒排進行程時一樣會有途經點與高度圖 —— 「要不要去這條」正是靠那張圖決定的，
-              所以這裡就要點得到，不必先排進某一天再打開。
-            */}
             {item.category === "outdoor" && onOpenRoute && (
               <button
                 type="button"
@@ -162,7 +144,6 @@ export default function WishlistSection({
             transition={{ duration: 0.18, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            {/* 只要名字就能存，地點可以直接貼 Google 連結；細節排進行程之後再補 */}
             <div className="flex gap-1.5 pt-2">
               <Input
                 autoFocus

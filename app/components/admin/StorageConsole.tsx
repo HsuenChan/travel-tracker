@@ -6,11 +6,8 @@ import { PhotoIcon } from "@/app/components/Icons";
 import { formatBytes, type StorageStats } from "@/lib/storageUsage";
 
 /**
- * 圖片儲存空間。
- *
- * 行程照片上傳之後就只進不出 —— 從行程上移掉一張圖、刪掉整筆行程，檔案都還留在 bucket 裡。
- * 不在刪除時連帶刪檔，是因為同一個 URL 可能被多筆行程共用（分享連結複製行程時照片只複製
- * 連結不複製檔案），刪一筆就刪檔會把別人那趟的圖一起弄破。所以改成在這裡做孤兒清理。
+ * 不在刪除行程時連帶刪檔：同一個 URL 可能被多筆行程共用（複製行程時照片只複製連結），
+ * 刪一筆就刪檔會把別人那趟的圖弄破。所以改成孤兒清理。
  */
 export default function StorageConsole() {
   const { modal, message } = App.useApp();
@@ -60,7 +57,7 @@ export default function StorageConsole() {
   }
 
   const usedPct = stats ? (stats.totalBytes / stats.limitBytes) * 100 : 0;
-  // 八成開始提醒：撞到上限時上傳會直接失敗，那時候才知道就太晚了
+  // 撞到上限時上傳會直接失敗，所以提前到八成就提醒
   const tight = usedPct >= 80;
 
   return (
@@ -124,7 +121,7 @@ export default function StorageConsole() {
               <button
                 onClick={confirmClean}
                 disabled={cleaning}
-                className="admin-focus h-11 rounded-full border border-amber-400/30 bg-amber-400/10 px-5 text-[14px] font-semibold text-amber-200 transition-colors hover:bg-amber-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="admin-focus h-11 cursor-pointer rounded-full border border-amber-400/30 bg-amber-400/10 px-5 text-[14px] font-semibold text-amber-200 transition-colors hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {cleaning ? "清理中…" : `清掉 ${stats.orphanFiles} 個沒有人引用的檔案`}
               </button>
