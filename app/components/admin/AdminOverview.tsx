@@ -92,13 +92,12 @@ export default function AdminOverview() {
       <h1 className="sr-only">後台總覽</h1>
 
       {/*
-        電腦版把三張摘要卡並排：各自獨佔一整列會讓首屏要捲好幾次才看得到最新異動。
-        手機維持上下堆疊。
+        電腦版把四張摘要卡排成一列：各自獨佔一整列會讓首屏要捲好幾次才看得到最新異動，
+        而三欄會讓第四張單獨掉到下一行。手機維持上下堆疊。
 
-        刻意不加 items-start：grid 預設的 stretch 會讓三張卡一樣高，邊框才對得齊。
-        內容本來就是由上往下排，所以高度拉齊之後仍然是靠上對齊的。
+        刻意不加 items-start：grid 預設的 stretch 會讓同一列的卡一樣高，邊框才對得齊。
       */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-x-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-x-4">
         <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
           <SectionHead title="登入狀態" href="/admin/logins" />
           {logins.last ? (
