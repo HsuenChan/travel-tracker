@@ -32,6 +32,7 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 - **Expenses Linked to the Itinerary** — Every itinerary card carries a running total of what has been spent on it, sitting at the end of the time / category / location row (per currency, no conversion). Tapping that amount opens a compact expense form already filled in with the item's name, category, and date, so a cost can be logged without leaving the itinerary. Items with nothing spent yet show a zero amount that works as the same entry point. The expense list can be filtered down to a single itinerary item, and a link can be changed or removed from the expense form.
 - **AI Receipt Scan** — Photograph or upload a receipt and let Gemini extract the amount, currency, category, and description automatically into the expense form.
 - **LINE Bot Expense Input** — Link a LINE group or DM to any trip via a one-time trip token. Quickly log expenses from LINE chat with support for description, amount, currency, payer, and split — synced to the web app in real time.
+- **Daily LINE Push & Receipt Logging** — At 8am local time on each day of a trip, the group gets that day's plan: times aligned into a column you can scan down, a multi-day stay showing which day it is on, and a backup marked and stepped back. Local time is derived from the destination's coordinates, daylight saving included, and corrected by the device's own time zone whenever the app is opened during the trip — booking tickets in advance happens at home, so a reading is only taken when today falls inside the trip. The day after a trip ends, one settlement summary says who still owes whom, computed by the same code the app uses. Drop a photo of a receipt into the group and it becomes an expense: Gemini reads the amount and currency, then the existing split-picker takes over. A picture it cannot read an amount from is passed over in silence — nine out of ten photos in a group chat are scenery.
 - **AI Ticket Import** — Extract flight details from boarding pass images or PDFs using Google Gemini.
 - **Photo Wall** — Google Photos album integration with justified gallery layout, lazy loading, lightbox viewer (swipe to navigate, double-tap to zoom on mobile), and inline video playback.
 - **Photo Frame Export** — Export any photo with a styled camera info bar: EXIF data (focal length, aperture, shutter speed, ISO, date/time), camera brand logo (Sony, Canon, Fujifilm, Leica, Nikon, Apple, Samsung, Vivo), and choice of aspect ratio (Original / 1:1 / 3:4 / 4:3 / 9:16 / 16:9), frame, and background color. Modal on desktop, bottom sheet on mobile.
@@ -52,7 +53,6 @@ A modern, interactive personal travel journal. Log your trips, visualize routes 
 Planned, in rough priority order:
 
 - A trip plan sheet for the person staying behind — emergency contacts, agreed check-in times, retreat plan — built on the read-only share link, printable for permit applications
-- Daily itinerary push and expense logging in LINE — the day's plan each morning, receipts logged by dropping them into the group, and a settlement summary when the trip ends
 - Turnaround time per itinerary item, marked on the timeline
 - Richer daily weather: sunrise and sunset, feels-like temperature, chance of rain, wind, corrected for altitude
 - A pre-trip training plan counted back from the departure date, generated from the route's own distance, ascent, and pack weight
@@ -156,6 +156,8 @@ Run the SQL files in `supabase/` in order via the [Supabase SQL Editor](https://
 | `22_api_errors.sql` | Server-side uncaught exceptions, with a dedupe index (safe to re-run) |
 | `23_share_fork.sql` | Whether a share link lets the viewer copy the itinerary into a trip of their own (safe to re-run) |
 | `24_itinerary_status.sql` | Three itinerary states — planned, wishlist, backup — and a nullable date so a wishlist entry can wait for one (safe to re-run) |
+| `25_trip_time_zone.sql` | The trip's local time zone, reported by the device during the trip, used by the daily push (safe to re-run) |
+| `26_line_daily_brief.sql` | LINE push log so the same thing is never sent twice (safe to re-run) |
 
 ### LINE Bot Setup
 
@@ -211,6 +213,7 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 - **行程與記帳打通** — 每張行程卡在「時間 / 類型 / 地點」那一列的尾端顯示掛在該行程的花費合計（跨幣別並列，不換匯）。點金額直接開記帳表單，行程名稱、類型與日期都已帶入，不用切到費用分頁；還沒有花費的行程顯示 0，點下去就是新增第一筆。費用列表可依關聯行程篩選，也能在費用表單裡改綁或解除關聯。
 - **AI 收據掃描** — 拍攝或上傳收據，Gemini 自動解析金額、幣別、類別與摘要，直接填入費用表單。
 - **LINE Bot 快速記帳** — 以旅程 Token 連結 LINE 群組或私訊，無需帳號綁定。支援金額、幣別、付款人與分攤設定，即時同步至網頁。
+- **LINE 每日推播與收據記帳** — 旅途中每天當地早上八點，群組會收到當日行程：時間對齊成一欄可以直接掃，跨日的住宿顯示進行到第幾天，備案標出來並降一階。當地時間是從目的地座標推算的（含夏令時間），而旅途中打開 App 時會用裝置時區校正——提前訂票時人還在出發地，那時候的裝置時區不算數，所以只在今天落在旅程期間內才採用。旅程結束的隔天推一次結算摘要，誰還沒付誰多少，金額與 App 上看到的是同一套算法。吃完飯在群組拍一張收據直接丟進來就記帳，Gemini 認出金額與幣別之後接上原本的分帳選人流程；認不出金額的圖片安靜略過，群組裡十張有九張是風景照。
 - **AI 機票自動匯入** — 透過 Google Gemini 解析登機證圖片或 PDF，一鍵填入航班資訊。
 - **旅遊照片牆** — 整合 Google Photos 相簿，等比例磚牆佈局、懶加載、Lightbox 瀏覽（手機可滑動換圖、雙擊縮放）與影片內嵌播放。
 - **照片框架匯出** — 為任一張照片加上相機資訊欄後匯出：顯示焦距、光圈、快門、ISO、拍攝時間，以及相機品牌 Logo（Sony、Canon、Fujifilm、Leica、Nikon、Apple、Samsung、Vivo）。可選擇畫面比例（Original / 1:1 / 3:4 / 4:3 / 9:16 / 16:9）、邊框與背景顏色。桌機顯示 Modal，手機顯示底部面板。
@@ -230,7 +233,6 @@ After sending, the bot asks who to split with. Reply with numbers (`0` = everyon
 依優先順序排列：
 
 - 留守人頁面 —— 緊急聯絡人、約定的回報時間、撤退計畫 —— 建在唯讀分享連結上，可列印給入園申請使用
-- LINE 每日行程推播與群組記帳 —— 早上收到當日行程，收據直接丟進群組就入帳，旅程結束推結算摘要
 - 每筆行程的撤退／關門時間，並在時間軸上標記
 - 更完整的每日天氣：日出日落、體感溫度、降雨機率、風速，並依海拔校正
 - 依出發日回推的行前訓練計畫，以該條路線的里程、爬升與背包重量生成
@@ -327,6 +329,8 @@ npm run dev
 | `22_api_errors.sql` | 伺服器端未捕捉的例外，附去重索引（可重複執行） |
 | `23_share_fork.sql` | 分享連結是否開放對方把行程複製成自己的旅程（可重複執行） |
 | `24_itinerary_status.sql` | 行程的三種狀態：已排入／想去／備案，並讓想去清單可以沒有日期（可重複執行） |
+| `25_trip_time_zone.sql` | 旅程的當地時區，旅途中由裝置回報，每日推播用（可重複執行） |
+| `26_line_daily_brief.sql` | LINE 推播紀錄，同一件事只推一次（可重複執行） |
 
 ### LINE Bot 設定
 

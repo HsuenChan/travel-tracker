@@ -1,0 +1,27 @@
+# 每小時叫一次每日行程推播。
+#
+# 為什麼是每小時而不是每天一次：推播要在「當地早上八點」發，而那在不同時區是不同的 UTC
+# 時刻 —— 一天只跑一次就只服務得到一個時區。端點自己會挑出當地正好八點的旅程，其餘跳過。
+#
+# 為什麼用 GitHub Actions 而不是 Vercel Cron：Vercel 免費方案的 cron 一天只能觸發一次。
+# 這支只是一個 curl，跑幾秒就結束。
+name: Daily brief
+
+on:
+  schedule:
+    - cron: "5 * * * *"   # 每小時的第 5 分，避開整點的尖峰
+  workflow_dispatch:      # 需要時可以手動跑一次
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger daily brief
+        run: |
+          code=$(curl -s -o /tmp/out.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_BASE_URL }}/api/cron/daily-brief")
+          echo "HTTP $code"
+          cat /tmp/out.json
+          # 端點沒回 200 就讓這次 workflow 失敗，才看得到是哪一小時沒推出去
+          test "$code" = "200"

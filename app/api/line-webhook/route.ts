@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import * as crypto from "crypto";
 import { createServiceClient } from "@/lib/supabase/service";
+import { aiBudgetGuard } from "@/lib/aiUsage";
+import { parseReceipt } from "@/lib/receiptParser";
+import { fetchMessageContent } from "@/lib/linePush";
 
 const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET!;
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!;
@@ -44,7 +47,7 @@ type LineEvent = {
   type: string;
   replyToken?: string;
   source: { type?: "user" | "group" | "room"; userId: string; groupId?: string; roomId?: string };
-  message?: { type: string; text: string; mention?: { mentionees: Mentionee[] } };
+  message?: { type: string; id?: string; text?: string; mention?: { mentionees: Mentionee[] } };
   postback?: { data: string };
 };
 
@@ -329,6 +332,92 @@ async function handlePostback(
 // Main event handler
 // ────────────────────────────────────────────────────────────────
 
+/**
+ * 群組裡丟一張收據就記帳。
+ *
+ * 吃完飯在群組拍一張是自然動作，打字記帳不是 —— 這條路省掉的是「回想金額、切換到 App、
+ * 手動輸入」那整段。辨識完之後接上既有的分帳選人流程，和打字記帳走到同一個地方。
+ *
+ * 群組裡不要求 @ 機器人：圖片訊息沒有 mention，強制要求等於這個功能用不了。
+ * 代價是群組裡任何圖片都會被辨識一次，所以辨識不出金額時安靜結束，不要洗版。
+ */
+async function handleReceiptImage(
+  event: LineEvent,
+  replyToken: string,
+  supabase: ReturnType<typeof createServiceClient>,
+  isGroup: boolean,
+) {
+  const messageId = event.message?.id;
+  if (!messageId) return;
+
+  const { data: chatMapping } = await supabase
+    .from("line_group_mappings")
+    .select("default_trip_id, trips(id, name, currency, people, user_id)")
+    .eq("group_id", chatId(event))
+    .single() as { data: { default_trip_id: string | null; trips: TripRow | TripRow[] | null } | null };
+
+  const tripRow = chatMapping
+    ? (Array.isArray(chatMapping.trips) ? chatMapping.trips[0] : chatMapping.trips) as TripRow | null
+    : null;
+  // 沒連結行程的群組安靜跳過：那裡的圖片本來就跟記帳無關
+  if (!tripRow || !chatMapping?.default_trip_id) return;
+
+  if (!process.env.GEMINI_API_KEY) return;
+  const overBudget = await aiBudgetGuard();
+  if (overBudget) {
+    await replyMessage(replyToken, [{ type: "text", text: "AI 用量已達本月上限，請先手動記帳。" }]);
+    return;
+  }
+
+  const image = await fetchMessageContent(messageId);
+  if (!image) return;
+
+  let parsed;
+  try {
+    parsed = await parseReceipt("image/jpeg", image.toString("base64"), {
+      feature: "receipt",
+      // 沒有登入 session，掛在旅程擁有者名下，後台的 AI 用量才有帳可查
+      actorId: tripRow.user_id,
+      actorName: null,
+    });
+  } catch {
+    return;
+  }
+
+  // 認不出金額就當作那不是收據 —— 群組裡的圖片十張有九張是風景照
+  if (!parsed || typeof parsed.amount !== "number" || !(parsed.amount > 0)) {
+    if (!isGroup) {
+      await replyMessage(replyToken, [{ type: "text", text: "這張看不出金額，可以直接打「描述 金額」記帳。" }]);
+    }
+    return;
+  }
+
+  const tripPeople = tripRow.people ?? [];
+  const primaryCurrency = tripRow.currency ? tripRow.currency.split(",")[0] : "TWD";
+  const lineUserId = event.source.userId;
+
+  await supabase.from("line_pending_expenses").delete().eq("line_user_id", lineUserId);
+
+  const { data: pendingRow } = await supabase.from("line_pending_expenses").insert({
+    line_user_id: lineUserId,
+    trip_id: tripRow.id,
+    user_id: tripRow.user_id,
+    description: parsed.description?.slice(0, 200) || "收據",
+    amount: parsed.amount,
+    currency: parsed.currency || primaryCurrency,
+    paid_by: null,
+    selected_people: [],
+    all_people: tripPeople,
+    trip_name: tripRow.name,
+  }).select().single() as { data: PendingExpense | null };
+  if (!pendingRow) return;
+
+  await replyMessage(replyToken, [
+    { type: "text", text: `辨識到：${pendingRow.description}　${pendingRow.currency} ${pendingRow.amount}` },
+    tripPeople.length > 0 ? buildSplitNumberFlex(pendingRow) : buildConfirmationFlex(pendingRow, []),
+  ]);
+}
+
 async function handleEvent(event: LineEvent) {
   const lineUserId = event.source.userId;
   const replyToken = event.replyToken!;
@@ -341,7 +430,14 @@ async function handleEvent(event: LineEvent) {
     return;
   }
 
-  if (event.type !== "message" || event.message?.type !== "text") return;
+  if (event.type !== "message") return;
+
+  if (event.message?.type === "image") {
+    await handleReceiptImage(event, replyToken, supabase, isGroup);
+    return;
+  }
+
+  if (event.message?.type !== "text" || !event.message.text) return;
 
   const rawText = event.message.text.trim();
   if (isGroup) {
