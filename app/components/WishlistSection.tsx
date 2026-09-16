@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Typography, Input } from "antd";
 import { motion, AnimatePresence } from "framer-motion";
-import { LocationIcon, PlusIcon } from "@/app/components/Icons";
+import { LocationIcon, PlusIcon, MapIcon } from "@/app/components/Icons";
 
 /**
  * 想去清單：還沒決定哪一天的地點。
@@ -73,12 +73,14 @@ export default function WishlistSection({
       onDrop={onDropZone}
     >
       <div className="flex items-center gap-2 flex-wrap">
-        <Typography.Text className="text-zinc-500 text-[12px] shrink-0">想去</Typography.Text>
+        {/* 一個 icon 就說完它是什麼，不用一句話 */}
+        <span className="shrink-0 flex items-center gap-1 text-zinc-500" title="想去清單">
+          <MapIcon size={12} />
+          <span className="text-[12px]">想去</span>
+        </span>
 
         {items.length === 0 && !adding && (
-          <Typography.Text className="text-zinc-700 text-[12px]">
-            還沒想好哪天去的先丟這裡
-          </Typography.Text>
+          <Typography.Text className="text-zinc-700 text-[12px]">拖到某一天排入</Typography.Text>
         )}
 
         {items.map((item) => (

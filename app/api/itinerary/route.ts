@@ -112,17 +112,23 @@ export async function PATCH(request: NextRequest) {
   const { id, show_elevation, status, date } = await request.json();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
+  const { data: before } = await supabase.from("itinerary_items").select("*").eq("id", id).maybeSingle();
+  if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const patch: Record<string, unknown> = {};
   if (show_elevation === null || typeof show_elevation === "boolean") {
     patch.show_elevation = show_elevation;
   }
   /*
     「排進某一天」是同時改 status 與 date，所以兩個一起走這裡。
-    date 要允許 undefined（只切備案、不動日期）與 null（丟回想去清單），
-    所以用 "date" in body 判斷有沒有帶，不能看值是不是 falsy。
+
+    沒帶 date 時要拿這一列現有的日期去驗證，不能當成沒有日期 —— 只切備案的請求本來就不會
+    帶日期，而那一列明明有；用 undefined 去驗證會把「標為備案」整個擋掉。
+    帶了才動它：null 是丟回想去清單，字串是排到那一天。
   */
   if (status !== undefined) {
-    const statusError = validateStatus(status, date);
+    const effectiveDate = date !== undefined ? date : before.date;
+    const statusError = validateStatus(status, effectiveDate);
     if (statusError) return statusError;
     patch.status = status;
   }
@@ -130,8 +136,6 @@ export async function PATCH(request: NextRequest) {
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
-
-  const { data: before } = await supabase.from("itinerary_items").select("*").eq("id", id).maybeSingle();
   const { data: after, error } = await supabase.from("itinerary_items").update(patch).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await logChange({ action: "update", table: "itinerary_items", actor: actorFrom(user), before, after, request });

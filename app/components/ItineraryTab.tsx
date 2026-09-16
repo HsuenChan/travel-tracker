@@ -4,7 +4,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown } from "antd";
+import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown, Segmented } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon, SheetIcon } from "@/app/components/Icons";
 import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
@@ -229,6 +229,8 @@ export default function ItineraryTab({
     return items.find(i => i.id === urlItemId) ?? null;
   }, [urlModal, urlItemId, items]);
   const [saving, setSaving] = useState(false);
+  /** 表單目前選的狀態：選「想去」時日期欄位收起來，也不再必填 */
+  const formStatus = Form.useWatch("status", form) ?? "planned";
   const [loading, setLoading] = useState(true);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -491,9 +493,12 @@ export default function ItineraryTab({
     const timeStartVal = values.timeStart as Dayjs | null | undefined;
     const timeEndVal = values.timeEnd as Dayjs | null | undefined;
 
+    const status = (values.status as string) ?? "planned";
     const payload = {
       tripId,
-      date: dateVal ? dateVal.format("YYYY-MM-DD") : "",
+      status,
+      // 想去清單一律沒有日期；帶了日期後端會擋（狀態與日期必須對得上）
+      date: status === "wishlist" ? null : dateVal ? dateVal.format("YYYY-MM-DD") : "",
       time: timeStartVal ? timeStartVal.format("HH:mm") : null,
       end_date: endDateVal ? endDateVal.format("YYYY-MM-DD") : null,
       end_time: timeEndVal ? timeEndVal.format("HH:mm") : null,
@@ -653,18 +658,6 @@ export default function ItineraryTab({
     fetchItems();
   }
 
-  /** 備案 ↔ 一般：只切狀態，日期不動 */
-  async function toggleBackup(item: ItineraryItem) {
-    const next = item.status === "backup" ? "planned" : "backup";
-    const res = await fetchWithAuth("/api/itinerary", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: item.id, status: next }),
-    });
-    if (!res.ok) { message.error("切換失敗，請再試一次"); return; }
-    fetchItems();
-  }
-
   async function handleDelete(id: string) {
     const deleted = items.find((i) => i.id === id);
     try {
@@ -740,6 +733,7 @@ export default function ItineraryTab({
     if (urlModal === "addItinerary" || urlModal === "editItinerary") setForceClosed(false);
     if (urlModal === "editItinerary" && editingItem) {
       form.setFieldsValue({
+        status: editingItem.status ?? "planned",
         date: editingItem.date ? dayjs(editingItem.date) : null,
         endDate: editingItem.end_date && editingItem.end_date !== editingItem.date ? dayjs(editingItem.end_date) : null,
         timeStart: editingItem.time ? dayjs(editingItem.time, "HH:mm") : null,
@@ -1171,26 +1165,6 @@ export default function ItineraryTab({
             const actionButtons = !readOnly ? (
               <div className="flex items-center gap-1.5 shrink-0 ml-1">
                 <button
-                  aria-label="移到想去清單"
-                  title="移到想去清單"
-                  onClick={() => unschedule(item.id)}
-                  className="h-8 px-2.5 rounded-full text-[11px] font-medium text-zinc-600 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
-                >
-                  想去
-                </button>
-                <button
-                  aria-label={item.status === "backup" ? "改回一般行程" : "標為備案"}
-                  title={item.status === "backup" ? "改回一般行程" : "標為備案"}
-                  onClick={() => toggleBackup(item)}
-                  className={`h-8 px-2.5 rounded-full text-[11px] font-medium transition-colors cursor-pointer ${
-                    item.status === "backup"
-                      ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25"
-                      : "text-zinc-600 hover:bg-white/[0.08] hover:text-zinc-300"
-                  }`}
-                >
-                  備案
-                </button>
-                <button
                   aria-label="編輯行程"
                   onClick={() => openEdit(item)}
                   className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300 transition-colors cursor-pointer"
@@ -1209,6 +1183,12 @@ export default function ItineraryTab({
                   <DeleteOutlined style={{ fontSize: 13 }} />
                 </button>
               </div>
+            ) : null;
+            /* 虛線框只是暗示，還是要有一個字說它是什麼；灰的就好，這種東西不需要搶顏色 */
+            const backupTag = item.status === "backup" ? (
+              <span className="shrink-0 text-[11px] leading-4 px-1.5 rounded border border-white/12 text-zinc-500">
+                備案
+              </span>
             ) : null;
             const linkedExpenses = expensesByItem[item.id] ?? [];
             const hasExpenses = linkedExpenses.length > 0;
@@ -1286,7 +1266,7 @@ export default function ItineraryTab({
               */
               className={`relative bg-white/[0.03] rounded-[18px] overflow-hidden ${
                 item.status === "backup"
-                  ? "border border-dashed border-white/15 opacity-75"
+                  ? "border border-dashed border-white/[0.14] opacity-65"
                   : "border border-white/[0.07]"
               }`}
               style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
@@ -1365,6 +1345,7 @@ export default function ItineraryTab({
               {(timeLabel || item.category || locationInner || routeChip || expenseChip) && (
                 <div className="md:hidden flex items-center gap-2 flex-wrap mb-1 text-zinc-500 text-xs">
                   {timeLabel && <span className="text-zinc-500">{timeLabel}</span>}
+                  {backupTag}
                   {item.category && <CategoryBadge category={item.category} />}
                   {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
                   {routeChip}
@@ -1703,15 +1684,34 @@ export default function ItineraryTab({
         centered={true}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4" disabled={saving}>
-          <div className="flex gap-2">
-            <Form.Item name="date" label="日期" rules={[{ required: true, message: "請選擇日期" }]} className="flex-1">
+          {/*
+            status 是一個欄位三種值，所以是一個選擇器，不是散在卡片上的兩顆按鈕。
+            選「想去」時日期會收起來 —— 想去清單本來就還沒決定哪一天。
+          */}
+          <Form.Item name="status" label="狀態" initialValue="planned">
+            <Segmented
+              block
+              options={[
+                { label: "正式行程", value: "planned" },
+                { label: "備案", value: "backup" },
+                { label: "想去", value: "wishlist" },
+              ]}
+            />
+          </Form.Item>
+          <div className={`gap-2 ${formStatus === "wishlist" ? "hidden" : "flex"}`}>
+            <Form.Item
+              name="date"
+              label="日期"
+              rules={[{ required: formStatus !== "wishlist", message: "請選擇日期" }]}
+              className="flex-1"
+            >
               <DatePicker className="w-full" placeholder="選擇日期" />
             </Form.Item>
             <Form.Item name="endDate" label="結束日期（跨日選填）" className="flex-1">
               <DatePicker className="w-full" placeholder="跨日才需要" />
             </Form.Item>
           </div>
-          <div className="flex gap-2">
+          <div className={`gap-2 ${formStatus === "wishlist" ? "hidden" : "flex"}`}>
             <Form.Item name="timeStart" label="開始時間（選填）" className="flex-1">
               <TimePicker className="w-full" format="HH:mm" minuteStep={5} placeholder="選填" needConfirm={false} />
             </Form.Item>
