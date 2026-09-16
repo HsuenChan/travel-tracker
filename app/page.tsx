@@ -782,7 +782,6 @@ export default function Home() {
             wrapper: { height: "85vh" },
             header: { background: "transparent", borderBottom: "1px solid rgba(255,255,255,0.05)" },
             body: { background: "transparent", padding: 0, overflowY: "auto" },
-            mask: { backdropFilter: "blur(4px)" },
             section: { borderRadius: '24px 24px 0 0' }
           }}
           closeIcon={<CloseIcon size={14} stroke="#a1a1aa" />}

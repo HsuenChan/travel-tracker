@@ -598,6 +598,10 @@
         <div class="text-xs text-zinc-500">水平分隔線：<span class="font-mono">border-b border-white/[0.05]</span> 或 <span class="font-mono">h-px bg-white/[0.05]</span>。不使用實線灰色。</div>
       </div>
       <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">Modal / Drawer 遮罩</div>
+        <div class="text-xs text-zinc-500">統一在 globals.css 的 <span class="font-mono">.ant-modal-mask, .ant-drawer-mask</span>：<span class="font-mono">blur(4px)</span> + <span class="font-mono">rgba(9,9,11,0.55)</span>。不要逐處寫 <span class="font-mono">styles={{ mask: ... }}</span> —— 那會變成有的浮層糊、有的不糊。</div>
+      </div>
+      <div class="rule-block">
         <div class="text-xs font-semibold text-zinc-300 mb-1">Empty State</div>
         <div class="text-xs text-zinc-500">置中 flex column，icon 用 emoji 或 SVG（40–48px），主文 <span class="font-mono">text-zinc-400 text-sm</span>，輔助文 <span class="font-mono">text-zinc-600 text-xs</span>，可選 CTA button（ghost 樣式）。</div>
       </div>
