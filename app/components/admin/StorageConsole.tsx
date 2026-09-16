@@ -61,9 +61,9 @@ export default function StorageConsole() {
   const tight = usedPct >= 80;
 
   return (
-    <div className="pt-7">
-      <h1 className="text-[22px] font-bold tracking-tight text-zinc-100">圖片儲存</h1>
-      <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-zinc-500">
+    <div className="pt-6">
+      <h1 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">圖片儲存</h1>
+      <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-zinc-500">
         行程照片存在 Supabase Storage，免費方案共 1 GB。從行程上移掉一張圖或刪掉整筆行程時，
         資料庫的參照會消失，但檔案仍留在 bucket 裡 —— 那些沒有人引用的檔案可以在這裡一次清掉。
       </p>

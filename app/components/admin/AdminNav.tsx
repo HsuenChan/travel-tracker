@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/admin/ai", label: "AI" },
   { href: "/admin/errors", label: "異常" },
   { href: "/admin/storage", label: "儲存" },
+  { href: "/admin/line", label: "LINE" },
 ];
 
 export default function AdminNav() {
