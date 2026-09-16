@@ -31,6 +31,8 @@ interface Props {
   dragOver?: boolean;
   onAdd: (title: string, location: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  /** 點 chip 打開那一筆的完整內容；唯讀分享頁不給（那邊沒有編輯畫面） */
+  onOpen?: (id: string) => void;
   onDragStartItem?: (e: React.DragEvent, id: string, label: string) => void;
   onDragOverZone?: (e: React.DragEvent) => void;
   onDragLeaveZone?: () => void;
@@ -39,7 +41,7 @@ interface Props {
 
 export default function WishlistSection({
   items, readOnly, dragOver,
-  onAdd, onRemove, onDragStartItem, onDragOverZone, onDragLeaveZone, onDropZone,
+  onAdd, onRemove, onOpen, onDragStartItem, onDragOverZone, onDragLeaveZone, onDropZone,
 }: Props) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
@@ -89,12 +91,23 @@ export default function WishlistSection({
             draggable={!readOnly}
             onDragStart={(e) => onDragStartItem?.(e, item.id, item.title)}
             title={item.location ?? undefined}
-            className={`group inline-flex items-center gap-1 h-7 pl-2.5 pr-1.5 rounded-full border border-white/10 bg-white/[0.05] text-zinc-200 text-[12px] max-w-[190px] ${
-              readOnly ? "" : "cursor-grab active:cursor-grabbing hover:border-violet-500/40"
+            className={`group inline-flex items-center gap-1 h-7 rounded-full border border-white/10 bg-white/[0.05] text-zinc-200 text-[12px] max-w-[190px] ${
+              readOnly ? "pl-2.5 pr-2.5" : "pl-2.5 pr-1.5 cursor-grab active:cursor-grabbing hover:border-violet-500/40"
             }`}
           >
-            {item.location && <LocationIcon size={10} />}
-            <span className="truncate">{item.title}</span>
+            {/*
+              標題本身就是打開的入口 —— chip 上塞不下一顆「查看」，而使用者第一個會做的事
+              就是點它。拖曳掛在外層，所以點與拖不會互相吃掉。
+            */}
+            <button
+              type="button"
+              onClick={() => onOpen?.(item.id)}
+              disabled={!onOpen}
+              className="inline-flex items-center gap-1 min-w-0 cursor-pointer disabled:cursor-default"
+            >
+              {item.location && <LocationIcon size={10} />}
+              <span className="truncate">{item.title}</span>
+            </button>
             {!readOnly && (
               <button
                 onClick={() => onRemove(item.id)}

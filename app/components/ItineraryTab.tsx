@@ -1578,6 +1578,10 @@ export default function ItineraryTab({
           dragOver={dragOverWishlist}
           onAdd={addWishlist}
           onRemove={handleDelete}
+          onOpen={readOnly ? undefined : (id) => {
+            const found = items.find((i) => i.id === id);
+            if (found) openEdit(found);
+          }}
           onDragStartItem={startDrag}
 
           onDragOverZone={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverWishlist(true); }}
@@ -1720,7 +1724,8 @@ export default function ItineraryTab({
       )}
 
       <Modal
-        title={editingItem ? "編輯行程" : "新增行程"}
+        // 想去清單的那一筆還不是「行程」，開起來說「編輯行程」會讓人以為它已經排進去了
+        title={editingItem ? (editingItem.status === "wishlist" ? "想去的地方" : "編輯行程") : "新增行程"}
         open={showModal}
         onCancel={closeModal}
         afterClose={() => { form.resetFields(); setImageUrls([]); }}
