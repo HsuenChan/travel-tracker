@@ -1223,7 +1223,8 @@ export default function ItineraryTab({
                 aria-hidden
                 className="absolute left-0 top-0 bottom-0 z-20 w-[26px] flex items-center justify-center border-r border-dashed"
                 style={{
-                  background: "rgba(100,116,139,0.16)",
+                  // 疊在照片上，所以底要夠實才讀得到字；純色卡上看起來仍然只是一條淡灰
+                  background: "rgba(30,41,59,0.72)",
                   borderColor: "rgba(148,163,184,0.28)",
                 }}
               >
@@ -1308,7 +1309,7 @@ export default function ItineraryTab({
               // 備案和一般行程長得一樣的話，當天看行程會以為每一項都要跑完
               className={`relative bg-white/[0.03] rounded-[18px] overflow-hidden ${
                 item.status === "backup"
-                  ? "border border-dashed border-slate-400/35 opacity-[0.82] pl-[26px]"
+                  ? "border border-dashed border-slate-400/35 opacity-[0.82]"
                   : "border border-white/[0.07]"
               }`}
               style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
@@ -1346,7 +1347,8 @@ export default function ItineraryTab({
                       </span>
                     )}
                     {/* 手機：標題疊在下緣漸層上 */}
-                    <div className="md:hidden absolute left-3.5 right-12 bottom-1 pointer-events-none">
+                    {/* 手機的標題是疊在照片上的另一個絕對定位元素，備案時也要讓開邊條 */}
+                    <div className={`md:hidden absolute ${item.status === "backup" ? "left-[34px]" : "left-3.5"} right-12 bottom-1 pointer-events-none`}>
                       <Typography.Text strong className="!text-zinc-50 text-[15px] leading-snug">{item.title}</Typography.Text>
                     </div>
                     {/* 手機：操作鈕疊在圖片右上（與伴手禮卡一致） */}
@@ -1375,7 +1377,15 @@ export default function ItineraryTab({
                   </div>
                 );
               })()}
-              <div className={`flex-1 min-w-0 ${hasImage ? "pt-1 md:pt-0" : "pt-3"} px-3.5 pb-3 md:flex md:flex-col md:justify-center md:py-3`}>
+              {/*
+                照片讓邊條壓上去，文字不行 —— 標題被蓋住就讀不出來了。
+                有照片的卡在桌機是左右排，文字本來就在照片右邊，只有手機（上下排）需要讓開。
+              */}
+              <div className={`flex-1 min-w-0 ${hasImage ? "pt-1 md:pt-0" : "pt-3"} ${
+                item.status === "backup"
+                  ? hasImage ? "pl-[34px] md:pl-3.5" : "pl-[34px]"
+                  : "pl-3.5"
+              } pr-3.5 pb-3 md:flex md:flex-col md:justify-center md:py-3`}>
               {!hasImage && (
                 <div className="md:hidden flex justify-between items-start mb-1">
                   <Typography.Text strong className="!text-zinc-50 text-[15px] leading-snug flex-1 min-w-0">{item.title}</Typography.Text>
