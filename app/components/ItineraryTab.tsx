@@ -11,7 +11,7 @@ import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/compone
 import ElevationSparkline from "@/app/components/ElevationSparkline";
 import { decideElevationDisplay } from "@/lib/elevationDisplay";
 import { computeOutdoorTotals, type OutdoorTotals } from "@/lib/outdoorTotals";
-import type { RouteProfile } from "@/lib/routeProfile";
+import { routePhotos, type RouteProfile } from "@/lib/routeProfile";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
@@ -1165,7 +1165,20 @@ export default function ItineraryTab({
     });
 
     const itemNodes = (startsOn[date] ?? []).map((item, itemIndex) => {
-            const hasImage = !!(item.image_urls && item.image_urls.length > 0);
+            /*
+              沒有自己上傳的照片時，戶外路段退回用路線檔案裡的代表照片。
+
+              那些照片本來就在這一筆行程底下（只是收在路線檢視的分頁裡），卡片卻長得像一張
+              沒有圖的空卡 —— 溪降那種卡片一整排灰底，光看名字認不出是哪一條。
+              routePhotos 已經濾掉相對路徑那種載不到的來源。
+            */
+            const ownPhotos = item.image_urls ?? [];
+            const cardPhotos = ownPhotos.length > 0
+              ? ownPhotos
+              : item.category === "outdoor"
+                ? routePhotos(item.route_profile)
+                : [];
+            const hasImage = cardPhotos.length > 0;
             const timeLabel = (item.time || item.end_time) ? (
               <span className="text-xs shrink-0 tabular-nums">
                 {item.time ?? ""}
@@ -1325,11 +1338,11 @@ export default function ItineraryTab({
                 draggable={!readOnly}
                 onDragStart={readOnly ? undefined : (e) => startDrag(e, item.id, item.title)}
               >
-              {item.image_urls && item.image_urls.length > 0 && (() => {
-                const cover = parseCoverPos(item.image_urls[0]);
+              {hasImage && (() => {
+                const cover = parseCoverPos(cardPhotos[0]);
                 return (
                   <div className="relative w-full h-32 md:w-64 md:h-auto md:min-h-[128px] md:shrink-0">
-                    <Image.PreviewGroup items={item.image_urls.map((u) => parseCoverPos(u).clean)}>
+                    <Image.PreviewGroup items={cardPhotos.map((u) => parseCoverPos(u).clean)}>
                       <Image
                         src={cover.clean}
                         alt={item.title}
@@ -1345,9 +1358,9 @@ export default function ItineraryTab({
                     <div className="absolute inset-0 bg-[#17141f]/25 pointer-events-none" />
                     <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-transparent to-[#121214] pointer-events-none md:hidden" />
                     <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-r from-transparent to-[#121214] pointer-events-none hidden md:block" />
-                    {item.image_urls.length > 1 && (
+                    {cardPhotos.length > 1 && (
                       <span className="absolute bottom-2 right-2 text-[11px] leading-4 px-1.5 py-0.5 rounded-md bg-black/60 text-zinc-200 pointer-events-none">
-                        +{item.image_urls.length - 1}
+                        +{cardPhotos.length - 1}
                       </span>
                     )}
                     {/* 手機：標題疊在下緣漸層上 */}
