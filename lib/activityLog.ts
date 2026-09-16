@@ -182,6 +182,19 @@ export const ENTITY_SPECS: Record<string, EntitySpec> = {
       destinations: "目的地",
     },
   },
+  /*
+    不是真的資料表，是 Storage 的檔案。
+
+    後台的清理動作要留下紀錄（誰在什麼時候清掉幾個檔案），而那條路只有 logChange；
+    沒有這一筆的話，事件列會直接印出 storage_objects 這個字串。
+    沒有欄位可 diff，說明都寫在 note 裡。
+  */
+  storage_objects: {
+    tab: "trip",
+    noun: "圖片檔案",
+    titleFields: [],
+    fields: {},
+  },
 };
 
 export function entitySpec(table: string): EntitySpec | null {
