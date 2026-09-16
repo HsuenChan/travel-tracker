@@ -214,6 +214,23 @@ export default function TripPage() {
     if (id) recordTripOpen(id);
   }, [id]);
 
+  /*
+    旅途中打開這一頁時回報裝置時區，給每日推播判斷「早上八點是哪裡的八點」。
+
+    是不是在旅途中由後端用回報的時區判斷 —— 前端這裡還不一定拿到 trip，
+    而且判斷的規則只該有一份。提前訂票時人在出發地，後端會直接略過。
+  */
+  useEffect(() => {
+    if (!id) return;
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timeZone) return;
+    fetchWithAuth(`/api/trips/${id}/timezone`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ timeZone }),
+    }).catch(() => { });
+  }, [id]);
+
   // 峰終回顧：旅程結束後第一次打開這頁時撒一次 confetti（之後只留回顧卡）
   const tripEnded = !!(trip?.end_date && dayjs().format("YYYY-MM-DD") > trip.end_date);
   useEffect(() => {

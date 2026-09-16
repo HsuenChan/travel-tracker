@@ -1,37 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@/lib/supabase/server";
-import { trackGemini, aiBudgetGuard, type TrackMeta } from "@/lib/aiUsage";
-
-const PROMPT = `You are a receipt/invoice parser. Extract expense information from this receipt image.
-The receipt may be in any language and any country's format. Preserve the original language for item names but add Chinese translations.
-
-Return ONLY a valid JSON object (no markdown, no explanation):
-{
-  "description": "Merchant name and main purpose. If non-English/Chinese, include original + Chinese translation. E.g.: 'さくら食堂 Sakura Shokudo 桜食堂餐廳' or 'Supermarché Casino 超級市場'",
-  "amount": 1234.56,
-  "currency": "JPY",
-  "date": "YYYY-MM-DD or empty string",
-  "category": "food | transport | accommodation | shopping | activity | other",
-  "notes": "Itemized list if available. Each item on a new line: original name + Chinese translation + amount. E.g.:\\nラーメン 拉麵 ¥800\\nビール 啤酒 ¥500"
-}
-
-Rules:
-- amount: total amount after tax as a number, no currency symbols
-- currency: 3-letter ISO code (JPY, KRW, EUR, THB, USD, TWD, etc.) — detect from receipt symbols or context
-- date: from the receipt date field, format as YYYY-MM-DD
-- category: best guess based on merchant type
-- notes: only include if receipt has itemized list; keep concise`;
-
-async function runGemini(mimeType: string, base64: string, meta: Omit<TrackMeta, "model">) {
-  const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({ model: modelName });
-  const result = await trackGemini({ ...meta, model: modelName }, () =>
-    model.generateContent([{ inlineData: { mimeType, data: base64 } }, PROMPT])
-  );
-  return result.response.text().trim().replace(/^```json\s*/i, "").replace(/```\s*$/, "");
-}
+import { aiBudgetGuard } from "@/lib/aiUsage";
+import { runReceiptGemini } from "@/lib/receiptParser";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -58,7 +28,7 @@ export async function POST(request: NextRequest) {
   const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
 
   try {
-    const raw = await runGemini(mimeType, base64, { feature: "receipt", actorId: user.id, actorName: user.email ?? null });
+    const raw = await runReceiptGemini(mimeType, base64, { feature: "receipt", actorId: user.id, actorName: user.email ?? null });
     try {
       return NextResponse.json(JSON.parse(raw));
     } catch {

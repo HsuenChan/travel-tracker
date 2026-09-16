@@ -1,5 +1,6 @@
 "use client";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import { computeSettlement, settlementPairKey, toBaseCurrency } from "@/lib/settlement";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -60,62 +61,6 @@ interface Props {
 }
 
 const PERSON_COLORS = ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#f97316"];
-
-function toBaseCurrency(
-  amount: number,
-  fromCurrency: string,
-  toCurrency: string,
-  rates: Record<string, number> | null
-): number {
-  if (!rates || fromCurrency === toCurrency) return amount;
-  const fromRate = rates[fromCurrency];
-  const toRate = rates[toCurrency];
-  if (!fromRate || !toRate) return amount;
-  return (amount / fromRate) * toRate;
-}
-
-function calculateSettlement(
-  expenses: Expense[],
-  people: string[],
-  toBase: (amount: number, currency: string) => number
-) {
-  const balances: Record<string, number> = {};
-  people.forEach((p) => { balances[p] = 0; });
-
-  expenses.forEach((exp) => {
-    if (!exp.paid_by || !exp.split_with || exp.split_with.length === 0) return;
-    const baseAmount = toBase(Number(exp.amount), exp.currency);
-    const perPerson = baseAmount / exp.split_with.length;
-    exp.split_with.forEach((p) => {
-      if (balances[p] === undefined) balances[p] = 0;
-      balances[p] -= perPerson;
-    });
-    if (balances[exp.paid_by] === undefined) balances[exp.paid_by] = 0;
-    balances[exp.paid_by] += baseAmount;
-  });
-
-  const cred = Object.entries(balances)
-    .filter(([, v]) => v > 0.005)
-    .map(([name, amt]) => ({ name, amt }))
-    .sort((a, b) => b.amt - a.amt);
-  const debt = Object.entries(balances)
-    .filter(([, v]) => v < -0.005)
-    .map(([name, amt]) => ({ name, amt: -amt }))
-    .sort((a, b) => b.amt - a.amt);
-
-  const transactions: { from: string; to: string; amount: number }[] = [];
-  let i = 0, j = 0;
-  while (i < cred.length && j < debt.length) {
-    const transfer = Math.min(cred[i].amt, debt[j].amt);
-    transactions.push({ from: debt[j].name, to: cred[i].name, amount: transfer });
-    cred[i].amt -= transfer;
-    debt[j].amt -= transfer;
-    if (cred[i].amt < 0.005) i++;
-    if (debt[j].amt < 0.005) j++;
-  }
-
-  return { balances, transactions };
-}
 
 /**
  * 催款訊息。
@@ -448,7 +393,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     if (!isPaid && transactions.length > 0) {
       const next = new Set(paidTransactions);
       next.add(txKey);
-      const allPaid = transactions.every((t) => next.has(`${t.from}→${t.to}:${t.amount.toFixed(2)}`));
+      const allPaid = transactions.every((t) => next.has(settlementPairKey(t)));
       if (allPaid) {
         import("canvas-confetti").then(({ default: confetti }) => {
           const colors = ["#8b5cf6", "#a855f7", "#6366f1", "#4ade80"];
@@ -711,7 +656,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
   }, [statsFilteredExpenses, rates, currency, people]);
 
   const { balances, transactions } = useMemo(
-    () => calculateSettlement(expenses, people, (amt, cur) => toBaseCurrency(amt, cur, currency, rates)),
+    () => computeSettlement(expenses, people, (amt: number, cur: string) => toBaseCurrency(amt, cur, currency, rates)),
     [expenses, people, currency, rates]
   );
   const settlementNeedsRates = !rates && expenses.some((e) => e.currency !== currency);
@@ -1199,7 +1144,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
     兩者都失敗（權限被擋、非安全來源）才跳出可全選的文字框，至少人工複製得到。
   */
   const unpaidTransactions = transactions.filter(
-    (t) => !paidTransactions.has(`${t.from}→${t.to}:${t.amount.toFixed(2)}`)
+    (t) => !paidTransactions.has(settlementPairKey(t))
   );
 
   async function sendReminder() {
@@ -1278,7 +1223,7 @@ export default function ExpensesTab({ tripId, people, currency, currencies, read
               </div>
               {transactions.map((t, i) => {
                 // key 含金額：結算金額一變，舊的繳清標記自動失效，不會誤導
-                const txKey = `${t.from}→${t.to}:${t.amount.toFixed(2)}`;
+                const txKey = settlementPairKey(t);
                 const isPaid = paidTransactions.has(txKey);
                 return (
                   <div

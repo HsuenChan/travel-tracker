@@ -99,7 +99,7 @@ interface SheetSpec {
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 
 /** 行程分類的中文名：與費用分類同一組 value，只多了戶外 */
-const CATEGORY_LABEL: Record<string, string> = { ...EXPENSE_CATEGORY_MAP, outdoor: "戶外" };
+export const CATEGORY_LABEL: Record<string, string> = { ...EXPENSE_CATEGORY_MAP, outdoor: "戶外" };
 
 const ENTITIES: Record<string, string> = {
   "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " ",
