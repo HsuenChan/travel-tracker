@@ -43,20 +43,46 @@ export async function listAllFiles(service: SupabaseClient): Promise<StoredFile[
   return files;
 }
 
-export async function referencedPaths(service: SupabaseClient): Promise<Set<string>> {
-  const { data, error } = await service
-    .from("itinerary_items")
-    .select("image_urls")
-    .not("image_urls", "is", null);
-  if (error) throw new Error(error.message);
+/**
+ * 還有人指向的檔案路徑。
+ *
+ * 四張表都用同一個 bucket —— 行程照片、伴手禮、旅程裝備、個人裝備櫃走的是同一支
+ * /api/itinerary/upload。漏掉任何一張，那張表的圖片就會被判成孤兒清掉。
+ */
+const IMAGE_SOURCES: { table: string; column: string; isArray: boolean }[] = [
+  { table: "itinerary_items", column: "image_urls", isArray: true },
+  { table: "souvenirs", column: "image_url", isArray: false },
+  { table: "gear_items", column: "image_url", isArray: false },
+  { table: "gear_closet", column: "image_url", isArray: false },
+];
 
+export async function referencedPaths(service: SupabaseClient): Promise<Set<string>> {
   const paths = new Set<string>();
-  for (const row of data ?? []) {
-    for (const url of (row.image_urls as string[] | null) ?? []) {
-      const path = pathFromPublicUrl(url);
-      if (path) paths.add(path);
+
+  for (const src of IMAGE_SOURCES) {
+    const { data, error } = await service
+      .from(src.table)
+      .select(src.column)
+      .not(src.column, "is", null);
+
+    /*
+      查不到就整個中止，不是跳過。
+
+      少一張表的參照，那張表的圖就會被當成沒人用而刪掉 —— 清理是不可逆的，
+      寧可讓管理員看到錯誤，也不要在資料不完整的情況下算出一份孤兒清單。
+    */
+    if (error) throw new Error(`讀取 ${src.table} 的圖片參照失敗：${error.message}`);
+
+    for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
+      const value = row[src.column];
+      const urls = src.isArray ? ((value as string[] | null) ?? []) : [value as string | null];
+      for (const url of urls) {
+        const path = url ? pathFromPublicUrl(url) : null;
+        if (path) paths.add(path);
+      }
     }
   }
+
   return paths;
 }
 
