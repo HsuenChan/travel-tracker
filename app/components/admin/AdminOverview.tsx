@@ -314,7 +314,7 @@ function SectionHead({ title, href }: { title: string; href: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <h2 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">{title}</h2>
-      <Tooltip title={label} placement="left" trigger={["hover", "click"]}>
+      <Tooltip title={label} placement="bottom" trigger={["hover", "click"]}>
         <Link
           href={href}
           aria-label={label}

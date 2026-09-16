@@ -86,7 +86,6 @@ export default function PassportTeaser({ firstYear, lastYear, className }: Props
           <motion.button
             onClick={launch}
             aria-label="翻開旅遊護照"
-            title="翻開旅遊護照"
             className="group cursor-pointer block"
             style={{ width: TEASER_WIDTH, rotate: TEASER_ROTATE }}
             whileHover={{ x: LIFT_X, y: LIFT_Y, scale: 1.05 }}

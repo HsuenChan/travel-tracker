@@ -552,13 +552,18 @@
       </div>
 
       <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">底色比卡片再深一階</div>
+        <div class="text-xs text-zinc-500">ConfigProvider 的 <span class="font-mono">Tooltip.colorBgSpotlight = #1f1d26</span>、文字 <span class="font-mono">#e4e4e7</span>、圓角 10。darkAlgorithm 預設那個偏亮的灰壓在深色介面上會浮起來，看起來像另一層卡片而不是註解。</div>
+      </div>
+
+      <div class="rule-block">
         <div class="text-xs font-semibold text-zinc-300 mb-1">長文字限寬</div>
         <div class="text-xs text-zinc-500"><span class="font-mono">styles={{ root: { maxWidth: 300 } }}</span>。不限寬的 tooltip 在寬螢幕上會拉成一條看不完的線。</div>
       </div>
 
       <div class="rule-block">
-        <div class="text-xs font-semibold text-zinc-300 mb-1">Placement</div>
-        <div class="text-xs text-zinc-500">預設 <span class="font-mono">top</span>。貼著畫面右緣的元素用 <span class="font-mono">left</span>，貼著上緣用 <span class="font-mono">bottom</span>，避免彈出後被裁掉。</div>
+        <div class="text-xs font-semibold text-zinc-300 mb-1">Placement 一律 <span class="font-mono">bottom</span></div>
+        <div class="text-xs text-zinc-500">全站統一顯示在下方：同一個畫面上有的往上彈、有的往下彈，游標移過去時會覺得位置在跳。往下也不會被手指擋住。<span class="font-mono">placement="bottom"</span> 每個 Tooltip 都要寫，不靠 antd 的預設值（那是 top）。</div>
       </div>
 
       <div class="rule-block">

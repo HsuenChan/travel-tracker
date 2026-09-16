@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Typography, Input } from "antd";
+import { Typography, Input, Tooltip } from "antd";
 import { motion, AnimatePresence } from "framer-motion";
 import { LocationIcon, PlusIcon, PocketIcon, MountainIcon } from "@/app/components/Icons";
 
@@ -67,10 +67,12 @@ export default function WishlistSection({
       onDrop={onDropZone}
     >
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="shrink-0 flex items-center gap-1 text-zinc-500" title="口袋名單：還沒決定哪一天去的地方">
-          <PocketIcon size={13} />
-          <span className="text-[12px]">口袋名單</span>
-        </span>
+        <Tooltip title="還沒決定哪一天去的地方" placement="bottom" trigger={["hover", "click"]}>
+          <span className="shrink-0 flex items-center gap-1 text-zinc-500 cursor-help">
+            <PocketIcon size={13} />
+            <span className="text-[12px]">口袋名單</span>
+          </span>
+        </Tooltip>
 
         {items.length === 0 && !adding && (
           <Typography.Text className="text-zinc-700 text-[12px]">拖到某一天排入</Typography.Text>

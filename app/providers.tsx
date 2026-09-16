@@ -42,6 +42,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           Tag: {
             borderRadiusSM: 10,
           },
+          Tooltip: {
+            // darkAlgorithm 給的 colorBgSpotlight 是偏亮的灰，壓在深色介面上會浮起來
+            colorBgSpotlight: "#1f1d26",
+            colorTextLightSolid: "#e4e4e7",
+            borderRadius: 10,
+          },
           List: {
             itemPaddingSM: "10px 16px",
           },

@@ -156,7 +156,7 @@ export default function GpxImportModal({
               <label className="flex flex-col gap-1">
                 <span className="text-zinc-400 text-[12px] flex items-center gap-1">
                   海拔校正
-                  <Tooltip title={CALIBRATION_HINT} trigger={["hover", "click"]} styles={{ root: { maxWidth: 320 } }}>
+                  <Tooltip title={CALIBRATION_HINT} placement="bottom" trigger={["hover", "click"]} styles={{ root: { maxWidth: 320 } }}>
                     <span className="text-zinc-500 cursor-help"><InfoIcon size={11} /></span>
                   </Tooltip>
                 </span>

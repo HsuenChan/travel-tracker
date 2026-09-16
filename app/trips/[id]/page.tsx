@@ -851,14 +851,14 @@ export default function TripPage() {
                         okButtonProps={{ danger: true, loading: isRemoving }}
                         onConfirm={() => handleRemoveMember(m.user_id)}
                       >
-                        <Tooltip title={m.name}>
+                        <Tooltip title={m.name} placement="bottom" trigger={["hover", "click"]}>
                           <div className="relative cursor-pointer hover:opacity-75 transition-opacity" style={{ marginLeft: i === 0 ? 0 : -8, zIndex: members.length - i }}>
                             {avatar}
                           </div>
                         </Tooltip>
                       </Popconfirm>
                     ) : (
-                      <Tooltip key={m.user_id} title={`${m.name}${m.is_owner ? " (owner)" : ""}`}>
+                      <Tooltip key={m.user_id} title={`${m.name}${m.is_owner ? " (owner)" : ""}`} placement="bottom" trigger={["hover", "click"]}>
                         <div className="relative cursor-default" style={{ marginLeft: i === 0 ? 0 : -8, zIndex: members.length - i }}>
                           {avatar}
                         </div>

@@ -4,7 +4,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown } from "antd";
+import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown, Tooltip } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon, SheetIcon } from "@/app/components/Icons";
 import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
@@ -1480,14 +1480,15 @@ export default function ItineraryTab({
                   )}
                 </button>
               </Dropdown>
-              <button
-                onClick={handleExportSheet}
-                disabled={exporting}
-                title="把每日行程匯出成 Google 試算表"
-                className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50"
-              >
-                {exporting ? <LoadingOutlined style={{ fontSize: 10 }} /> : <SheetIcon size={11} />} 匯出
-              </button>
+              <Tooltip title="把每日行程匯出成 Google 試算表" placement="bottom" trigger={["hover", "click"]}>
+                <button
+                  onClick={handleExportSheet}
+                  disabled={exporting}
+                  className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50"
+                >
+                  {exporting ? <LoadingOutlined style={{ fontSize: 10 }} /> : <SheetIcon size={11} />} 匯出
+                </button>
+              </Tooltip>
               <button
                 onClick={() => openAdd()}
                 className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"

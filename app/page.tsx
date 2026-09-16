@@ -14,6 +14,7 @@ import {
   Tag,
   Skeleton,
   Dropdown,
+  Tooltip,
 } from "antd";
 import { getCountryFlags, getCountryCodes } from "@/lib/countries";
 import { parseCoverPos } from "@/lib/coverPos";
@@ -200,17 +201,18 @@ function TripCard({
               {trip.name}
             </Typography.Text>
           </div>
-          <button
-            aria-label="在地球上聚焦這趟旅程"
-            title="在地球上聚焦"
-            onClick={(e) => { e.stopPropagation(); onFocusGlobe(); }}
-            className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-1.5 border transition-colors cursor-pointer ${selected
-              ? "text-violet-300 border-violet-500/40 bg-violet-500/15"
-              : "text-zinc-500 border-white/[0.08] bg-white/[0.04] hover:text-zinc-200 hover:bg-white/[0.1]"
-              }`}
-          >
-            <AimOutlined style={{ fontSize: 13 }} />
-          </button>
+          <Tooltip title="在地球上聚焦這趟旅程" placement="bottom" trigger={["hover", "click"]}>
+            <button
+              aria-label="在地球上聚焦這趟旅程"
+              onClick={(e) => { e.stopPropagation(); onFocusGlobe(); }}
+              className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-1.5 border transition-colors cursor-pointer ${selected
+                ? "text-violet-300 border-violet-500/40 bg-violet-500/15"
+                : "text-zinc-500 border-white/[0.08] bg-white/[0.04] hover:text-zinc-200 hover:bg-white/[0.1]"
+                }`}
+            >
+              <AimOutlined style={{ fontSize: 13 }} />
+            </button>
+          </Tooltip>
         </div>
         <div className="relative space-y-1">
           {(trip.start_date || trip.end_date) && (
