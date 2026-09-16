@@ -1582,6 +1582,10 @@ export default function ItineraryTab({
             const found = items.find((i) => i.id === id);
             if (found) openEdit(found);
           }}
+          onOpenRoute={(id) => {
+            const found = items.find((i) => i.id === id);
+            if (found) setRouteItem(found);
+          }}
           onDragStartItem={startDrag}
 
           onDragOverZone={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverWishlist(true); }}

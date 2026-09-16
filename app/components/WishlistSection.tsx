@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Typography, Input } from "antd";
 import { motion, AnimatePresence } from "framer-motion";
-import { LocationIcon, PlusIcon, DreamCloudIcon } from "@/app/components/Icons";
+import { LocationIcon, PlusIcon, DreamCloudIcon, MountainIcon } from "@/app/components/Icons";
 
 /**
  * 想去清單：還沒決定哪一天的地點。
@@ -33,6 +33,8 @@ interface Props {
   onRemove: (id: string) => Promise<void>;
   /** 點 chip 打開那一筆的完整內容；唯讀分享頁不給（那邊沒有編輯畫面） */
   onOpen?: (id: string) => void;
+  /** 打開戶外路線檢視（高度圖與途經點）；唯讀也看得到 */
+  onOpenRoute?: (id: string) => void;
   onDragStartItem?: (e: React.DragEvent, id: string, label: string) => void;
   onDragOverZone?: (e: React.DragEvent) => void;
   onDragLeaveZone?: () => void;
@@ -41,7 +43,7 @@ interface Props {
 
 export default function WishlistSection({
   items, readOnly, dragOver,
-  onAdd, onRemove, onOpen, onDragStartItem, onDragOverZone, onDragLeaveZone, onDropZone,
+  onAdd, onRemove, onOpen, onOpenRoute, onDragStartItem, onDragOverZone, onDragLeaveZone, onDropZone,
 }: Props) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
@@ -92,7 +94,9 @@ export default function WishlistSection({
             onDragStart={(e) => onDragStartItem?.(e, item.id, item.title)}
             title={item.location ?? undefined}
             className={`group inline-flex items-center gap-1 h-7 rounded-full border border-white/10 bg-white/[0.05] text-zinc-200 text-[12px] max-w-[190px] ${
-              readOnly ? "pl-2.5 pr-2.5" : "pl-2.5 pr-1.5 cursor-grab active:cursor-grabbing hover:border-violet-500/40"
+              readOnly
+                ? item.category === "outdoor" ? "pl-2.5 pr-1.5" : "pl-2.5 pr-2.5"
+                : "pl-2.5 pr-1.5 cursor-grab active:cursor-grabbing hover:border-violet-500/40"
             }`}
           >
             {/*
@@ -108,6 +112,20 @@ export default function WishlistSection({
               {item.location && <LocationIcon size={10} />}
               <span className="truncate">{item.title}</span>
             </button>
+            {/*
+              戶外的還沒排進行程時一樣會有途經點與高度圖 —— 「要不要去這條」正是靠那張圖決定的，
+              所以這裡就要點得到，不必先排進某一天再打開。
+            */}
+            {item.category === "outdoor" && onOpenRoute && (
+              <button
+                type="button"
+                onClick={() => onOpenRoute(item.id)}
+                aria-label={`查看「${item.title}」的路線`}
+                className="w-4 h-4 rounded-full flex items-center justify-center text-emerald-300/80 hover:text-emerald-200 transition-colors cursor-pointer shrink-0"
+              >
+                <MountainIcon size={11} />
+              </button>
+            )}
             {!readOnly && (
               <button
                 onClick={() => onRemove(item.id)}
