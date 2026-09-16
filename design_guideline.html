@@ -23,6 +23,33 @@
     }
     .tt-demo:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+    /* Motion demo：純 CSS，六種對應下面六條原則。cubic-bezier 是 spring 的近似 */
+    .mo-spring-fast   { animation: moPop .34s cubic-bezier(0.175,0.885,0.32,1.275) both; }
+    .mo-spring-slow   { animation: moRise .52s cubic-bezier(0.22,1,0.36,1) both; }
+    .mo-spring-layout { animation: moShift .42s cubic-bezier(0.34,1.4,0.64,1) both; }
+    .mo-fade-slide    { animation: moFade .3s cubic-bezier(0.4,0,0.2,1) both; }
+    .mo-bg            { animation: moBg .9s ease both; }
+    .mo-float         { animation: moFloat 2.6s ease-in-out infinite; }
+
+    @keyframes moPop   { from { opacity: 0; transform: scale(.7); }              to { opacity: 1; transform: scale(1); } }
+    @keyframes moRise  { from { opacity: 0; transform: translateY(24px) scale(.96); } to { opacity: 1; transform: none; } }
+    @keyframes moShift { from { transform: translateX(-28px); }                  to { transform: none; } }
+    @keyframes moFade  { from { opacity: 0; transform: translateX(18px); }       to { opacity: 1; transform: none; } }
+    @keyframes moBg    { from { background: #09090b; }                           to { background: radial-gradient(ellipse at 30% 20%, rgba(139,92,246,.18), transparent 60%), #09090b; } }
+    @keyframes moFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+    /* 第二個元素錯開，就是 staggered delay 那條原則 */
+    #mo-badge.mo-spring-fast,
+    #mo-badge.mo-spring-slow,
+    #mo-badge.mo-fade-slide { animation-delay: .1s; }
+    #mo-badge.mo-float { animation-delay: .22s; }
+
+    .mo-hover { transition: transform .2s ease, border-color .2s ease; }
+    .mo-hover:hover { transform: translateY(-3px); border-color: rgba(139,92,246,0.4) !important; }
+
+    .mo-press { transition: transform .12s ease; }
+    .mo-press:active { transform: scale(.96); }
+
     .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #52525b; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .token-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
     .token-name { font-size: 11px; color: #71717a; font-family: monospace; width: 160px; flex-shrink: 0; }
@@ -496,6 +523,35 @@
   <section>
     <div class="section-title">8 · Motion Principles（Framer Motion）</div>
 
+    <p class="text-zinc-500 text-xs mb-5">純 CSS 的外觀示意（實際用 Framer Motion）。選一種再按播放，數值對照下面六條原則。</p>
+
+    <div class="mb-6 p-6 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
+      <div class="flex flex-wrap items-center gap-2 mb-5">
+        <select id="mo-pick" class="h-9 px-3 rounded-full text-xs font-medium" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#d4d4d8">
+          <option value="spring-fast">Spring — 快（入場 / 彈出）</option>
+          <option value="spring-slow">Spring — 緩（大卡片 / 頁面轉換）</option>
+          <option value="spring-layout">Spring — 佈局（tab / 選項切換）</option>
+          <option value="fade-slide">Fade / Slide（頁面 / 步驟切換）</option>
+          <option value="bg">Background transition</option>
+          <option value="float">Float / Idle（持續飄動）</option>
+        </select>
+        <button id="mo-play" class="h-9 px-5 rounded-full font-semibold text-xs mo-press" style="background:linear-gradient(90deg,#6366f1,#8b5cf6,#a855f7);color:#fff;box-shadow:0 4px 18px rgba(139,92,246,0.35)">
+          播放
+        </button>
+        <span id="mo-note" class="text-[11px] font-mono text-zinc-600"></span>
+      </div>
+
+      <div id="mo-stage" class="flex flex-wrap items-center gap-4 rounded-xl p-5" style="min-height:120px;background:#09090b;border:1px solid rgba(255,255,255,0.04)">
+        <div id="mo-card" class="mo-hover rounded-2xl p-4 w-56" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07)">
+          <div class="text-xs font-semibold text-zinc-200">淺草寺參觀</div>
+          <div class="text-[11px] text-zinc-500 mt-1">09:30 → 11:00 · 景點</div>
+        </div>
+        <div id="mo-badge" class="h-7 px-3 rounded-full inline-flex items-center text-[11px] font-semibold" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);color:#c4b5fd">
+          已儲存
+        </div>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 gap-4">
       <div class="rule-block">
         <div class="text-xs font-semibold text-zinc-300 mb-2">Spring — 快（入場 / 彈出）</div>
@@ -642,5 +698,37 @@
   </section>
 
 </div>
+  <script>
+    (() => {
+      const NOTES = {
+        "spring-fast":   'stiffness 400–520 · damping 14–18',
+        "spring-slow":   'stiffness 280–380 · damping 18–22',
+        "spring-layout": 'stiffness 300–400 · damping 20–22',
+        "fade-slide":    'duration 0.22–0.38 · ease [0.4,0,0.2,1]',
+        "bg":            'duration 0.9 · ease default',
+        "float":         'y:[0,-8,0] · 2.2–3.2s · repeat Infinity',
+      };
+      const ALL = Object.keys(NOTES).map((k) => "mo-" + k);
+      const pick = document.getElementById("mo-pick");
+      const note = document.getElementById("mo-note");
+      const stage = document.getElementById("mo-stage");
+      const targets = ["mo-card", "mo-badge"].map((id) => document.getElementById(id));
+
+      function play() {
+        const key = pick.value;
+        note.textContent = NOTES[key];
+        // 背景那條是舞台自己在變色，不是卡片
+        stage.classList.remove("mo-bg");
+        for (const el of targets) el.classList.remove(...ALL);
+        void stage.offsetWidth;
+        if (key === "bg") { stage.classList.add("mo-bg"); return; }
+        for (const el of targets) el.classList.add("mo-" + key);
+      }
+
+      pick?.addEventListener("change", play);
+      document.getElementById("mo-play")?.addEventListener("click", play);
+      play();
+    })();
+  </script>
 </body>
 </html>

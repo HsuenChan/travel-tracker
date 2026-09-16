@@ -1204,8 +1204,21 @@ export default function ItineraryTab({
                 </button>
               </div>
             ) : null;
-            const backupTag = item.status === "backup" ? (
-              <span className="shrink-0 text-[11px] leading-4 px-1.5 rounded border border-white/12 text-zinc-500">
+            /*
+              備案掛一條從卡片上緣垂下來的書籤。
+
+              原本是內文那一排裡的一個小 tag，混在分類、地點、金額之間看不出來 ——
+              而「這一項可去可不去」是當天站在路口才會想起來要找的東西，得一眼認得出。
+              底部的 V 缺口用 clip-path 切，不另外疊一個三角形。
+            */
+            const backupRibbon = item.status === "backup" ? (
+              <span
+                className="absolute left-3.5 top-0 z-20 inline-flex h-8 items-start justify-center px-2 pt-1 text-[11px] font-semibold tracking-wide text-amber-100/90"
+                style={{
+                  background: "rgba(180,131,58,0.92)",
+                  clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%)",
+                }}
+              >
                 備案
               </span>
             ) : null;
@@ -1287,6 +1300,7 @@ export default function ItineraryTab({
               }`}
               style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
             >
+              {backupRibbon}
               {/* 拖曳掛這層而不是外面的 motion.div：framer-motion 的 onDragStart 是另一個簽章 */}
               <div
                 className="block md:flex"
@@ -1348,7 +1362,10 @@ export default function ItineraryTab({
                   </div>
                 );
               })()}
-              <div className={`flex-1 min-w-0 ${hasImage ? "pt-1 md:pt-0" : "pt-3"} px-3.5 pb-3 md:flex md:flex-col md:justify-center md:py-3`}>
+              {/* 沒有圖的卡標題就貼在上緣，書籤會壓到它，所以是備案時往下讓一段 */}
+              <div className={`flex-1 min-w-0 ${
+                hasImage ? "pt-1 md:pt-0" : item.status === "backup" ? "pt-9 md:pt-3" : "pt-3"
+              } px-3.5 pb-3 md:flex md:flex-col md:justify-center md:py-3`}>
               {!hasImage && (
                 <div className="md:hidden flex justify-between items-start mb-1">
                   <Typography.Text strong className="!text-zinc-50 text-[15px] leading-snug flex-1 min-w-0">{item.title}</Typography.Text>
@@ -1358,7 +1375,6 @@ export default function ItineraryTab({
               {(timeLabel || item.category || locationInner || routeChip || expenseChip) && (
                 <div className="md:hidden flex items-center gap-2 flex-wrap mb-1 text-zinc-500 text-xs">
                   {timeLabel && <span className="text-zinc-500">{timeLabel}</span>}
-                  {backupTag}
                   {item.category && <CategoryBadge category={item.category} />}
                   {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
                   {routeChip}

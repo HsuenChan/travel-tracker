@@ -500,19 +500,6 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
-/*
-  Modal 與 Drawer 的遮罩統一模糊。
-
-  原本 Drawer 是逐處手寫 backdropFilter、Modal 完全沒有，所以同一個 App 裡打開抽屜背景會糊、
-  打開彈窗卻不會。寫在這裡兩者才一定一致，新加的彈窗也不用再記得補。
-*/
-.ant-modal-mask,
-.ant-drawer-mask {
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-  background: rgba(9, 9, 11, 0.55) !important;
-}
-
 /* ── Dark scrollbar (site-wide) ── */
 *::-webkit-scrollbar {
   width: 6px;
