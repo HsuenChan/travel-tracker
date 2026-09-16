@@ -272,7 +272,8 @@ export default function SharePageClient() {
           />
 
           {/* Desktop Tabs (Segmented-like) */}
-          <div className="hidden md:flex items-center justify-center mb-8 py-2 sticky top-14 z-[90] bg-[#09090b]/60 backdrop-blur-md">
+          {/* 只剩一個分頁時整條不出現：一顆永遠是選中的按鈕不是導覽，只是佔掉一段高度 */}
+          <div className={`${tabs.length > 1 ? "hidden md:flex" : "hidden"} items-center justify-center mb-8 py-2 sticky top-14 z-[90] bg-[#09090b]/60 backdrop-blur-md`}>
             <div className="flex bg-[#18181b]/80 border border-white/8 backdrop-blur-md rounded-full p-1.5 shadow-xl">
               {tabs.map((tab) => (
                 <button
@@ -452,12 +453,14 @@ export default function SharePageClient() {
           </div>
         </Modal>
 
-        <MobileNav
-          className="md:hidden"
-          activeKey={visibleTab}
-          onChange={handleTabChange}
-          tabs={tabs}
-        />
+        {tabs.length > 1 && (
+          <MobileNav
+            className="md:hidden"
+            activeKey={visibleTab}
+            onChange={handleTabChange}
+            tabs={tabs}
+          />
+        )}
 
       </Layout>
     </ConfigProvider>

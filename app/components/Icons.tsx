@@ -162,13 +162,13 @@ export function MapIcon({ size = 13, className, stroke = "currentColor", strokeW
   );
 }
 
-/** 口袋名單：做夢的那種雲朵，後面跟著兩顆由大到小的泡泡 */
-export function DreamCloudIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+/** 口袋名單：一個有翻蓋的口袋 */
+export function PocketIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M8.5 15.5h8.2a3.3 3.3 0 0 0 .3-6.58 4.6 4.6 0 0 0-8.74-1.2A3.4 3.4 0 0 0 8.5 15.5Z" />
-      <circle cx="6.4" cy="18.4" r="1.5" />
-      <circle cx="3.6" cy="20.9" r="0.9" />
+      <path d="M4 5h16v9a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6V5Z" />
+      <path d="M4 9h16" />
+      <path d="M9.5 12.5a2.5 2.5 0 0 0 5 0" />
     </svg>
   );
 }

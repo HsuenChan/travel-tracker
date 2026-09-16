@@ -82,6 +82,30 @@ interface MemberLink {
   avatar_url: string | null;
 }
 
+const TAB_DEFS = [
+  { key: "transport", label: "路線" },
+  { key: "itinerary", label: "行程" },
+  { key: "expenses", label: "費用" },
+  { key: "photos", label: "照片" },
+  { key: "notes", label: "筆記" },
+  { key: "souvenirs", label: "伴手禮" },
+  { key: "gear", label: "裝備" },
+];
+
+const TAB_ICONS: Record<string, React.ReactNode> = {
+  transport: <PlaneIcon size={18} />, itinerary: <CalendarIcon size={18} />,
+  expenses: <CoinIcon size={18} />, photos: <PhotoIcon size={18} />,
+  notes: <NotepadIcon size={18} />, souvenirs: <GiftIcon size={18} />,
+  gear: <CarabinerIcon size={18} />,
+};
+
+const TAB_ICONS_LG: Record<string, React.ReactNode> = {
+  transport: <PlaneIcon size={20} />, itinerary: <CalendarIcon size={20} />,
+  expenses: <CoinIcon size={20} />, photos: <PhotoIcon size={20} />,
+  notes: <NotepadIcon size={20} />, souvenirs: <GiftIcon size={20} />,
+  gear: <CarabinerIcon size={20} />,
+};
+
 export default function TripPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -614,6 +638,15 @@ export default function TripPage() {
   const people = trip?.people ?? [];
   // 綁定了 Google 帳號的分帳成員才認得出「我」；沒綁定時裝備頁只能顯示全隊總重
   const myPersonName = memberLinks.find((l) => l.user_id && l.user_id === userId)?.person_name ?? null;
+  /** 這趟啟用的分頁，依 enabled_tabs 的順序；只剩一個時兩條分頁列都不出現 */
+  const visibleTabs = TAB_DEFS
+    .filter((tab) => !trip?.enabled_tabs || trip.enabled_tabs.includes(tab.key))
+    .sort((a, b) => {
+      if (!trip?.enabled_tabs) return 0;
+      return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
+    })
+    .map((tab) => ({ ...tab, icon: TAB_ICONS[tab.key] }));
+
   const currencies = trip?.currency ? trip.currency.split(",") : ["TWD"];
   const primaryCurrency = currencies[0];
 
@@ -986,24 +1019,12 @@ export default function TripPage() {
           animate={{ clipPath: "inset(0 0 0% 0)", opacity: 1, transitionEnd: { clipPath: "none" } }}
           transition={{ duration: 0.48, ease: [0.2, 0, 0, 1], delay: 0.15 }}
         >
-          {/* 電腦版不上毛玻璃：橫幅不鋪底，框框自己是實色的，捲過去的內容不會透出來 */}
-          {!isMobile && (
+          {/* 電腦版不上毛玻璃：橫幅不鋪底，框框自己是實色的，捲過去的內容不會透出來。
+              只剩一個分頁時整條不出現 —— 一顆永遠是選中的按鈕不是導覽，只是佔掉一段高度 */}
+          {!isMobile && visibleTabs.length > 1 && (
             <div className="flex items-center justify-center mb-8 py-2 sticky top-16 z-[90]">
               <div className="flex bg-[#18181b] border border-white/8 rounded-full p-1.5 shadow-xl">
-                {[
-                  { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
-                  { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
-                  { key: "expenses", label: "費用", icon: <CoinIcon size={18} /> },
-                  { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
-                  { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
-                  { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
-                  { key: "gear", label: "裝備", icon: <CarabinerIcon size={18} /> },
-                ]
-                  .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
-                  .sort((a, b) => {
-                    if (!trip.enabled_tabs) return 0;
-                    return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
-                  })
+                {visibleTabs
                   .map((tab) => (
                     <button
                       key={tab.key}
@@ -1077,24 +1098,11 @@ export default function TripPage() {
         )}
       </div>
 
-      {isMobile && trip && (
+      {isMobile && trip && visibleTabs.length > 1 && (
         <MobileNav
           activeKey={activeTab}
           onChange={handleTabChange}
-          tabs={[
-            { key: "transport", icon: <PlaneIcon size={20} />, label: "路線" },
-            { key: "itinerary", icon: <CalendarIcon size={20} />, label: "行程" },
-            { key: "expenses", icon: <CoinIcon size={20} />, label: "費用" },
-            { key: "photos", icon: <PhotoIcon size={20} />, label: "照片" },
-            { key: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
-            { key: "souvenirs", icon: <GiftIcon size={20} />, label: "伴手禮" },
-            { key: "gear", icon: <CarabinerIcon size={20} />, label: "裝備" },
-          ]
-            .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
-            .sort((a, b) => {
-              if (!trip.enabled_tabs) return 0;
-              return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
-            })}
+          tabs={visibleTabs.map((t) => ({ ...t, icon: TAB_ICONS_LG[t.key] }))}
         />
       )}
 

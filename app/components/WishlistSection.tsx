@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Typography, Input } from "antd";
 import { motion, AnimatePresence } from "framer-motion";
-import { LocationIcon, PlusIcon, DreamCloudIcon, MountainIcon } from "@/app/components/Icons";
+import { LocationIcon, PlusIcon, PocketIcon, MountainIcon } from "@/app/components/Icons";
 
 /**
  * 口袋名單放在時間軸上面而不是另開分頁：這些東西的下一步就是被排進某一天，跨分頁就做不到
@@ -68,7 +68,7 @@ export default function WishlistSection({
     >
       <div className="flex items-center gap-2 flex-wrap">
         <span className="shrink-0 flex items-center gap-1 text-zinc-500" title="口袋名單：還沒決定哪一天去的地方">
-          <DreamCloudIcon size={13} />
+          <PocketIcon size={13} />
           <span className="text-[12px]">口袋名單</span>
         </span>
 
