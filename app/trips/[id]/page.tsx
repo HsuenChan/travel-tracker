@@ -137,6 +137,8 @@ export default function TripPage() {
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportTabs, setExportTabs] = useState<string[]>([]);
   const loginEmailRef = useRef<string | null>(null);
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -586,7 +588,7 @@ export default function TripPage() {
    * 放在旅程層而不是行程分頁：它是「對這一趟做一件事」，和分享、邀請、編輯同一類，
    * 而且一年用不到幾次 —— 擺在行程分頁的工具列上會跟每天都用的新增、AI 搶位置。
    */
-  async function handleExportSheet() {
+  async function handleExportSheet(exportTabs: string[]) {
     if (exporting) return;
     setExporting(true);
     try {
@@ -600,7 +602,7 @@ export default function TripPage() {
       const res = await fetchWithAuth("/api/itinerary/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, accessToken }),
+        body: JSON.stringify({ tripId: id, accessToken, tabs: exportTabs }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -638,6 +640,13 @@ export default function TripPage() {
     } finally {
       setExporting(false);
     }
+  }
+
+  function openExportModal() {
+    // 預設全選；沒有資料的分頁後端會自己跳過，不會產生空白工作表
+    setExportTabs(exportableTabs.map((t) => t.key));
+    setExportModalOpen(true);
+    setShowMoreSheet(false);
   }
 
   async function handleLeave() {
@@ -715,6 +724,9 @@ export default function TripPage() {
       return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
     })
     .map((tab) => ({ ...tab, icon: TAB_ICONS[tab.key] }));
+
+  /** 照片沒辦法放進試算表，所以不列入匯出選項 */
+  const exportableTabs = visibleTabs.filter((t) => t.key !== "photos");
 
   const currencies = trip?.currency ? trip.currency.split(",") : ["TWD"];
   const primaryCurrency = currencies[0];
@@ -835,7 +847,7 @@ export default function TripPage() {
               </PillButton>
             )}
 
-            <PillButton onClick={handleExportSheet} disabled={exporting} title="把行程匯出成 Google 試算表">
+            <PillButton onClick={openExportModal} disabled={exporting} title="匯出成 Google 試算表">
               {exporting ? <LoadingOutlined style={{ fontSize: 12 }} /> : <SheetIcon size={13} />}
               匯出
             </PillButton>
@@ -1000,6 +1012,53 @@ export default function TripPage() {
               onClick={handleCopyShareLink}
             >
               {shareTabs.length === 0 ? "至少選一個分頁" : "複製分享連結"}
+            </Button>
+          </div>
+        </Modal>
+
+        <Modal
+          open={exportModalOpen}
+          onCancel={() => setExportModalOpen(false)}
+          footer={null}
+          title="匯出成 Google 試算表"
+          centered
+        >
+          <div className="flex flex-col gap-3 pt-1">
+            <Typography.Text className="text-zinc-500 text-[13px]">
+              選要匯出哪些分頁，每一個會變成試算表裡的一張工作表。
+            </Typography.Text>
+            <div className="flex flex-wrap gap-1.5">
+              {exportableTabs.map((tab) => {
+                const on = exportTabs.includes(tab.key);
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setExportTabs((prev) => on ? prev.filter((k) => k !== tab.key) : [...prev, tab.key])}
+                    aria-pressed={on}
+                    className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3.5 border transition-all duration-200 cursor-pointer ${on
+                      ? "bg-white/10 border-white/20 text-white"
+                      : "bg-white/[0.03] border-white/8 text-zinc-500 hover:text-zinc-300"
+                      }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            <Typography.Text className="text-zinc-600 text-[12px] leading-relaxed">
+              沒有內容的分頁不會產生空白工作表。照片沒辦法放進試算表，所以不在選項裡。
+            </Typography.Text>
+            <Button
+              type="primary"
+              block
+              loading={exporting}
+              disabled={exportTabs.length === 0}
+              onClick={async () => {
+                setExportModalOpen(false);
+                await handleExportSheet(exportTabs);
+              }}
+            >
+              {exportTabs.length === 0 ? "至少選一個分頁" : "匯出"}
             </Button>
           </div>
         </Modal>
@@ -1248,7 +1307,7 @@ export default function TripPage() {
 
             {/* 匯出行程 */}
             <button
-              onClick={() => { setShowMoreSheet(false); handleExportSheet(); }}
+              onClick={openExportModal}
               disabled={exporting}
               className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
             >
@@ -1256,8 +1315,8 @@ export default function TripPage() {
                 {exporting ? <LoadingOutlined style={{ color: "#34d399", fontSize: 16 }} /> : <SheetIcon size={16} stroke="#34d399" />}
               </div>
               <div>
-                <div className="text-zinc-100 text-[14px] font-medium">匯出行程</div>
-                <div className="text-zinc-500 text-[11px] mt-0.5">存成你雲端硬碟裡的試算表</div>
+                <div className="text-zinc-100 text-[14px] font-medium">匯出試算表</div>
+                <div className="text-zinc-500 text-[11px] mt-0.5">選要匯出哪些分頁</div>
               </div>
             </button>
 

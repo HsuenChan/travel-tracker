@@ -30,6 +30,51 @@ export interface ExportItem {
   descent_m: number | null;
 }
 
+export interface ExportSegment {
+  order: number | null;
+  type: string | null;
+  date: string | null;
+  time: string | null;
+  arrival_date: string | null;
+  arrival_time: string | null;
+  from_city: string | null;
+  from_iata: string | null;
+  to_city: string | null;
+  to_iata: string | null;
+  flight_no: string | null;
+  aircraft: string | null;
+}
+
+export interface ExportExpense {
+  date: string | null;
+  description: string;
+  category: string | null;
+  amount: number;
+  currency: string;
+  paid_by: string | null;
+  split_with: string[] | null;
+  notes: string | null;
+}
+
+export interface ExportSouvenir {
+  name: string;
+  is_checked: boolean | null;
+  tags: string[] | null;
+  notes: string | null;
+}
+
+export interface ExportGear {
+  name: string;
+  category: string | null;
+  scope: string;
+  weight_role: string;
+  weight_g: number | null;
+  qty: number;
+  assigned_to: string | null;
+  is_checked: boolean | null;
+  notes: string | null;
+}
+
 export interface ExportWaypoint {
   itinerary_item_id: string;
   order_index: number;
@@ -208,13 +253,159 @@ function waypointSheet(items: ExportItem[], waypoints: ExportWaypoint[]): SheetS
   };
 }
 
-export function buildSheets(items: ExportItem[], waypoints: ExportWaypoint[]): SheetSpec[] {
-  // 行程表只放有日期的；口袋名單沒有日期，另起一張放在最後
-  const scheduled = items.filter((i) => i.status !== "wishlist");
-  const sheets = [itinerarySheet(scheduled)];
-  if (waypoints.length > 0) sheets.push(waypointSheet(scheduled, waypoints));
-  const wishes = wishlistSheet(items);
-  if (wishes) sheets.push(wishes);
+function segmentSheet(rows: ExportSegment[]): SheetSpec {
+  return {
+    title: "路線",
+    columns: [
+      { label: "日期", width: 92 },
+      { label: "出發", width: 62 },
+      { label: "抵達", width: 62 },
+      { label: "方式", width: 62 },
+      { label: "從", width: 150 },
+      { label: "到", width: 150 },
+      { label: "班次", width: 90 },
+      { label: "機型／車種", width: 120 },
+    ],
+    rows: rows.map((r) => [
+      r.date ?? "",
+      r.time ?? "",
+      [r.arrival_date && r.arrival_date !== r.date ? r.arrival_date : "", r.arrival_time ?? ""].filter(Boolean).join(" "),
+      r.type ?? "",
+      [r.from_city, r.from_iata].filter(Boolean).join(" "),
+      [r.to_city, r.to_iata].filter(Boolean).join(" "),
+      r.flight_no ?? "",
+      r.aircraft ?? "",
+    ] satisfies Cell[]),
+  };
+}
+
+function expenseSheet(rows: ExportExpense[]): SheetSpec {
+  return {
+    title: "費用",
+    columns: [
+      { label: "日期", width: 92 },
+      { label: "項目", width: 220 },
+      { label: "分類", width: 72 },
+      { label: "金額", width: 90 },
+      { label: "幣別", width: 56 },
+      { label: "付款人", width: 90 },
+      { label: "分攤", width: 180 },
+      { label: "備註", width: 260 },
+    ],
+    rows: rows.map((r) => [
+      r.date ?? "",
+      r.description,
+      r.category ? EXPENSE_CATEGORY_MAP[r.category] ?? r.category : "",
+      r.amount,
+      r.currency,
+      r.paid_by ?? "",
+      (r.split_with ?? []).join("、"),
+      htmlToPlainText(r.notes),
+    ] satisfies Cell[]),
+  };
+}
+
+function souvenirSheet(rows: ExportSouvenir[]): SheetSpec {
+  return {
+    title: "伴手禮",
+    columns: [
+      { label: "已買", width: 48 },
+      { label: "項目", width: 240 },
+      { label: "標籤", width: 160 },
+      { label: "備註", width: 300 },
+    ],
+    rows: rows.map((r) => [
+      r.is_checked ? "✓" : "",
+      r.name,
+      (r.tags ?? []).join("、"),
+      htmlToPlainText(r.notes),
+    ] satisfies Cell[]),
+  };
+}
+
+const GEAR_ROLE_LABEL: Record<string, string> = { base: "基準", worn: "穿著", consumable: "消耗" };
+
+function gearSheet(rows: ExportGear[]): SheetSpec {
+  return {
+    title: "裝備",
+    columns: [
+      { label: "已打包", width: 58 },
+      { label: "項目", width: 220 },
+      { label: "分類", width: 100 },
+      { label: "個人／公裝", width: 86 },
+      { label: "重量歸類", width: 78 },
+      { label: "單件 (g)", width: 72 },
+      { label: "數量", width: 52 },
+      { label: "小計 (g)", width: 78 },
+      { label: "攜帶者", width: 90 },
+      { label: "備註", width: 240 },
+    ],
+    rows: rows.map((r) => [
+      r.is_checked ? "✓" : "",
+      r.name,
+      r.category ?? "",
+      r.scope === "group" ? "公裝" : "個人",
+      GEAR_ROLE_LABEL[r.weight_role] ?? r.weight_role,
+      r.weight_g,
+      r.qty,
+      r.weight_g != null ? r.weight_g * r.qty : null,
+      r.assigned_to ?? "",
+      htmlToPlainText(r.notes),
+    ] satisfies Cell[]),
+  };
+}
+
+function notesSheet(html: string | null): SheetSpec | null {
+  const text = htmlToPlainText(html);
+  if (!text) return null;
+  return {
+    title: "筆記",
+    columns: [{ label: "內容", width: 720 }],
+    // 一行一列，試算表裡才讀得動；整段塞進一格會變成一條看不完的線
+    rows: text.split("\n").map((line) => [line] satisfies Cell[]),
+  };
+}
+
+export interface ExportData {
+  items: ExportItem[];
+  waypoints: ExportWaypoint[];
+  segments: ExportSegment[];
+  expenses: ExportExpense[];
+  souvenirs: ExportSouvenir[];
+  gear: ExportGear[];
+  notes: string | null;
+}
+
+/**
+ * 挑出來的分頁各自變成一張工作表，順序照旅程分頁的順序。
+ *
+ * 沒有資料的分頁不會產生空白工作表 —— 勾了但那一頁其實是空的，給一張只有標題列的表沒有意義。
+ */
+export function buildSheets(tabs: string[], data: ExportData): SheetSpec[] {
+  const sheets: SheetSpec[] = [];
+
+  for (const tab of tabs) {
+    if (tab === "transport" && data.segments.length > 0) {
+      sheets.push(segmentSheet(data.segments));
+    } else if (tab === "itinerary") {
+      // 行程表只放有日期的；口袋名單沒有日期，另起一張
+      const scheduled = data.items.filter((i) => i.status !== "wishlist");
+      if (scheduled.length > 0) sheets.push(itinerarySheet(scheduled));
+      if (data.waypoints.length > 0) sheets.push(waypointSheet(scheduled, data.waypoints));
+      const wishes = wishlistSheet(data.items);
+      if (wishes) sheets.push(wishes);
+    } else if (tab === "expenses" && data.expenses.length > 0) {
+      sheets.push(expenseSheet(data.expenses));
+    } else if (tab === "souvenirs" && data.souvenirs.length > 0) {
+      sheets.push(souvenirSheet(data.souvenirs));
+    } else if (tab === "gear" && data.gear.length > 0) {
+      sheets.push(gearSheet(data.gear));
+    } else if (tab === "notes") {
+      const n = notesSheet(data.notes);
+      if (n) sheets.push(n);
+    }
+  }
+
   return sheets;
 }
 

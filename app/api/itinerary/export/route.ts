@@ -7,7 +7,12 @@ import {
   valuesUpdateBody,
   type ExportItem,
   type ExportWaypoint,
+  type ExportSegment,
+  type ExportExpense,
+  type ExportSouvenir,
+  type ExportGear,
 } from "@/lib/itineraryExport";
+import { TRIP_TAB_KEYS } from "@/lib/tripTabs";
 
 const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
 
@@ -33,32 +38,38 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { tripId, accessToken } = await request.json();
+  const { tripId, accessToken, tabs } = await request.json();
   if (!tripId || !accessToken) {
     return NextResponse.json({ error: "tripId and accessToken required" }, { status: 400 });
   }
+  // 沒指定就照這趟啟用的分頁全部匯出，維持舊行為
+  const wanted: string[] = Array.isArray(tabs) && tabs.length > 0 ? tabs : [];
 
   const { data: trip, error: tripError } = await supabase
     .from("trips")
-    .select("name,start_date,end_date")
+    .select("name,start_date,end_date,enabled_tabs,ai_notes")
     .eq("id", tripId)
     .single();
   if (tripError || !trip) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
 
-  // 排序與 /api/itinerary 一致，匯出的順序就是時間軸上看到的順序
-  const { data: itemRows, error: itemsError } = await supabase
-    .from("itinerary_items")
-    .select("id,date,title,category,time,end_date,end_time,location,notes,distance_km,ascent_m,descent_m,status")
-    .eq("trip_id", tripId)
-    .order("date", { ascending: true })
-    .order("time", { ascending: true, nullsFirst: true })
-    .order("sort_order", { ascending: true });
-  if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 });
+  const tabOrder: string[] = trip.enabled_tabs ?? TRIP_TAB_KEYS;
+  // 照旅程分頁的順序排，工作表的順序就和 App 裡看到的一樣
+  const selected = tabOrder.filter((t) => (wanted.length === 0 ? true : wanted.includes(t)));
 
-  const items = (itemRows ?? []) as ExportItem[];
-  if (items.length === 0) {
-    return NextResponse.json({ error: "Nothing to export", code: "empty" }, { status: 400 });
-  }
+  const want = (tab: string) => selected.includes(tab);
+
+  // 排序與 /api/itinerary 一致，匯出的順序就是時間軸上看到的順序
+  const itemsRes = want("itinerary")
+    ? await supabase
+        .from("itinerary_items")
+        .select("id,date,title,category,time,end_date,end_time,location,notes,distance_km,ascent_m,descent_m,status")
+        .eq("trip_id", tripId)
+        .order("date", { ascending: true })
+        .order("time", { ascending: true, nullsFirst: true })
+        .order("sort_order", { ascending: true })
+    : { data: [], error: null };
+  if (itemsRes.error) return NextResponse.json({ error: itemsRes.error.message }, { status: 500 });
+  const items = (itemsRes.data ?? []) as ExportItem[];
 
   const outdoorIds = items.filter((i) => i.category === "outdoor").map((i) => i.id);
   let waypoints: ExportWaypoint[] = [];
@@ -73,7 +84,34 @@ export async function POST(request: NextRequest) {
     waypoints = (data ?? []) as ExportWaypoint[];
   }
 
-  const sheets = buildSheets(items, waypoints);
+  const [segRes, expRes, souRes, gearRes] = await Promise.all([
+    want("transport")
+      ? supabase.from("segments").select('"order",type,date,time,arrival_date,arrival_time,from_city,from_iata,to_city,to_iata,flight_no,aircraft').eq("trip_id", tripId).order("order", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    want("expenses")
+      ? supabase.from("expenses").select("date,description,category,amount,currency,paid_by,split_with,notes").eq("trip_id", tripId).order("date", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    want("souvenirs")
+      ? supabase.from("souvenirs").select("name,is_checked,tags,notes").eq("trip_id", tripId).order("order_index", { ascending: true }).order("created_at", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    want("gear")
+      ? supabase.from("gear_items").select("name,category,scope,weight_role,weight_g,qty,assigned_to,is_checked,notes").eq("trip_id", tripId).order("order_index", { ascending: true }).order("created_at", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const sheets = buildSheets(selected, {
+    items,
+    waypoints,
+    segments: (segRes.data ?? []) as ExportSegment[],
+    expenses: (expRes.data ?? []) as ExportExpense[],
+    souvenirs: (souRes.data ?? []) as ExportSouvenir[],
+    gear: (gearRes.data ?? []) as ExportGear[],
+    notes: want("notes") ? ((trip.ai_notes as { content?: string } | null)?.content ?? null) : null,
+  });
+
+  if (sheets.length === 0) {
+    return NextResponse.json({ error: "Nothing to export", code: "empty" }, { status: 400 });
+  }
   const title = spreadsheetTitle(trip);
   const auth = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
 
