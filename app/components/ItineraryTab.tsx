@@ -4,7 +4,7 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown, Segmented } from "antd";
+import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
 import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon, SheetIcon } from "@/app/components/Icons";
 import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
@@ -130,6 +130,51 @@ interface Props {
   initialWaypoints?: Record<string, RouteWaypoint[]>;
   /** 戶外路段總計顯示在 hero，改動後要讓上層跟著更新 */
   onOutdoorTotalsChange?: (totals: OutdoorTotals | null) => void;
+}
+
+const STATUS_OPTIONS = [
+  { value: "planned", label: "正式行程" },
+  { value: "backup", label: "備案" },
+  { value: "wishlist", label: "想去" },
+] as const;
+
+/**
+ * 狀態選擇器。
+ *
+ * 用專案自己的 chip 樣式（與分享範圍設定同一套），不是 antd 的 Segmented —— 那個元件自帶
+ * 淺色的滑塊與外框，在這個深色介面上是一塊突兀的灰色方框，怎麼調大小都一樣。
+ *
+ * value / onChange 是 Form.Item 注入的，所以它在表單裡就是一個一般的受控欄位。
+ */
+function StatusPicker({
+  value = "planned",
+  onChange,
+}: {
+  value?: string;
+  onChange?: (v: string) => void;
+}) {
+  return (
+    <div className="flex gap-1.5">
+      {STATUS_OPTIONS.map((opt) => {
+        const on = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange?.(opt.value)}
+            className={`inline-flex items-center rounded-full text-[13px] font-medium h-8 px-3.5 border transition-all duration-200 cursor-pointer ${
+              on
+                ? "bg-white/10 border-white/20 text-white"
+                : "bg-white/[0.03] border-white/8 text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 /** 同幣別合併，跨幣別並列（行程卡上不換匯，避免多打一支匯率 API） */
@@ -1694,15 +1739,8 @@ export default function ItineraryTab({
           <Form.Item name="title" label="行程名稱" rules={[{ required: true, message: "請輸入行程名稱" }]}>
             <Input placeholder="例如：淺草寺參觀" />
           </Form.Item>
-          <Form.Item name="status" initialValue="planned" className="!mb-3">
-            <Segmented
-              size="small"
-              options={[
-                { label: "正式行程", value: "planned" },
-                { label: "備案", value: "backup" },
-                { label: "想去", value: "wishlist" },
-              ]}
-            />
+          <Form.Item name="status" initialValue="planned" className="!mb-4">
+            <StatusPicker />
           </Form.Item>
           <div className={`gap-2 ${formStatus === "wishlist" ? "hidden" : "flex"}`}>
             <Form.Item
