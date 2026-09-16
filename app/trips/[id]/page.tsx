@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import { GoogleAuthError, clearGoogleAccessToken, preloadGoogleAuth, requestGoogleAccessToken } from "@/lib/googleAuth";
 import { recordTripOpen } from "@/lib/recentTrips";
 import {
   Button, Typography, Input,
@@ -28,7 +29,7 @@ import PillButton from "@/app/components/PillButton";
 import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
 import {
   PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon, CarabinerIcon,
-  CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
+  CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon, SheetIcon,
 } from "@/app/components/Icons";
 import { computeOutdoorTotals, type OutdoorTotals } from "@/lib/outdoorTotals";
 import { TRIP_TAB_KEYS, TRIP_TAB_LABEL } from "@/lib/tripTabs";
@@ -135,6 +136,8 @@ export default function TripPage() {
   const [leaving, setLeaving] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const loginEmailRef = useRef<string | null>(null);
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [itineraryStats, setItineraryStats] = useState<{ items: number; locations: number } | null>(null);
@@ -571,6 +574,72 @@ export default function TripPage() {
     }
   }
 
+  // GIS 的 script 先載好，按下匯出時彈窗才算在點擊那個手勢裡、不會被瀏覽器擋掉
+  useEffect(() => {
+    preloadGoogleAuth().catch(() => { });
+  }, []);
+
+  /**
+   * 匯出成使用者自己 Google 帳號裡的試算表：當場向 Google 要一顆只能碰自建檔案的 token，
+   * 交給後端組表格。行程資料由後端重讀，匯出的內容一定是已存檔的版本。
+   *
+   * 放在旅程層而不是行程分頁：它是「對這一趟做一件事」，和分享、邀請、編輯同一類，
+   * 而且一年用不到幾次 —— 擺在行程分頁的工具列上會跟每天都用的新增、AI 搶位置。
+   */
+  async function handleExportSheet() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      if (loginEmailRef.current === null) {
+        try {
+          const meRes = await fetchWithAuth("/api/me");
+          if (meRes.ok) loginEmailRef.current = (await meRes.json()).email ?? "";
+        } catch { }
+      }
+      const accessToken = await requestGoogleAccessToken(loginEmailRef.current || undefined);
+      const res = await fetchWithAuth("/api/itinerary/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, accessToken }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.code === "google_auth_required") {
+          clearGoogleAccessToken();
+          messageApi.error("Google 授權已失效，請再按一次匯出重新授權");
+        } else if (data.code === "sheets_api_disabled") {
+          messageApi.error("這個 Google 專案還沒啟用 Sheets API");
+        } else if (data.code === "empty") {
+          messageApi.info("這趟還沒有行程可以匯出");
+        } else {
+          messageApi.error("匯出失敗，請再試一次");
+        }
+        return;
+      }
+      window.open(data.url, "_blank", "noopener");
+      messageApi.success(
+        <span>
+          已匯出到你的 Google 雲端硬碟 ·{" "}
+          <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline">開啟試算表</a>
+        </span>,
+        6
+      );
+    } catch (e) {
+      if (e instanceof GoogleAuthError) {
+        if (e.code === "cancelled") return;
+        messageApi.error(
+          e.code === "popup_blocked" ? "Google 授權視窗被瀏覽器擋住了，請允許彈出視窗後再試"
+            : e.code === "no_client_id" ? "這個站台還沒設定 Google 用戶端 ID，無法匯出"
+              : "Google 授權失敗，請再試一次"
+        );
+      } else {
+        messageApi.error("匯出失敗，請檢查網路連線");
+      }
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function handleLeave() {
     setLeaving(true);
     await fetchWithAuth(`/api/trips/${id}/leave`, { method: "DELETE" });
@@ -765,6 +834,11 @@ export default function TripPage() {
                 分帳綁定
               </PillButton>
             )}
+
+            <PillButton onClick={handleExportSheet} disabled={exporting} title="把行程匯出成 Google 試算表">
+              {exporting ? <LoadingOutlined style={{ fontSize: 12 }} /> : <SheetIcon size={13} />}
+              匯出
+            </PillButton>
 
             <PillButton onClick={() => pushModal("lineBot")} title="LINE Bot 記帳">
               <LineBotIcon size={13} />
@@ -1171,6 +1245,21 @@ export default function TripPage() {
                 </div>
               </button>
             )}
+
+            {/* 匯出行程 */}
+            <button
+              onClick={() => { setShowMoreSheet(false); handleExportSheet(); }}
+              disabled={exporting}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
+            >
+              <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(52,211,153,0.15)" }}>
+                {exporting ? <LoadingOutlined style={{ color: "#34d399", fontSize: 16 }} /> : <SheetIcon size={16} stroke="#34d399" />}
+              </div>
+              <div>
+                <div className="text-zinc-100 text-[14px] font-medium">匯出行程</div>
+                <div className="text-zinc-500 text-[11px] mt-0.5">存成你雲端硬碟裡的試算表</div>
+              </div>
+            </button>
 
             {/* 分帳綁定 */}
             {(isOwner || isMember) && people.length > 0 && (

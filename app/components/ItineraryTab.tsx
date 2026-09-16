@@ -6,7 +6,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown, Tooltip } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
-import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon, SheetIcon } from "@/app/components/Icons";
+import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, TextFullIcon, TextClampIcon, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon } from "@/app/components/Icons";
 import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
 import ElevationSparkline from "@/app/components/ElevationSparkline";
 import { decideElevationDisplay } from "@/lib/elevationDisplay";
@@ -21,7 +21,6 @@ import WishlistSection from "@/app/components/WishlistSection";
 import QuickExpenseModal from "@/app/components/QuickExpenseModal";
 import { parseCoverPos, withCoverPos } from "@/lib/coverPos";
 import { compressImage } from "@/lib/compressImage";
-import { GoogleAuthError, clearGoogleAccessToken, preloadGoogleAuth, requestGoogleAccessToken } from "@/lib/googleAuth";
 
 const todayStr = dayjs().format("YYYY-MM-DD");
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -131,6 +130,8 @@ interface Props {
   /** 戶外路段總計顯示在 hero，改動後要讓上層跟著更新 */
   onOutdoorTotalsChange?: (totals: OutdoorTotals | null) => void;
 }
+
+const NOTES_VIEW_KEY = "travel_itinerary_notes_view";
 
 const STATUS_OPTIONS = [
   { value: "planned", label: "正式行程" },
@@ -267,7 +268,26 @@ export default function ItineraryTab({
     return items.find(i => i.id === urlItemId) ?? null;
   }, [urlModal, urlItemId, items]);
   const [saving, setSaving] = useState(false);
+  /*
+    備註要不要全部展開。
+
+    有些行程的備註是訂票連結與最新進度，那是真的要讀的；有些只是一長串說明，
+    展開會把一天撐成好幾個畫面。所以不是替使用者決定，而是給一個開關 —— 和伴手禮的
+    卡片／列表檢視同一套做法，選過就記住。
+  */
+  const [notesExpanded, setNotesExpanded] = useState(true);
   const formStatus = Form.useWatch("status", form) ?? "planned";
+
+  useEffect(() => {
+    // SSR 沒有 localStorage，掛載後才套用
+    const saved = localStorage.getItem(NOTES_VIEW_KEY);
+    if (saved === "collapsed") setNotesExpanded(false);
+  }, []);
+
+  function changeNotesView(expanded: boolean) {
+    setNotesExpanded(expanded);
+    localStorage.setItem(NOTES_VIEW_KEY, expanded ? "expanded" : "collapsed");
+  }
   const [loading, setLoading] = useState(true);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -288,8 +308,6 @@ export default function ItineraryTab({
   const [quickSaving, setQuickSaving] = useState(false);
 
   // 匯出 Google Sheet
-  const [exporting, setExporting] = useState(false);
-  const loginEmailRef = useRef<string | null>(null);
 
   // AI 選單（AI 排程 + 行程檢查，兩者打的是同一支 AI API）
   const [aiMenuOpen, setAIMenuOpen] = useState(false);
@@ -826,69 +844,6 @@ export default function ItineraryTab({
     }
   }
 
-  // GIS 的 script 先載好，按下匯出時彈窗才算在點擊那個手勢裡、不會被瀏覽器擋掉
-  useEffect(() => {
-    if (readOnly || !isActive) return;
-    preloadGoogleAuth().catch(() => { });
-  }, [readOnly, isActive]);
-
-  /**
-   * 匯出成使用者自己 Google 帳號裡的試算表：當場向 Google 要一顆只能碰自建檔案的 token，
-   * 交給後端組表格。行程資料由後端重讀，匯出的內容一定是已存檔的版本。
-   */
-  async function handleExportSheet() {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      if (loginEmailRef.current === null) {
-        try {
-          const meRes = await fetchWithAuth("/api/me");
-          if (meRes.ok) loginEmailRef.current = (await meRes.json()).email ?? "";
-        } catch { }
-      }
-      const accessToken = await requestGoogleAccessToken(loginEmailRef.current || undefined);
-      const res = await fetchWithAuth("/api/itinerary/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tripId, accessToken }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (data.code === "google_auth_required") {
-          clearGoogleAccessToken();
-          message.error("Google 授權已失效，請再按一次匯出重新授權");
-        } else if (data.code === "sheets_api_disabled") {
-          message.error("這個 Google 專案還沒啟用 Sheets API");
-        } else if (data.code === "empty") {
-          message.info("這趟還沒有行程可以匯出");
-        } else {
-          message.error("匯出失敗，請再試一次");
-        }
-        return;
-      }
-      window.open(data.url, "_blank", "noopener");
-      message.success(
-        <span>
-          已匯出到你的 Google 雲端硬碟 ·{" "}
-          <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline">開啟試算表</a>
-        </span>,
-        6
-      );
-    } catch (e) {
-      if (e instanceof GoogleAuthError) {
-        if (e.code === "cancelled") return;
-        message.error(
-          e.code === "popup_blocked" ? "Google 授權視窗被瀏覽器擋住了，請允許彈出視窗後再試"
-            : e.code === "no_client_id" ? "這個站台還沒設定 Google 用戶端 ID，無法匯出"
-              : "Google 授權失敗，請再試一次"
-        );
-      } else {
-        message.error("匯出失敗，請檢查網路連線");
-      }
-    } finally {
-      setExporting(false);
-    }
-  }
 
   async function handleHealthCheck() {
     if (healthReport) { setHealthOpen((v) => !v); return; }
@@ -1238,18 +1193,23 @@ export default function ItineraryTab({
             ) : null;
             const linkedExpenses = expensesByItem[item.id] ?? [];
             const hasExpenses = linkedExpenses.length > 0;
-            // 與時間／地點同一種份量：純文字＋icon，不用藥丸底
-            const amountInner = (
+            /*
+              沒有花費時只留一個錢幣 icon，不印 TWD 0。
+
+              零不是資訊，卻佔了和分類、地點一樣的份量 —— 一整天十張卡就是十個 TWD 0 排成一列。
+              icon 仍然是記帳入口，點下去一樣開表單。
+            */
+            const amountInner = hasExpenses ? (
               <>
                 <CoinIcon size={11} strokeWidth={1.6} />
-                <span className="font-money">
-                  {hasExpenses ? formatExpenseTotals(linkedExpenses) : `${currency} 0`}
-                </span>
-                {hasExpenses && <span className="opacity-60">· {linkedExpenses.length}</span>}
+                <span className="font-money">{formatExpenseTotals(linkedExpenses)}</span>
+                <span className="opacity-60">· {linkedExpenses.length}</span>
               </>
+            ) : (
+              <CoinIcon size={12} strokeWidth={1.6} />
             );
             const amountBase = "inline-flex items-center gap-1 -my-1 py-1 shrink-0";
-            const amountTone = hasExpenses ? "text-teal-400/75" : "text-zinc-500";
+            const amountTone = hasExpenses ? "text-teal-400/75" : "text-zinc-600";
             // 金額本身就是記帳入口：點下去開快速記帳表單
             const expenseChip = readOnly
               ? (hasExpenses ? <span className={`${amountBase} ${amountTone}`}>{amountInner}</span> : null)
@@ -1323,8 +1283,9 @@ export default function ItineraryTab({
               >
               {hasImage && (() => {
                 const cover = parseCoverPos(cardPhotos[0]);
+                // 手機從 128 壓到 104：行程頁的價值是一眼看完一天，一張卡越高就越捲不完
                 return (
-                  <div className="relative w-full h-32 md:w-64 md:h-auto md:min-h-[128px] md:shrink-0">
+                  <div className="relative w-full h-[104px] md:w-64 md:h-auto md:min-h-[128px] md:shrink-0">
                     <Image.PreviewGroup items={cardPhotos.map((u) => parseCoverPos(u).clean)}>
                       <Image
                         src={cover.clean}
@@ -1393,12 +1354,23 @@ export default function ItineraryTab({
                 </div>
               )}
               {(timeLabel || item.category || locationInner || routeChip || expenseChip) && (
-                <div className="md:hidden flex items-center gap-2 flex-wrap mb-1 text-zinc-500 text-xs">
-                  {timeLabel && <span className="text-zinc-500">{timeLabel}</span>}
+                /*
+                  一列裡有三種不同性質的東西，就給三種份量：
+
+                    時間  你真正在掃的事實 —— 最亮
+                    分類  屬性，整張卡唯一的顏色
+                    地圖／金額／路線  動作，退到最後、統一用最暗的灰
+
+                  三者都一樣大小的話眼睛沒有著力點，一天十張卡就是一片均勻的雜訊。
+                */
+                <div className="md:hidden flex items-center gap-2 flex-wrap mb-1 text-xs">
+                  {timeLabel && <span className="text-zinc-300 font-medium">{timeLabel}</span>}
                   {item.category && <CategoryBadge category={item.category} />}
-                  {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
-                  {routeChip}
-                  {expenseChip}
+                  <span className="flex items-center gap-2 text-zinc-600 min-w-0">
+                    {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
+                    {routeChip}
+                    {expenseChip}
+                  </span>
                 </div>
               )}
               {/* 桌機把時間拉到右側固定寬度的一欄，整排靠右對齊 —— 像時刻表一樣可以縱向掃視，
@@ -1425,7 +1397,9 @@ export default function ItineraryTab({
               {routeSpark}
               {item.notes && (
                 <div
-                  className="notes-content text-zinc-500 text-xs mt-1"
+                  className={`notes-content text-zinc-500 text-xs mt-1 ${
+                    notesExpanded ? "" : "line-clamp-2"
+                  }`}
                   dangerouslySetInnerHTML={{ __html: processLinks(item.notes) }}
                 />
               )}
@@ -1455,6 +1429,28 @@ export default function ItineraryTab({
       <div className="my-3 flex items-center justify-between gap-2">
         <Typography.Text strong className="text-zinc-100 text-[15px] shrink-0">每日行程</Typography.Text>
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          {/* 備註展開／收合：唯讀分享頁也要有，那邊的備註一樣會很長 */}
+          {items.some((i) => i.notes) && (
+            <div className="flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.08] rounded-full p-0.5">
+              {([
+                { expanded: true, label: "顯示完整備註", icon: <TextFullIcon size={12} /> },
+                { expanded: false, label: "備註只顯示兩行", icon: <TextClampIcon size={12} /> },
+              ]).map(({ expanded, label, icon }) => (
+                <Tooltip key={String(expanded)} title={label} placement="bottom" trigger={["hover", "click"]}>
+                  <button
+                    onClick={() => changeNotesView(expanded)}
+                    aria-label={label}
+                    aria-pressed={notesExpanded === expanded}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                      notesExpanded === expanded ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    {icon}
+                  </button>
+                </Tooltip>
+              ))}
+            </div>
+          )}
           {!readOnly && (
             <>
               <Dropdown
@@ -1516,15 +1512,6 @@ export default function ItineraryTab({
                   )}
                 </button>
               </Dropdown>
-              <Tooltip title="把每日行程匯出成 Google 試算表" placement="bottom" trigger={["hover", "click"]}>
-                <button
-                  onClick={handleExportSheet}
-                  disabled={exporting}
-                  className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50"
-                >
-                  {exporting ? <LoadingOutlined style={{ fontSize: 10 }} /> : <SheetIcon size={11} />} 匯出
-                </button>
-              </Tooltip>
               <button
                 onClick={() => openAdd()}
                 className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"

@@ -173,6 +173,31 @@ export function PocketIcon({ size = 13, className, stroke = "currentColor", stro
   );
 }
 
+/** 備註全文：長短不一的四行，就是一整段文字的樣子 */
+export function TextFullIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" className={className}>
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="11" x2="20" y2="11" />
+      <line x1="4" y1="16" x2="20" y2="16" />
+      <line x1="4" y1="21" x2="13" y2="21" />
+    </svg>
+  );
+}
+
+/** 備註只留兩行：兩行文字，下面用刪節號表示被截斷 */
+export function TextClampIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" className={className}>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <circle cx="5.5" cy="18" r="1.1" fill={stroke} stroke="none" />
+      <circle cx="11" cy="18" r="1.1" fill={stroke} stroke="none" />
+      <circle cx="16.5" cy="18" r="1.1" fill={stroke} stroke="none" />
+    </svg>
+  );
+}
+
 export function LinkBrokenIcon({ size = 24, className, stroke = "#f87171", strokeWidth = 1.8 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
