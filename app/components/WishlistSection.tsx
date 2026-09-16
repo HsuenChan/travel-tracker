@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Typography, Input } from "antd";
 import { motion, AnimatePresence } from "framer-motion";
-import { LocationIcon, PlusIcon, MapIcon } from "@/app/components/Icons";
+import { LocationIcon, PlusIcon, DreamCloudIcon } from "@/app/components/Icons";
 
 /**
  * 想去清單：還沒決定哪一天的地點。
@@ -75,7 +75,7 @@ export default function WishlistSection({
       <div className="flex items-center gap-2 flex-wrap">
         {/* 一個 icon 就說完它是什麼，不用一句話 */}
         <span className="shrink-0 flex items-center gap-1 text-zinc-500" title="想去清單">
-          <MapIcon size={12} />
+          <DreamCloudIcon size={13} />
           <span className="text-[12px]">想去</span>
         </span>
 

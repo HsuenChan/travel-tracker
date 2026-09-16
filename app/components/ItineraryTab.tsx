@@ -1685,12 +1685,18 @@ export default function ItineraryTab({
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4" disabled={saving}>
           {/*
-            status 是一個欄位三種值，所以是一個選擇器，不是散在卡片上的兩顆按鈕。
-            選「想去」時日期會收起來 —— 想去清單本來就還沒決定哪一天。
+            名稱在最上面 —— 那是這張表單真正的主體。
+
+            狀態跟在名稱下方：它是一個欄位三種值，所以是一個選擇器，不是散在卡片上的幾顆按鈕。
+            擺在日期之前，是因為選「想去」會把日期時間收起來，控制項要在被它收掉的欄位上面，
+            不然畫面會從下面塌一塊。不用 block：三個短選項撐滿整列看起來像三顆大按鈕。
           */}
-          <Form.Item name="status" label="狀態" initialValue="planned">
+          <Form.Item name="title" label="行程名稱" rules={[{ required: true, message: "請輸入行程名稱" }]}>
+            <Input placeholder="例如：淺草寺參觀" />
+          </Form.Item>
+          <Form.Item name="status" initialValue="planned" className="!mb-3">
             <Segmented
-              block
+              size="small"
               options={[
                 { label: "正式行程", value: "planned" },
                 { label: "備案", value: "backup" },
@@ -1719,9 +1725,6 @@ export default function ItineraryTab({
               <TimePicker className="w-full" format="HH:mm" minuteStep={5} placeholder="選填" needConfirm={false} />
             </Form.Item>
           </div>
-          <Form.Item name="title" label="行程名稱" rules={[{ required: true, message: "請輸入行程名稱" }]}>
-            <Input placeholder="例如：淺草寺參觀" />
-          </Form.Item>
           <Form.Item name="category" label="類型">
             <Select placeholder="選擇類型" allowClear options={CATEGORIES} />
           </Form.Item>

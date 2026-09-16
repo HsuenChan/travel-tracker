@@ -162,6 +162,17 @@ export function MapIcon({ size = 13, className, stroke = "currentColor", strokeW
   );
 }
 
+/** 想去清單：做夢的那種雲朵，後面跟著三顆由大到小的泡泡 */
+export function DreamCloudIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M8.5 15.5h8.2a3.3 3.3 0 0 0 .3-6.58 4.6 4.6 0 0 0-8.74-1.2A3.4 3.4 0 0 0 8.5 15.5Z" />
+      <circle cx="6.4" cy="18.4" r="1.5" />
+      <circle cx="3.6" cy="20.9" r="0.9" />
+    </svg>
+  );
+}
+
 export function LinkBrokenIcon({ size = 24, className, stroke = "#f87171", strokeWidth = 1.8 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
