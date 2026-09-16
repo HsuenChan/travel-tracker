@@ -1211,15 +1211,28 @@ export default function ItineraryTab({
               而「這一項可去可不去」是當天站在路口才會想起來要找的東西，得一眼認得出。
               底部的 V 缺口用 clip-path 切，不另外疊一個三角形。
             */
-            const backupRibbon = item.status === "backup" ? (
+            /*
+              備案沿著卡片左緣立一條標。
+
+              左緣是整張卡唯一沒有東西跟它搶的地方 —— 右上角有編輯與刪除，上緣有封面照，
+              內文那一排已經有分類、地點、金額。用石板藍而不是琥珀：琥珀在這個 App 是警告色
+              （預算超標、失敗次數），而備案不是警告，只是還沒決定。
+            */
+            const backupRail = item.status === "backup" ? (
               <span
-                className="absolute left-3.5 top-0 z-20 inline-flex h-8 items-start justify-center px-2 pt-1 text-[11px] font-semibold tracking-wide text-amber-100/90"
+                aria-hidden
+                className="absolute left-0 top-0 bottom-0 z-20 w-[26px] flex items-center justify-center border-r border-dashed"
                 style={{
-                  background: "rgba(180,131,58,0.92)",
-                  clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%)",
+                  background: "rgba(100,116,139,0.16)",
+                  borderColor: "rgba(148,163,184,0.28)",
                 }}
               >
-                備案
+                <span
+                  className="text-[10px] font-bold tracking-[0.3em] text-slate-300"
+                  style={{ writingMode: "vertical-rl" }}
+                >
+                  備案
+                </span>
               </span>
             ) : null;
             const linkedExpenses = expensesByItem[item.id] ?? [];
@@ -1295,12 +1308,12 @@ export default function ItineraryTab({
               // 備案和一般行程長得一樣的話，當天看行程會以為每一項都要跑完
               className={`relative bg-white/[0.03] rounded-[18px] overflow-hidden ${
                 item.status === "backup"
-                  ? "border border-dashed border-white/[0.14] opacity-65"
+                  ? "border border-dashed border-slate-400/35 opacity-[0.82] pl-[26px]"
                   : "border border-white/[0.07]"
               }`}
               style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
             >
-              {backupRibbon}
+              {backupRail}
               {/* 拖曳掛這層而不是外面的 motion.div：framer-motion 的 onDragStart 是另一個簽章 */}
               <div
                 className="block md:flex"
@@ -1362,10 +1375,7 @@ export default function ItineraryTab({
                   </div>
                 );
               })()}
-              {/* 沒有圖的卡標題就貼在上緣，書籤會壓到它，所以是備案時往下讓一段 */}
-              <div className={`flex-1 min-w-0 ${
-                hasImage ? "pt-1 md:pt-0" : item.status === "backup" ? "pt-9 md:pt-3" : "pt-3"
-              } px-3.5 pb-3 md:flex md:flex-col md:justify-center md:py-3`}>
+              <div className={`flex-1 min-w-0 ${hasImage ? "pt-1 md:pt-0" : "pt-3"} px-3.5 pb-3 md:flex md:flex-col md:justify-center md:py-3`}>
               {!hasImage && (
                 <div className="md:hidden flex justify-between items-start mb-1">
                   <Typography.Text strong className="!text-zinc-50 text-[15px] leading-snug flex-1 min-w-0">{item.title}</Typography.Text>
