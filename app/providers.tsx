@@ -7,12 +7,19 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ConfigProvider
       locale={zhTW}
+      /*
+        遮罩一律模糊。antd 6 有正式的 mask={{ blur: true }}，設在這裡所有 Modal 與 Drawer
+        一次生效 —— 原本 Drawer 逐處手寫、Modal 沒有，打開抽屜會糊、打開彈窗不會。
+        不用 CSS 蓋 .ant-modal-mask：那條 backdrop-filter 會被最佳化丟掉，只留下 background。
+      */
       modal={{
+        mask: { blur: true },
         styles: {
           wrapper: { paddingBottom: 24 },
           body: { paddingBottom: 16 },
         },
       }}
+      drawer={{ mask: { blur: true } }}
       theme={{
         algorithm: theme.darkAlgorithm,
         token: {
@@ -41,6 +48,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           },
           Tag: {
             borderRadiusSM: 10,
+          },
+          Tooltip: {
+            // darkAlgorithm 給的 colorBgSpotlight 是偏亮的灰，壓在深色介面上會浮起來
+            colorBgSpotlight: "#1f1d26",
+            colorTextLightSolid: "#e4e4e7",
+            borderRadius: 10,
           },
           List: {
             itemPaddingSM: "10px 16px",

@@ -655,7 +655,7 @@ export default function GearTab({
                 <span className="text-zinc-500 text-[11px]">{myName ? "我的負重" : "總重"}</span>
                 <span className="flex items-baseline gap-2.5 text-[12px] tabular-nums">
                   {ROLES.map(r => (
-                    <Tooltip key={r.value} title={r.hint} trigger={["hover", "click"]}>
+                    <Tooltip key={r.value} title={r.hint} placement="bottom" trigger={["hover", "click"]}>
                       <span className="text-zinc-400 cursor-help">
                         {r.label}
                         <InfoIcon size={9} className="inline-block ml-0.5 -translate-y-px opacity-60" />

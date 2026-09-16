@@ -182,6 +182,19 @@ export const ENTITY_SPECS: Record<string, EntitySpec> = {
       destinations: "目的地",
     },
   },
+  /*
+    不是真的資料表，是 Storage 的檔案。
+
+    後台的清理動作要留下紀錄（誰在什麼時候清掉幾個檔案），而那條路只有 logChange；
+    沒有這一筆的話，事件列會直接印出 storage_objects 這個字串。
+    沒有欄位可 diff，說明都寫在 note 裡。
+  */
+  storage_objects: {
+    tab: "trip",
+    noun: "圖片檔案",
+    titleFields: [],
+    fields: {},
+  },
 };
 
 export function entitySpec(table: string): EntitySpec | null {
@@ -380,7 +393,7 @@ export interface LogShareViewInput {
  * 能辨識的只有 IP 與裝置字串，跟登入失敗記的東西同一個層級，不會多記什麼。
  *
  * 去重是必要的而不是優化：分享頁一重整就是一次瀏覽，手機上讀個行程可以按十幾次，
- * 不擋的話「存取」頁會被同一個人洗成幾十列，真正想看的「有沒有人來看過」反而讀不出來。
+ * 不擋的話「來訪」頁會被同一個人洗成幾十列，真正想看的「有沒有人來看過」反而讀不出來。
  */
 export async function logShareView(input: LogShareViewInput): Promise<void> {
   try {

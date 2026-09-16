@@ -10,6 +10,46 @@
     .swatch { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; }
     .swatch-box { width: 56px; height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
     .swatch-label { font-size: 10px; color: #71717a; font-family: monospace; }
+    /* Tooltip demo：純 CSS hover，值跟著 ConfigProvider 的 Tooltip token 走 */
+    .tt-demo { position: relative; display: inline-flex; }
+    .tt-demo::after {
+      content: attr(data-tip);
+      position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px);
+      max-width: 300px; width: max-content;
+      background: #1f1d26; color: #e4e4e7;
+      font-size: 12px; line-height: 1.5; padding: 6px 10px; border-radius: 10px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+      opacity: 0; pointer-events: none; transition: opacity .15s ease, transform .15s ease; z-index: 20;
+    }
+    .tt-demo:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Motion demo：純 CSS，六種對應下面六條原則。cubic-bezier 是 spring 的近似 */
+    .mo-spring-fast   { animation: moPop .34s cubic-bezier(0.175,0.885,0.32,1.275) both; }
+    .mo-spring-slow   { animation: moRise .52s cubic-bezier(0.22,1,0.36,1) both; }
+    .mo-spring-layout { animation: moShift .42s cubic-bezier(0.34,1.4,0.64,1) both; }
+    .mo-fade-slide    { animation: moFade .3s cubic-bezier(0.4,0,0.2,1) both; }
+    .mo-bg            { animation: moBg .9s ease both; }
+    .mo-float         { animation: moFloat 2.6s ease-in-out infinite; }
+
+    @keyframes moPop   { from { opacity: 0; transform: scale(.7); }              to { opacity: 1; transform: scale(1); } }
+    @keyframes moRise  { from { opacity: 0; transform: translateY(24px) scale(.96); } to { opacity: 1; transform: none; } }
+    @keyframes moShift { from { transform: translateX(-28px); }                  to { transform: none; } }
+    @keyframes moFade  { from { opacity: 0; transform: translateX(18px); }       to { opacity: 1; transform: none; } }
+    @keyframes moBg    { from { background: #09090b; }                           to { background: radial-gradient(ellipse at 30% 20%, rgba(139,92,246,.18), transparent 60%), #09090b; } }
+    @keyframes moFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+    /* 第二個元素錯開，就是 staggered delay 那條原則 */
+    #mo-badge.mo-spring-fast,
+    #mo-badge.mo-spring-slow,
+    #mo-badge.mo-fade-slide { animation-delay: .1s; }
+    #mo-badge.mo-float { animation-delay: .22s; }
+
+    .mo-hover { transition: transform .2s ease, border-color .2s ease; }
+    .mo-hover:hover { transform: translateY(-3px); border-color: rgba(139,92,246,0.4) !important; }
+
+    .mo-press { transition: transform .12s ease; }
+    .mo-press:active { transform: scale(.96); }
+
     .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #52525b; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .token-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
     .token-name { font-size: 11px; color: #71717a; font-family: monospace; width: 160px; flex-shrink: 0; }
@@ -351,35 +391,61 @@
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
   <section>
     <div class="section-title">6 · Itinerary Category Colors</div>
-    <p class="text-zinc-500 text-xs mb-5">定義於 <code class="font-mono">app/components/Icons.tsx</code>。Badge pattern = <span class="font-mono">color + bg (color @ 12% opacity)</span>。</p>
+    <p class="text-zinc-500 text-xs mb-5">定義於 <code class="font-mono">app/components/Icons.tsx</code> 的 <span class="font-mono">CATEGORY_BADGE_CONFIG</span>。Badge pattern = <span class="font-mono">color + bg (color @ 12% opacity)</span>。<strong class="text-zinc-400">icon 一律是 SVG（stroke-width 2、currentColor），不用 emoji</strong> —— emoji 在不同作業系統長得不一樣，也吃不到 currentColor。</p>
 
     <div class="grid grid-cols-2 gap-3">
       <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style="background:rgba(59,130,246,0.12);color:#60a5fa">✈</div>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(14,165,233,0.12);color:#38bdf8">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16l20-9-9 20-2-7-9-4z"/></svg>
+        </div>
+        <div><div class="text-xs font-semibold text-zinc-200">機票 flight</div><div class="text-[10px] font-mono text-zinc-600">#38bdf8 · rgba(14,165,233,0.12)</div></div>
+      </div>
+      <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(59,130,246,0.12);color:#60a5fa">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="13" rx="2"/><line x1="3" y1="11" x2="21" y2="11"/><line x1="7" y1="16" x2="7" y2="20"/><line x1="17" y1="16" x2="17" y2="20"/><line x1="7" y1="20" x2="17" y2="20"/></svg>
+        </div>
         <div><div class="text-xs font-semibold text-zinc-200">交通 transport</div><div class="text-[10px] font-mono text-zinc-600">#60a5fa · rgba(59,130,246,0.12)</div></div>
       </div>
       <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style="background:rgba(139,92,246,0.12);color:#a78bfa">🏨</div>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(139,92,246,0.12);color:#a78bfa">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20V8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12"/><path d="M2 20h20"/><path d="M12 6V2"/><path d="M7 10h2v4H7z"/><path d="M15 10h2v4h-2z"/></svg>
+        </div>
         <div><div class="text-xs font-semibold text-zinc-200">住宿 hotel</div><div class="text-[10px] font-mono text-zinc-600">#a78bfa · rgba(139,92,246,0.12)</div></div>
       </div>
       <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style="background:rgba(245,158,11,0.12);color:#fbbf24">🍜</div>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(245,158,11,0.12);color:#fbbf24">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><line x1="7" y1="2" x2="7" y2="22"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3z"/><line x1="21" y1="15" x2="21" y2="22"/></svg>
+        </div>
         <div><div class="text-xs font-semibold text-zinc-200">餐飲 food</div><div class="text-[10px] font-mono text-zinc-600">#fbbf24 · rgba(245,158,11,0.12)</div></div>
       </div>
       <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style="background:rgba(16,185,129,0.12);color:#34d399">🗼</div>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(16,185,129,0.12);color:#34d399">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
         <div><div class="text-xs font-semibold text-zinc-200">景點 attraction</div><div class="text-[10px] font-mono text-zinc-600">#34d399 · rgba(16,185,129,0.12)</div></div>
       </div>
       <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style="background:rgba(236,72,153,0.12);color:#f472b6">🛍</div>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(236,72,153,0.12);color:#f472b6">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        </div>
         <div><div class="text-xs font-semibold text-zinc-200">購物 shopping</div><div class="text-[10px] font-mono text-zinc-600">#f472b6 · rgba(236,72,153,0.12)</div></div>
       </div>
       <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style="background:rgba(249,115,22,0.12);color:#fb923c">🎯</div>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(249,115,22,0.12);color:#fb923c">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
         <div><div class="text-xs font-semibold text-zinc-200">活動 activity</div><div class="text-[10px] font-mono text-zinc-600">#fb923c · rgba(249,115,22,0.12)</div></div>
       </div>
       <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style="background:rgba(113,113,122,0.12);color:#a1a1aa">・</div>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(16,185,129,0.12);color:#34d399">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20L14.5 6.5 11 13l-2-3z"/><path d="M12.6 9.2 14.5 6.5l3 5.4"/></svg>
+        </div>
+        <div><div class="text-xs font-semibold text-zinc-200">戶外 outdoor</div><div class="text-[10px] font-mono text-zinc-600">#34d399 · rgba(16,185,129,0.12)</div></div>
+      </div>
+      <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(113,113,122,0.12);color:#a1a1aa">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
+        </div>
         <div><div class="text-xs font-semibold text-zinc-200">其他 other</div><div class="text-[10px] font-mono text-zinc-600">#a1a1aa · rgba(113,113,122,0.12)</div></div>
       </div>
     </div>
@@ -457,6 +523,35 @@
   <section>
     <div class="section-title">8 · Motion Principles（Framer Motion）</div>
 
+    <p class="text-zinc-500 text-xs mb-5">純 CSS 的外觀示意（實際用 Framer Motion）。選一種再按播放，數值對照下面六條原則。</p>
+
+    <div class="mb-6 p-6 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
+      <div class="flex flex-wrap items-center gap-2 mb-5">
+        <select id="mo-pick" class="h-9 px-3 rounded-full text-xs font-medium" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#d4d4d8">
+          <option value="spring-fast">Spring — 快（入場 / 彈出）</option>
+          <option value="spring-slow">Spring — 緩（大卡片 / 頁面轉換）</option>
+          <option value="spring-layout">Spring — 佈局（tab / 選項切換）</option>
+          <option value="fade-slide">Fade / Slide（頁面 / 步驟切換）</option>
+          <option value="bg">Background transition</option>
+          <option value="float">Float / Idle（持續飄動）</option>
+        </select>
+        <button id="mo-play" class="h-9 px-5 rounded-full font-semibold text-xs mo-press" style="background:linear-gradient(90deg,#6366f1,#8b5cf6,#a855f7);color:#fff;box-shadow:0 4px 18px rgba(139,92,246,0.35)">
+          播放
+        </button>
+        <span id="mo-note" class="text-[11px] font-mono text-zinc-600"></span>
+      </div>
+
+      <div id="mo-stage" class="flex flex-wrap items-center gap-4 rounded-xl p-5" style="min-height:120px;background:#09090b;border:1px solid rgba(255,255,255,0.04)">
+        <div id="mo-card" class="mo-hover rounded-2xl p-4 w-56" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07)">
+          <div class="text-xs font-semibold text-zinc-200">淺草寺參觀</div>
+          <div class="text-[11px] text-zinc-500 mt-1">09:30 → 11:00 · 景點</div>
+        </div>
+        <div id="mo-badge" class="h-7 px-3 rounded-full inline-flex items-center text-[11px] font-semibold" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);color:#c4b5fd">
+          已儲存
+        </div>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 gap-4">
       <div class="rule-block">
         <div class="text-xs font-semibold text-zinc-300 mb-2">Spring — 快（入場 / 彈出）</div>
@@ -502,7 +597,69 @@
        9. LAYOUT RULES
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
   <section>
-    <div class="section-title">9 · Layout & Composition Rules</div>
+    <div class="section-title">9 · Tooltip</div>
+
+    <p class="text-zinc-500 text-xs mb-5">用 antd <code class="font-mono">&lt;Tooltip&gt;</code>；這裡是純 HTML 的外觀示意，滑過下面三個元素看效果（實際元件的觸發、定位與動畫由 antd 處理）。</p>
+
+    <div class="flex flex-wrap items-center gap-8 mb-6 p-6 rounded-xl" style="background:#18181b;border:1px solid rgba(255,255,255,0.05)">
+      <span class="tt-demo" data-tip="在地球上聚焦這趟旅程">
+        <button class="w-9 h-9 rounded-full flex items-center justify-center" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#a1a1aa">◎</button>
+      </span>
+
+      <span class="tt-demo" data-tip="把每日行程匯出成 Google 試算表">
+        <button class="h-7 px-2.5 rounded-full text-xs font-medium" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#d4d4d8">匯出</button>
+      </span>
+
+      <span class="tt-demo" data-tip="已記錄障礙的落差總和，不是實測垂直落差 —— 同一處若同時能垂降或跳水，topo 記成一個點位就只算一次。">
+        <span class="text-xs" style="color:#71717a;cursor:help;border-bottom:1px dotted #52525b">落差合計 320 m</span>
+      </span>
+    </div>
+
+    <div class="space-y-3">
+      <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">用 antd <span class="font-mono">&lt;Tooltip&gt;</span>，不自己刻</div>
+        <div class="text-xs text-zinc-500">定位、邊界翻轉、鍵盤焦點都已經處理好了。深色主題由 ConfigProvider 的 darkAlgorithm 帶。</div>
+      </div>
+
+      <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">一定要加 <span class="font-mono">trigger={{['hover', 'click']}}</span></div>
+        <div class="text-xs text-zinc-500">觸控裝置沒有 hover。只留預設的 hover，手機上這個 tooltip 等於不存在 —— 而它多半正是唯一寫著「這顆按鈕在做什麼」的地方。</div>
+      </div>
+
+      <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">只有 icon 的按鈕：tooltip 與 <span class="font-mono">aria-label</span> 兩個都要</div>
+        <div class="text-xs text-zinc-500">tooltip 是給看得到的人，aria-label 是給讀螢幕的人；兩者寫同一句話。只有其中一個就會漏掉一半的人。</div>
+      </div>
+
+      <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">內容：一句話，不放操作</div>
+        <div class="text-xs text-zinc-500">說明或名稱，句尾不加句號。不要放按鈕、連結或會變動的數字 —— tooltip 關掉之後那些就消失了。超過一句的說明改用 <span class="font-mono">Popover</span>。</div>
+      </div>
+
+      <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">底色比卡片再深一階</div>
+        <div class="text-xs text-zinc-500">ConfigProvider 的 <span class="font-mono">Tooltip.colorBgSpotlight = #1f1d26</span>、文字 <span class="font-mono">#e4e4e7</span>、圓角 10。darkAlgorithm 預設那個偏亮的灰壓在深色介面上會浮起來，看起來像另一層卡片而不是註解。</div>
+      </div>
+
+      <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">長文字限寬</div>
+        <div class="text-xs text-zinc-500"><span class="font-mono">styles={{ root: { maxWidth: 300 } }}</span>。不限寬的 tooltip 在寬螢幕上會拉成一條看不完的線。</div>
+      </div>
+
+      <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">Placement 一律 <span class="font-mono">bottom</span></div>
+        <div class="text-xs text-zinc-500">全站統一顯示在下方：同一個畫面上有的往上彈、有的往下彈，游標移過去時會覺得位置在跳。往下也不會被手指擋住。<span class="font-mono">placement="bottom"</span> 每個 Tooltip 都要寫，不靠 antd 的預設值（那是 top）。</div>
+      </div>
+
+      <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">不要用 tooltip 藏必要資訊</div>
+        <div class="text-xs text-zinc-500">金額、狀態、警示這些一定看得到才算數的東西，直接寫在畫面上。tooltip 只補充「已經看得懂、但想知道更多」的那一層。</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">10 · Layout & Composition Rules</div>
 
     <div class="space-y-3">
       <div class="rule-block">
@@ -526,6 +683,10 @@
         <div class="text-xs text-zinc-500">水平分隔線：<span class="font-mono">border-b border-white/[0.05]</span> 或 <span class="font-mono">h-px bg-white/[0.05]</span>。不使用實線灰色。</div>
       </div>
       <div class="rule-block">
+        <div class="text-xs font-semibold text-zinc-300 mb-1">Modal / Drawer 遮罩</div>
+        <div class="text-xs text-zinc-500">統一在 globals.css 的 <span class="font-mono">.ant-modal-mask, .ant-drawer-mask</span>：<span class="font-mono">blur(4px)</span> + <span class="font-mono">rgba(9,9,11,0.55)</span>。不要逐處寫 <span class="font-mono">styles={{ mask: ... }}</span> —— 那會變成有的浮層糊、有的不糊。</div>
+      </div>
+      <div class="rule-block">
         <div class="text-xs font-semibold text-zinc-300 mb-1">Empty State</div>
         <div class="text-xs text-zinc-500">置中 flex column，icon 用 emoji 或 SVG（40–48px），主文 <span class="font-mono">text-zinc-400 text-sm</span>，輔助文 <span class="font-mono">text-zinc-600 text-xs</span>，可選 CTA button（ghost 樣式）。</div>
       </div>
@@ -537,5 +698,37 @@
   </section>
 
 </div>
+  <script>
+    (() => {
+      const NOTES = {
+        "spring-fast":   'stiffness 400–520 · damping 14–18',
+        "spring-slow":   'stiffness 280–380 · damping 18–22',
+        "spring-layout": 'stiffness 300–400 · damping 20–22',
+        "fade-slide":    'duration 0.22–0.38 · ease [0.4,0,0.2,1]',
+        "bg":            'duration 0.9 · ease default',
+        "float":         'y:[0,-8,0] · 2.2–3.2s · repeat Infinity',
+      };
+      const ALL = Object.keys(NOTES).map((k) => "mo-" + k);
+      const pick = document.getElementById("mo-pick");
+      const note = document.getElementById("mo-note");
+      const stage = document.getElementById("mo-stage");
+      const targets = ["mo-card", "mo-badge"].map((id) => document.getElementById(id));
+
+      function play() {
+        const key = pick.value;
+        note.textContent = NOTES[key];
+        // 背景那條是舞台自己在變色，不是卡片
+        stage.classList.remove("mo-bg");
+        for (const el of targets) el.classList.remove(...ALL);
+        void stage.offsetWidth;
+        if (key === "bg") { stage.classList.add("mo-bg"); return; }
+        for (const el of targets) el.classList.add("mo-" + key);
+      }
+
+      pick?.addEventListener("change", play);
+      document.getElementById("mo-play")?.addEventListener("click", play);
+      play();
+    })();
+  </script>
 </body>
 </html>

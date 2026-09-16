@@ -307,7 +307,6 @@ export default function PhotoWall({ albumUrl }: Props) {
           {!currentPhoto.isVideo && (
             <button
               onClick={(e) => { e.stopPropagation(); setPreviewPhoto(currentPhoto); }}
-              title="下載（含邊框與相機資訊）"
               aria-label="下載照片（含邊框與相機資訊）"
               className="absolute top-4 right-[60px] bg-white/[0.12] border-none rounded-full w-[42px] h-[42px] text-white cursor-pointer flex items-center justify-center"
             >

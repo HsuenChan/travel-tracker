@@ -14,12 +14,12 @@ import {
   Tag,
   Skeleton,
   Dropdown,
+  Tooltip,
 } from "antd";
 import { getCountryFlags, getCountryCodes } from "@/lib/countries";
 import { parseCoverPos } from "@/lib/coverPos";
 import PillButton from "@/app/components/PillButton";
 import { openedWithinDays } from "@/lib/recentTrips";
-import { readFlag, RETURN_KEY } from "@/lib/passportTransition";
 import { UserOutlined, AimOutlined, LoadingOutlined } from "@ant-design/icons";
 import {
   PlusIcon, GlobeIcon, CalendarIcon, LocationIcon,
@@ -201,17 +201,18 @@ function TripCard({
               {trip.name}
             </Typography.Text>
           </div>
-          <button
-            aria-label="在地球上聚焦這趟旅程"
-            title="在地球上聚焦"
-            onClick={(e) => { e.stopPropagation(); onFocusGlobe(); }}
-            className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-1.5 border transition-colors cursor-pointer ${selected
-              ? "text-violet-300 border-violet-500/40 bg-violet-500/15"
-              : "text-zinc-500 border-white/[0.08] bg-white/[0.04] hover:text-zinc-200 hover:bg-white/[0.1]"
-              }`}
-          >
-            <AimOutlined style={{ fontSize: 13 }} />
-          </button>
+          <Tooltip title="在地球上聚焦這趟旅程" placement="bottom" trigger={["hover", "click"]}>
+            <button
+              aria-label="在地球上聚焦這趟旅程"
+              onClick={(e) => { e.stopPropagation(); onFocusGlobe(); }}
+              className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-1.5 border transition-colors cursor-pointer ${selected
+                ? "text-violet-300 border-violet-500/40 bg-violet-500/15"
+                : "text-zinc-500 border-white/[0.08] bg-white/[0.04] hover:text-zinc-200 hover:bg-white/[0.1]"
+                }`}
+            >
+              <AimOutlined style={{ fontSize: 13 }} />
+            </button>
+          </Tooltip>
         </div>
         <div className="relative space-y-1">
           {(trip.start_date || trip.end_date) && (
@@ -294,12 +295,6 @@ export default function Home() {
       全部結束且最近沒開  → 護照（淡季唯一還有東西看的地方）
       沒有旅程            → 留在首頁的空狀態
   */
-  // 從護照關回來時整面是黑的，在這裡淡出 —— 不然會從一片黑直接跳出地球
-  const [returningFromPassport, setReturningFromPassport] = useState(false);
-  useEffect(() => {
-    if (readFlag(RETURN_KEY)) setReturningFromPassport(true);
-  }, []);
-
   const landedRef = useRef(false);
   useEffect(() => {
     if (!authenticated || loading || landedRef.current || trips.length === 0) return;
@@ -682,18 +677,6 @@ export default function Home() {
         />
       )}
 
-      <AnimatePresence>
-        {returningFromPassport && (
-          <motion.div
-            className="fixed inset-0 z-[190] bg-[#09090b] pointer-events-none"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            onAnimationComplete={() => setReturningFromPassport(false)}
-          />
-        )}
-      </AnimatePresence>
-
       {/* 2. Main UI Layer */}
       <Layout className="relative z-10 h-full w-full !bg-transparent flex flex-col pointer-events-none">
         {/* Header - Glassmorphism */}
@@ -799,7 +782,6 @@ export default function Home() {
             wrapper: { height: "85vh" },
             header: { background: "transparent", borderBottom: "1px solid rgba(255,255,255,0.05)" },
             body: { background: "transparent", padding: 0, overflowY: "auto" },
-            mask: { backdropFilter: "blur(4px)" },
             section: { borderRadius: '24px 24px 0 0' }
           }}
           closeIcon={<CloseIcon size={14} stroke="#a1a1aa" />}

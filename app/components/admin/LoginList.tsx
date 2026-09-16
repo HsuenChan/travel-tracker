@@ -55,7 +55,7 @@ export default function LoginList() {
 
   return (
     <div className="pt-6">
-      <h1 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">存取紀錄</h1>
+      <h1 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">來訪紀錄</h1>
       <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
         每一次登入、登出、失敗的嘗試，以及分享連結被打開。點開可以看 IP 與完整的裝置字串。
       </p>
@@ -69,11 +69,11 @@ export default function LoginList() {
           </ul>
         ) : error ? (
           <div className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.06] px-4 py-5 text-[14px] text-rose-200">
-            讀不到存取紀錄，請重新整理再試一次。
+            讀不到來訪紀錄，請重新整理再試一次。
           </div>
         ) : events.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/[0.08] px-5 py-10 text-center">
-            <p className="text-[15px] font-semibold text-zinc-300">還沒有存取紀錄</p>
+            <p className="text-[15px] font-semibold text-zinc-300">還沒有來訪紀錄</p>
             <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
               紀錄從這支功能上線後開始累積，下次有人登入或打開分享連結就會出現在這裡。
             </p>

@@ -104,7 +104,7 @@ export default function EventRow({
   const isAuth = event.kind === "auth";
   const expandable = isExpandable(event);
 
-  // 分享瀏覽跟登入一樣是「存取」，看的是裝置與 IP；但標題要放旅程名稱而不是訪客字樣
+  // 分享瀏覽跟登入一樣是「來訪」，看的是裝置與 IP；但標題要放旅程名稱而不是訪客字樣
   const isView = event.kind === "view";
 
   const meta = isAuth || isView

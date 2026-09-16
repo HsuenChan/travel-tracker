@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await createServiceClient()
     .from("activity_log")
     .select("*")
-    // 這一頁是「存取」：登入登出與分享連結的瀏覽都算 —— 兩者回答的是同一個問題，
+    // 這一頁是「來訪」：登入登出與分享連結的瀏覽都算 —— 兩者回答的是同一個問題，
     // 誰在什麼時候碰到了這個系統。資料被改成什麼樣則是「異動」頁的事。
     .in("kind", ["auth", "view"])
     .order("created_at", { ascending: false })

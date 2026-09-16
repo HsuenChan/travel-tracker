@@ -121,7 +121,7 @@ const GRADE_HINT = "v 垂直技術 · a 水流難度 · 羅馬數字為投入度
 /** demo 的 .p-grade：代號 + 三個色塊 + 星等 */
 export function GradeChips({ grading }: { grading: RouteGrading }) {
   return (
-    <Tooltip title={GRADE_HINT} trigger={["hover", "click"]} styles={{ root: { maxWidth: 280 } }}>
+    <Tooltip title={GRADE_HINT} placement="bottom" trigger={["hover", "click"]} styles={{ root: { maxWidth: 280 } }}>
       <span className="inline-flex items-center gap-1.5 flex-wrap cursor-help">
         {grading.v && <span className={`px-1.5 py-0.5 rounded-md border text-[11px] font-semibold tabular-nums ${GRADE_CHIP.v}`}>{grading.v}</span>}
         {grading.a && <span className={`px-1.5 py-0.5 rounded-md border text-[11px] font-semibold tabular-nums ${GRADE_CHIP.a}`}>{grading.a}</span>}

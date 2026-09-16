@@ -794,7 +794,7 @@ export default function RouteProfileModal({
         /* 說「這裡沒東西值得看」的訊息不該比它取代的圖表還佔空間，所以壓成一行、長解釋進 tooltip */
         <div className="flex items-center gap-1.5 flex-wrap text-zinc-600 text-[11px] shrink-0">
           {elevationDecision.detail ? (
-            <Tooltip title={elevationDecision.detail} trigger={["hover", "click"]} styles={{ root: { maxWidth: 300 } }}>
+            <Tooltip title={elevationDecision.detail} placement="bottom" trigger={["hover", "click"]} styles={{ root: { maxWidth: 300 } }}>
               <span className="inline-flex items-center gap-1 cursor-help">
                 <InfoIcon size={10} />
                 {elevationDecision.reason}
@@ -850,6 +850,7 @@ export default function RouteProfileModal({
               )}
               <Tooltip
                 title="已記錄障礙的落差總和，不是實測垂直落差 —— 同一處若同時能垂降或跳水，topo 記成一個點位就只算一次。"
+                placement="bottom"
                 trigger={["hover", "click"]}
                 styles={{ root: { maxWidth: 300 } }}
               >
@@ -931,6 +932,7 @@ export default function RouteProfileModal({
           {editing && (
             <Tooltip
               title={EDITOR_HINT}
+              placement="bottom"
               // 手機沒有 hover，所以點一下也要能看
               trigger={["hover", "click"]}
               styles={{ root: { maxWidth: 320 } }}

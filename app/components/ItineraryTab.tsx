@@ -4,23 +4,23 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown } from "antd";
+import { Button, Modal, Form, DatePicker, TimePicker, Select, Typography, Input, Skeleton, Timeline, App, Upload, Image, Slider, Dropdown, Tooltip } from "antd";
 import { EditOutlined, DeleteOutlined, LoadingOutlined, PictureOutlined, CloseOutlined } from "@ant-design/icons";
-import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon, SheetIcon } from "@/app/components/Icons";
+import { PlusIcon, CalendarIcon, LocationIcon, CoinIcon, CategoryBadge, TextFullIcon, TextClampIcon, SparkleIcon, HealthIcon, WeatherIcon, CatTransportIcon, CatHotelIcon, CatFoodIcon, CatAttractionIcon, CatShoppingIcon, CatActivityIcon, CatOtherIcon, MountainIcon } from "@/app/components/Icons";
 import RouteProfileModal, { type Waypoint as RouteWaypoint } from "@/app/components/RouteProfileModal";
 import ElevationSparkline from "@/app/components/ElevationSparkline";
 import { decideElevationDisplay } from "@/lib/elevationDisplay";
 import { computeOutdoorTotals, type OutdoorTotals } from "@/lib/outdoorTotals";
-import type { RouteProfile } from "@/lib/routeProfile";
+import { routePhotos, type RouteProfile } from "@/lib/routeProfile";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import QuillEditor from "@/app/components/QuillEditor";
 import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
 import PillButton from "@/app/components/PillButton";
+import WishlistSection from "@/app/components/WishlistSection";
 import QuickExpenseModal from "@/app/components/QuickExpenseModal";
 import { parseCoverPos, withCoverPos } from "@/lib/coverPos";
 import { compressImage } from "@/lib/compressImage";
-import { GoogleAuthError, clearGoogleAccessToken, preloadGoogleAuth, requestGoogleAccessToken } from "@/lib/googleAuth";
 
 const todayStr = dayjs().format("YYYY-MM-DD");
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -37,10 +37,19 @@ function processLinks(html: string): string {
   });
 }
 
+/**
+ *  planned   已排進行程，會去
+ *  wishlist  口袋名單，還沒決定哪一天 —— 這種沒有日期
+ *  backup    已排在某一天，但可去可不去
+ */
+type ItineraryStatus = "planned" | "wishlist" | "backup";
+
 interface ItineraryItem {
   id: string;
   trip_id: string;
+  /** 口袋名單還沒決定日期，所以可能是 null */
   date: string;
+  status?: ItineraryStatus | null;
   sort_order: number;
   title: string;
   category: string | null;
@@ -120,6 +129,46 @@ interface Props {
   initialWaypoints?: Record<string, RouteWaypoint[]>;
   /** 戶外路段總計顯示在 hero，改動後要讓上層跟著更新 */
   onOutdoorTotalsChange?: (totals: OutdoorTotals | null) => void;
+}
+
+const NOTES_VIEW_KEY = "travel_itinerary_notes_view";
+
+const STATUS_OPTIONS = [
+  { value: "planned", label: "正式行程" },
+  { value: "backup", label: "備案" },
+  { value: "wishlist", label: "口袋名單" },
+] as const;
+
+/** 不用 antd Segmented：它自帶的淺色滑塊與外框在深色介面上是一塊突兀的方框 */
+function StatusPicker({
+  value = "planned",
+  onChange,
+}: {
+  value?: string;
+  onChange?: (v: string) => void;
+}) {
+  return (
+    <div className="flex gap-1.5">
+      {STATUS_OPTIONS.map((opt) => {
+        const on = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange?.(opt.value)}
+            className={`inline-flex items-center rounded-full text-[13px] font-medium h-8 px-3.5 border transition-all duration-200 cursor-pointer ${
+              on
+                ? "bg-white/10 border-white/20 text-white"
+                : "bg-white/[0.03] border-white/8 text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 /** 同幣別合併，跨幣別並列（行程卡上不換匯，避免多打一支匯率 API） */
@@ -219,6 +268,26 @@ export default function ItineraryTab({
     return items.find(i => i.id === urlItemId) ?? null;
   }, [urlModal, urlItemId, items]);
   const [saving, setSaving] = useState(false);
+  /*
+    備註要不要全部展開。
+
+    有些行程的備註是訂票連結與最新進度，那是真的要讀的；有些只是一長串說明，
+    展開會把一天撐成好幾個畫面。所以不是替使用者決定，而是給一個開關 —— 和伴手禮的
+    卡片／列表檢視同一套做法，選過就記住。
+  */
+  const [notesExpanded, setNotesExpanded] = useState(true);
+  const formStatus = Form.useWatch("status", form) ?? "planned";
+
+  useEffect(() => {
+    // SSR 沒有 localStorage，掛載後才套用
+    const saved = localStorage.getItem(NOTES_VIEW_KEY);
+    if (saved === "collapsed") setNotesExpanded(false);
+  }, []);
+
+  function changeNotesView(expanded: boolean) {
+    setNotesExpanded(expanded);
+    localStorage.setItem(NOTES_VIEW_KEY, expanded ? "expanded" : "collapsed");
+  }
   const [loading, setLoading] = useState(true);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -239,8 +308,6 @@ export default function ItineraryTab({
   const [quickSaving, setQuickSaving] = useState(false);
 
   // 匯出 Google Sheet
-  const [exporting, setExporting] = useState(false);
-  const loginEmailRef = useRef<string | null>(null);
 
   // AI 選單（AI 排程 + 行程檢查，兩者打的是同一支 AI API）
   const [aiMenuOpen, setAIMenuOpen] = useState(false);
@@ -430,9 +497,11 @@ export default function ItineraryTab({
 
   // 只依賴日期範圍字串，items 參照變動不會重打天氣 API
   const weatherRange = useMemo(() => {
-    if (items.length === 0) return null;
-    const starts = items.map((item) => item.date).sort();
-    const ends = items
+    // 口袋名單沒有日期，混進來會讓範圍字串變成 "undefined~..."，天氣整個查不到
+    const dated = items.filter((item) => item.status !== "wishlist" && item.date);
+    if (dated.length === 0) return null;
+    const starts = dated.map((item) => item.date).sort();
+    const ends = dated
       .map((item) => (item.end_date && item.end_date > item.date ? item.end_date : item.date))
       .sort();
     const start = starts[0];
@@ -479,9 +548,11 @@ export default function ItineraryTab({
     const timeStartVal = values.timeStart as Dayjs | null | undefined;
     const timeEndVal = values.timeEnd as Dayjs | null | undefined;
 
+    const status = (values.status as string) ?? "planned";
     const payload = {
       tripId,
-      date: dateVal ? dateVal.format("YYYY-MM-DD") : "",
+      status,
+      date: status === "wishlist" ? null : dateVal ? dateVal.format("YYYY-MM-DD") : "",
       time: timeStartVal ? timeStartVal.format("HH:mm") : null,
       end_date: endDateVal ? endDateVal.format("YYYY-MM-DD") : null,
       end_time: timeEndVal ? timeEndVal.format("HH:mm") : null,
@@ -521,6 +592,106 @@ export default function ItineraryTab({
     } finally {
       setSaving(false);
     }
+  }
+
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [dragOverWishlist, setDragOverWishlist] = useState(false);
+  const [dragging, setDragging] = useState(false);
+
+  /** 不指定拖曳影像的話，瀏覽器會把整張卡片（含封面照與備註）拍成殘影，還會被視窗裁掉 */
+  function startDrag(e: React.DragEvent, id: string, label: string) {
+    e.dataTransfer.setData("text/plain", id);
+    e.dataTransfer.effectAllowed = "move";
+    setDragging(true);
+
+    const ghost = document.createElement("div");
+    ghost.textContent = label;
+    ghost.style.cssText = [
+      "position:fixed", "top:-1000px", "left:-1000px",
+      "max-width:260px", "overflow:hidden", "text-overflow:ellipsis", "white-space:nowrap",
+      "padding:8px 16px", "border-radius:999px",
+      "background:#1c1726", "color:#e4e4e7",
+      "font-size:13px", "font-weight:500",
+      "border:1px solid rgba(139,92,246,0.45)",
+      "box-shadow:0 8px 24px rgba(0,0,0,0.5)",
+    ].join(";");
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 16, 16);
+    // 立刻移除在部分瀏覽器會讓快照拿不到
+    window.setTimeout(() => ghost.remove(), 0);
+  }
+
+  /** 原生拖曳不會捲頁面，行程一長就碰不到畫面外的日子。不 preventDefault，只是要游標位置 */
+  useEffect(() => {
+    if (readOnly) return;
+    const EDGE = 96;
+    const MAX_SPEED = 20;
+    let raf = 0;
+    let speed = 0;
+
+    const step = () => {
+      if (speed === 0) { raf = 0; return; }
+      window.scrollBy(0, speed);
+      raf = requestAnimationFrame(step);
+    };
+    const onDragOver = (e: DragEvent) => {
+      const h = window.innerHeight;
+      if (e.clientY < EDGE) speed = -Math.ceil(((EDGE - e.clientY) / EDGE) * MAX_SPEED);
+      else if (e.clientY > h - EDGE) speed = Math.ceil(((e.clientY - (h - EDGE)) / EDGE) * MAX_SPEED);
+      else speed = 0;
+      if (speed !== 0 && !raf) raf = requestAnimationFrame(step);
+    };
+    const stop = () => {
+      speed = 0;
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      setDragging(false);
+      setDragOverDate(null);
+      setDragOverWishlist(false);
+    };
+
+    document.addEventListener("dragover", onDragOver);
+    document.addEventListener("drop", stop);
+    document.addEventListener("dragend", stop);
+    return () => {
+      document.removeEventListener("dragover", onDragOver);
+      document.removeEventListener("drop", stop);
+      document.removeEventListener("dragend", stop);
+      speed = 0;
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [readOnly]);
+
+  /** 丟回口袋名單：日期清掉，狀態改回 wishlist */
+  async function unschedule(id: string) {
+    const res = await fetchWithAuth("/api/itinerary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status: "wishlist", date: null }),
+    });
+    if (!res.ok) { message.error("移動失敗，請再試一次"); return; }
+    fetchItems();
+  }
+
+  /** 口袋名單：沒有日期，所以走 status=wishlist 而不是隨便填一天 */
+  async function addWishlist(title: string, location: string) {
+    const res = await fetchWithAuth("/api/itinerary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tripId, title, location: location || null, status: "wishlist", date: null }),
+    });
+    if (!res.ok) { message.error("加入失敗，請再試一次"); return; }
+    fetchItems();
+  }
+
+  /** 排進某一天：日期與狀態一起改，中間不會出現「有日期卻還在口袋名單」的狀態 */
+  async function scheduleWishlist(id: string, date: string) {
+    const res = await fetchWithAuth("/api/itinerary", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status: "planned", date }),
+    });
+    if (!res.ok) { message.error("排入失敗，請再試一次"); return; }
+    fetchItems();
   }
 
   async function handleDelete(id: string) {
@@ -598,6 +769,7 @@ export default function ItineraryTab({
     if (urlModal === "addItinerary" || urlModal === "editItinerary") setForceClosed(false);
     if (urlModal === "editItinerary" && editingItem) {
       form.setFieldsValue({
+        status: editingItem.status ?? "planned",
         date: editingItem.date ? dayjs(editingItem.date) : null,
         endDate: editingItem.end_date && editingItem.end_date !== editingItem.date ? dayjs(editingItem.end_date) : null,
         timeStart: editingItem.time ? dayjs(editingItem.time, "HH:mm") : null,
@@ -672,69 +844,6 @@ export default function ItineraryTab({
     }
   }
 
-  // GIS 的 script 先載好，按下匯出時彈窗才算在點擊那個手勢裡、不會被瀏覽器擋掉
-  useEffect(() => {
-    if (readOnly || !isActive) return;
-    preloadGoogleAuth().catch(() => { });
-  }, [readOnly, isActive]);
-
-  /**
-   * 匯出成使用者自己 Google 帳號裡的試算表：當場向 Google 要一顆只能碰自建檔案的 token，
-   * 交給後端組表格。行程資料由後端重讀，匯出的內容一定是已存檔的版本。
-   */
-  async function handleExportSheet() {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      if (loginEmailRef.current === null) {
-        try {
-          const meRes = await fetchWithAuth("/api/me");
-          if (meRes.ok) loginEmailRef.current = (await meRes.json()).email ?? "";
-        } catch { }
-      }
-      const accessToken = await requestGoogleAccessToken(loginEmailRef.current || undefined);
-      const res = await fetchWithAuth("/api/itinerary/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tripId, accessToken }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (data.code === "google_auth_required") {
-          clearGoogleAccessToken();
-          message.error("Google 授權已失效，請再按一次匯出重新授權");
-        } else if (data.code === "sheets_api_disabled") {
-          message.error("這個 Google 專案還沒啟用 Sheets API");
-        } else if (data.code === "empty") {
-          message.info("這趟還沒有行程可以匯出");
-        } else {
-          message.error("匯出失敗，請再試一次");
-        }
-        return;
-      }
-      window.open(data.url, "_blank", "noopener");
-      message.success(
-        <span>
-          已匯出到你的 Google 雲端硬碟 ·{" "}
-          <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline">開啟試算表</a>
-        </span>,
-        6
-      );
-    } catch (e) {
-      if (e instanceof GoogleAuthError) {
-        if (e.code === "cancelled") return;
-        message.error(
-          e.code === "popup_blocked" ? "Google 授權視窗被瀏覽器擋住了，請允許彈出視窗後再試"
-            : e.code === "no_client_id" ? "這個站台還沒設定 Google 用戶端 ID，無法匯出"
-              : "Google 授權失敗，請再試一次"
-        );
-      } else {
-        message.error("匯出失敗，請檢查網路連線");
-      }
-    } finally {
-      setExporting(false);
-    }
-  }
 
   async function handleHealthCheck() {
     if (healthReport) { setHealthOpen((v) => !v); return; }
@@ -832,6 +941,10 @@ export default function ItineraryTab({
     setAIPreview((prev) => prev.map((item) => item._id === id ? { ...item, removed: !item.removed } : item));
   }
 
+  // 口袋名單沒有日期，混進分組會變成一個 key 是 undefined 的「日子」
+  const wishlistItems = items.filter((i) => i.status === "wishlist");
+  const scheduled = items.filter((i) => i.status !== "wishlist" && i.date);
+
   /** 從續日精簡條跳回開始日的完整卡片，並短暫高亮 */
   function jumpToItem(id: string) {
     const el = document.getElementById(`itinerary-item-${id}`);
@@ -841,15 +954,15 @@ export default function ItineraryTab({
     window.setTimeout(() => el.classList.remove("item-flash"), 1400);
   }
 
-  const spans = new Map(items.map((item) => [item.id, getSpan(item)] as const));
+  const spans = new Map(scheduled.map((item) => [item.id, getSpan(item)] as const));
   // 開始日 → 完整卡片
-  const startsOn = items.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
+  const startsOn = scheduled.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
     if (!acc[item.date]) acc[item.date] = [];
     acc[item.date].push(item);
     return acc;
   }, {});
   // 跨日行程的續日 → 精簡條（不含開始日，避免同一天出現兩次）
-  const continuesOn = items.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
+  const continuesOn = scheduled.reduce<Record<string, ItineraryItem[]>>((acc, item) => {
     (spans.get(item.id)?.days ?? []).slice(1).forEach((d) => {
       if (!acc[d]) acc[d] = [];
       acc[d].push(item);
@@ -882,7 +995,18 @@ export default function ItineraryTab({
       content: (
         <div
           id={`itinerary-date-${date}`}
-          className={showDateChips ? "scroll-mt-[116px] md:scroll-mt-[180px]" : "scroll-mt-20 md:scroll-mt-36"}
+          className={`${showDateChips ? "scroll-mt-[116px] md:scroll-mt-[180px]" : "scroll-mt-20 md:scroll-mt-36"} ${
+            dragOverDate === date ? "rounded-xl ring-2 ring-violet-500/50 bg-violet-500/[0.06]" : ""
+          }`}
+          onDragOver={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverDate(date); }}
+          onDragLeave={readOnly ? undefined : () => setDragOverDate((d) => (d === date ? null : d))}
+          onDrop={readOnly ? undefined : (e) => {
+            e.preventDefault();
+            setDragOverDate(null);
+            const id = e.dataTransfer.getData("text/plain");
+            // 拖到它原本就在的那一天不用打 API
+            if (id && items.find((i) => i.id === id)?.date !== date) scheduleWishlist(id, date);
+          }}
         >
           {/* 有 chips 列時它已經在標「現在是哪一天」，日期標題就不用再黏一層 */}
           <div
@@ -964,7 +1088,14 @@ export default function ItineraryTab({
     });
 
     const itemNodes = (startsOn[date] ?? []).map((item, itemIndex) => {
-            const hasImage = !!(item.image_urls && item.image_urls.length > 0);
+            /* 路線檔案裡的照片本來就屬於這一筆，只是收在路線檢視裡；空卡認不出是哪一條溪 */
+            const ownPhotos = item.image_urls ?? [];
+            const cardPhotos = ownPhotos.length > 0
+              ? ownPhotos
+              : item.category === "outdoor"
+                ? routePhotos(item.route_profile)
+                : [];
+            const hasImage = cardPhotos.length > 0;
             const timeLabel = (item.time || item.end_time) ? (
               <span className="text-xs shrink-0 tabular-nums">
                 {item.time ?? ""}
@@ -1028,20 +1159,57 @@ export default function ItineraryTab({
                 </button>
               </div>
             ) : null;
+            /*
+              備案掛一條從卡片上緣垂下來的書籤。
+
+              原本是內文那一排裡的一個小 tag，混在分類、地點、金額之間看不出來 ——
+              而「這一項可去可不去」是當天站在路口才會想起來要找的東西，得一眼認得出。
+              底部的 V 缺口用 clip-path 切，不另外疊一個三角形。
+            */
+            /*
+              備案沿著卡片左緣立一條標。
+
+              左緣是整張卡唯一沒有東西跟它搶的地方 —— 右上角有編輯與刪除，上緣有封面照，
+              內文那一排已經有分類、地點、金額。用石板藍而不是琥珀：琥珀在這個 App 是警告色
+              （預算超標、失敗次數），而備案不是警告，只是還沒決定。
+            */
+            const backupRail = item.status === "backup" ? (
+              <span
+                aria-hidden
+                className="absolute left-0 top-0 bottom-0 z-20 w-[26px] flex items-center justify-center border-r border-dashed"
+                style={{
+                  // 疊在照片上，所以底要夠實才讀得到字；純色卡上看起來仍然只是一條淡灰
+                  background: "rgba(30,41,59,0.72)",
+                  borderColor: "rgba(148,163,184,0.28)",
+                }}
+              >
+                <span
+                  className="text-[10px] font-bold tracking-[0.3em] text-slate-300"
+                  style={{ writingMode: "vertical-rl" }}
+                >
+                  備案
+                </span>
+              </span>
+            ) : null;
             const linkedExpenses = expensesByItem[item.id] ?? [];
             const hasExpenses = linkedExpenses.length > 0;
-            // 與時間／地點同一種份量：純文字＋icon，不用藥丸底
-            const amountInner = (
+            /*
+              沒有花費時只留一個錢幣 icon，不印 TWD 0。
+
+              零不是資訊，卻佔了和分類、地點一樣的份量 —— 一整天十張卡就是十個 TWD 0 排成一列。
+              icon 仍然是記帳入口，點下去一樣開表單。
+            */
+            const amountInner = hasExpenses ? (
               <>
                 <CoinIcon size={11} strokeWidth={1.6} />
-                <span className="font-money">
-                  {hasExpenses ? formatExpenseTotals(linkedExpenses) : `${currency} 0`}
-                </span>
-                {hasExpenses && <span className="opacity-60">· {linkedExpenses.length}</span>}
+                <span className="font-money">{formatExpenseTotals(linkedExpenses)}</span>
+                <span className="opacity-60">· {linkedExpenses.length}</span>
               </>
+            ) : (
+              <CoinIcon size={12} strokeWidth={1.6} />
             );
             const amountBase = "inline-flex items-center gap-1 -my-1 py-1 shrink-0";
-            const amountTone = hasExpenses ? "text-teal-400/75" : "text-zinc-500";
+            const amountTone = hasExpenses ? "text-teal-400/75" : "text-zinc-600";
             // 金額本身就是記帳入口：點下去開快速記帳表單
             const expenseChip = readOnly
               ? (hasExpenses ? <span className={`${amountBase} ${amountTone}`}>{amountInner}</span> : null)
@@ -1098,15 +1266,27 @@ export default function ItineraryTab({
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.28, ease: "easeOut", delay: itemIndex * 0.05 }}
               id={`itinerary-item-${item.id}`}
-              className="relative bg-white/[0.03] border border-white/[0.07] rounded-[18px] overflow-hidden"
+              // 備案和一般行程長得一樣的話，當天看行程會以為每一項都要跑完
+              className={`relative bg-white/[0.03] rounded-[18px] overflow-hidden ${
+                item.status === "backup"
+                  ? "border border-dashed border-slate-400/35 opacity-[0.82]"
+                  : "border border-white/[0.07]"
+              }`}
               style={!hasImage && item.category ? { background: `radial-gradient(ellipse at 18% 0%, ${(CATEGORY_ACCENT[item.category] ?? CATEGORY_ACCENT.other).from}14 0%, transparent 65%), rgba(255,255,255,0.03)` } : undefined}
             >
-              <div className="block md:flex">
-              {item.image_urls && item.image_urls.length > 0 && (() => {
-                const cover = parseCoverPos(item.image_urls[0]);
+              {backupRail}
+              {/* 拖曳掛這層而不是外面的 motion.div：framer-motion 的 onDragStart 是另一個簽章 */}
+              <div
+                className="block md:flex"
+                draggable={!readOnly}
+                onDragStart={readOnly ? undefined : (e) => startDrag(e, item.id, item.title)}
+              >
+              {hasImage && (() => {
+                const cover = parseCoverPos(cardPhotos[0]);
+                // 手機從 128 壓到 104：行程頁的價值是一眼看完一天，一張卡越高就越捲不完
                 return (
-                  <div className="relative w-full h-32 md:w-64 md:h-auto md:min-h-[128px] md:shrink-0">
-                    <Image.PreviewGroup items={item.image_urls.map((u) => parseCoverPos(u).clean)}>
+                  <div className="relative w-full h-[104px] md:w-64 md:h-auto md:min-h-[128px] md:shrink-0">
+                    <Image.PreviewGroup items={cardPhotos.map((u) => parseCoverPos(u).clean)}>
                       <Image
                         src={cover.clean}
                         alt={item.title}
@@ -1122,13 +1302,14 @@ export default function ItineraryTab({
                     <div className="absolute inset-0 bg-[#17141f]/25 pointer-events-none" />
                     <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-transparent to-[#121214] pointer-events-none md:hidden" />
                     <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-r from-transparent to-[#121214] pointer-events-none hidden md:block" />
-                    {item.image_urls.length > 1 && (
+                    {cardPhotos.length > 1 && (
                       <span className="absolute bottom-2 right-2 text-[11px] leading-4 px-1.5 py-0.5 rounded-md bg-black/60 text-zinc-200 pointer-events-none">
-                        +{item.image_urls.length - 1}
+                        +{cardPhotos.length - 1}
                       </span>
                     )}
                     {/* 手機：標題疊在下緣漸層上 */}
-                    <div className="md:hidden absolute left-3.5 right-12 bottom-1 pointer-events-none">
+                    {/* 手機的標題是疊在照片上的另一個絕對定位元素，備案時也要讓開邊條 */}
+                    <div className={`md:hidden absolute ${item.status === "backup" ? "left-[34px]" : "left-3.5"} right-12 bottom-1 pointer-events-none`}>
                       <Typography.Text strong className="!text-zinc-50 text-[15px] leading-snug">{item.title}</Typography.Text>
                     </div>
                     {/* 手機：操作鈕疊在圖片右上（與伴手禮卡一致） */}
@@ -1157,7 +1338,15 @@ export default function ItineraryTab({
                   </div>
                 );
               })()}
-              <div className={`flex-1 min-w-0 ${hasImage ? "pt-1 md:pt-0" : "pt-3"} px-3.5 pb-3 md:flex md:flex-col md:justify-center md:py-3`}>
+              {/*
+                照片讓邊條壓上去，文字不行 —— 標題被蓋住就讀不出來了。
+                有照片的卡在桌機是左右排，文字本來就在照片右邊，只有手機（上下排）需要讓開。
+              */}
+              <div className={`flex-1 min-w-0 ${hasImage ? "pt-1 md:pt-0" : "pt-3"} ${
+                item.status === "backup"
+                  ? hasImage ? "pl-[34px] md:pl-3.5" : "pl-[34px]"
+                  : "pl-3.5"
+              } pr-3.5 pb-3 md:flex md:flex-col md:justify-center md:py-3`}>
               {!hasImage && (
                 <div className="md:hidden flex justify-between items-start mb-1">
                   <Typography.Text strong className="!text-zinc-50 text-[15px] leading-snug flex-1 min-w-0">{item.title}</Typography.Text>
@@ -1165,12 +1354,23 @@ export default function ItineraryTab({
                 </div>
               )}
               {(timeLabel || item.category || locationInner || routeChip || expenseChip) && (
-                <div className="md:hidden flex items-center gap-2 flex-wrap mb-1 text-zinc-500 text-xs">
-                  {timeLabel && <span className="text-zinc-500">{timeLabel}</span>}
+                /*
+                  一列裡有三種不同性質的東西，就給三種份量：
+
+                    時間  你真正在掃的事實 —— 最亮
+                    分類  屬性，整張卡唯一的顏色
+                    地圖／金額／路線  動作，退到最後、統一用最暗的灰
+
+                  三者都一樣大小的話眼睛沒有著力點，一天十張卡就是一片均勻的雜訊。
+                */
+                <div className="md:hidden flex items-center gap-2 flex-wrap mb-1 text-xs">
+                  {timeLabel && <span className="text-zinc-300 font-medium">{timeLabel}</span>}
                   {item.category && <CategoryBadge category={item.category} />}
-                  {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
-                  {routeChip}
-                  {expenseChip}
+                  <span className="flex items-center gap-2 text-zinc-600 min-w-0">
+                    {locationInner && <span className="flex items-center gap-0.5 min-w-0">{locationInner}</span>}
+                    {routeChip}
+                    {expenseChip}
+                  </span>
                 </div>
               )}
               {/* 桌機把時間拉到右側固定寬度的一欄，整排靠右對齊 —— 像時刻表一樣可以縱向掃視，
@@ -1197,7 +1397,9 @@ export default function ItineraryTab({
               {routeSpark}
               {item.notes && (
                 <div
-                  className="notes-content text-zinc-500 text-xs mt-1"
+                  className={`notes-content text-zinc-500 text-xs mt-1 ${
+                    notesExpanded ? "" : "line-clamp-2"
+                  }`}
                   dangerouslySetInnerHTML={{ __html: processLinks(item.notes) }}
                 />
               )}
@@ -1227,6 +1429,28 @@ export default function ItineraryTab({
       <div className="my-3 flex items-center justify-between gap-2">
         <Typography.Text strong className="text-zinc-100 text-[15px] shrink-0">每日行程</Typography.Text>
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          {/* 備註展開／收合：唯讀分享頁也要有，那邊的備註一樣會很長 */}
+          {items.some((i) => i.notes) && (
+            <div className="flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.08] rounded-full p-0.5">
+              {([
+                { expanded: true, label: "顯示完整備註", icon: <TextFullIcon size={12} /> },
+                { expanded: false, label: "備註只顯示兩行", icon: <TextClampIcon size={12} /> },
+              ]).map(({ expanded, label, icon }) => (
+                <Tooltip key={String(expanded)} title={label} placement="bottom" trigger={["hover", "click"]}>
+                  <button
+                    onClick={() => changeNotesView(expanded)}
+                    aria-label={label}
+                    aria-pressed={notesExpanded === expanded}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                      notesExpanded === expanded ? "bg-white/10 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    {icon}
+                  </button>
+                </Tooltip>
+              ))}
+            </div>
+          )}
           {!readOnly && (
             <>
               <Dropdown
@@ -1289,14 +1513,6 @@ export default function ItineraryTab({
                 </button>
               </Dropdown>
               <button
-                onClick={handleExportSheet}
-                disabled={exporting}
-                title="把每日行程匯出成 Google 試算表"
-                className="inline-flex items-center gap-1 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50"
-              >
-                {exporting ? <LoadingOutlined style={{ fontSize: 10 }} /> : <SheetIcon size={11} />} 匯出
-              </button>
-              <button
                 onClick={() => openAdd()}
                 className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium h-7 px-2.5 bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer"
               >
@@ -1340,6 +1556,57 @@ export default function ItineraryTab({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* 在 loading 判斷之外：一趟還沒有行程時，這一塊正是第一個會用到的東西 */}
+      {!loading && (
+        <WishlistSection
+          items={wishlistItems}
+          readOnly={readOnly}
+          dragOver={dragOverWishlist}
+          onAdd={addWishlist}
+          onRemove={handleDelete}
+          onOpen={readOnly ? undefined : (id) => {
+            const found = items.find((i) => i.id === id);
+            if (found) openEdit(found);
+          }}
+          onOpenRoute={(id) => {
+            const found = items.find((i) => i.id === id);
+            if (found) setRouteItem(found);
+          }}
+          onDragStartItem={startDrag}
+
+          onDragOverZone={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverWishlist(true); }}
+          onDragLeaveZone={readOnly ? undefined : () => setDragOverWishlist(false)}
+          onDropZone={readOnly ? undefined : (e) => {
+            e.preventDefault();
+            setDragOverWishlist(false);
+            const id = e.dataTransfer.getData("text/plain");
+            // 本來就在口袋名單裡的不用打 API
+            if (id && items.find((i) => i.id === id)?.status !== "wishlist") unschedule(id);
+          }}
+        />
+      )}
+
+      {/* 口袋名單在最上面，從下面的日子拖回去得一路等畫面爬上來；這顆讓反向永遠是一手的距離 */}
+      {dragging && !readOnly && (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOverWishlist(true); }}
+          onDragLeave={() => setDragOverWishlist(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOverWishlist(false);
+            const id = e.dataTransfer.getData("text/plain");
+            if (id && items.find((i) => i.id === id)?.status !== "wishlist") unschedule(id);
+          }}
+          className={`fixed left-1/2 -translate-x-1/2 bottom-24 md:bottom-8 z-[60] px-5 h-11 rounded-full flex items-center gap-2 text-[13px] font-medium pointer-events-auto transition-colors ${
+            dragOverWishlist
+              ? "bg-violet-500/30 border-2 border-dashed border-violet-400 text-zinc-100"
+              : "bg-[#18181b]/95 border border-dashed border-white/25 text-zinc-400 backdrop-blur-md"
+          }`}
+        >
+          放回口袋
         </div>
       )}
 
@@ -1391,7 +1658,9 @@ export default function ItineraryTab({
             <div
               ref={chipRowRef}
               aria-label="跳到某一天"
-              className="chip-row sticky top-16 md:top-32 z-50 mb-1 flex gap-1 overflow-x-auto bg-[#09090b] py-2"
+              className={`chip-row sticky top-16 md:top-32 z-50 mb-1 flex gap-1 overflow-x-auto bg-[#09090b] py-2 ${
+                dragging ? "ring-1 ring-violet-500/30 rounded-full" : ""
+              }`}
             >
               {dates.map((d) => {
                 const active = d === activeDate;
@@ -1407,7 +1676,18 @@ export default function ItineraryTab({
                         .getElementById(`itinerary-date-${d}`)
                         ?.scrollIntoView({ behavior: "smooth", block: "start" })
                     }
-                    className={`shrink-0 h-8 rounded-full px-2.5 text-[13px] font-semibold transition-colors cursor-pointer ${active
+                    /* chips 列黏在頂部，每一天都在上面：拖到這裡放就不必捲 */
+                    onDragOver={readOnly ? undefined : (e) => { e.preventDefault(); setDragOverDate(d); }}
+                    onDragLeave={readOnly ? undefined : () => setDragOverDate((cur) => (cur === d ? null : cur))}
+                    onDrop={readOnly ? undefined : (e) => {
+                      e.preventDefault();
+                      setDragOverDate(null);
+                      const id = e.dataTransfer.getData("text/plain");
+                      if (id && items.find((i) => i.id === id)?.date !== d) scheduleWishlist(id, d);
+                    }}
+                    className={`shrink-0 h-8 rounded-full px-2.5 text-[13px] font-semibold transition-colors cursor-pointer ${
+                      dragOverDate === d ? "ring-2 ring-violet-500/70 bg-violet-500/25 text-zinc-100" : ""
+                    } ${active
                       ? "bg-violet-500/20 text-zinc-200"
                       : chipToday
                         ? "text-violet-400 hover:bg-white/[0.06]"
@@ -1428,7 +1708,7 @@ export default function ItineraryTab({
       )}
 
       <Modal
-        title={editingItem ? "編輯行程" : "新增行程"}
+        title={editingItem ? (editingItem.status === "wishlist" ? "口袋名單" : "編輯行程") : "新增行程"}
         open={showModal}
         onCancel={closeModal}
         afterClose={() => { form.resetFields(); setImageUrls([]); }}
@@ -1437,15 +1717,27 @@ export default function ItineraryTab({
         centered={true}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4" disabled={saving}>
-          <div className="flex gap-2">
-            <Form.Item name="date" label="日期" rules={[{ required: true, message: "請選擇日期" }]} className="flex-1">
+          {/* 狀態擺在日期之前：選「口袋名單」會收起日期時間，控制項要在被它收掉的欄位上面 */}
+          <Form.Item name="title" label="行程名稱" rules={[{ required: true, message: "請輸入行程名稱" }]}>
+            <Input placeholder="例如：淺草寺參觀" />
+          </Form.Item>
+          <Form.Item name="status" initialValue="planned" className="!mb-4">
+            <StatusPicker />
+          </Form.Item>
+          <div className={`gap-2 ${formStatus === "wishlist" ? "hidden" : "flex"}`}>
+            <Form.Item
+              name="date"
+              label="日期"
+              rules={[{ required: formStatus !== "wishlist", message: "請選擇日期" }]}
+              className="flex-1"
+            >
               <DatePicker className="w-full" placeholder="選擇日期" />
             </Form.Item>
             <Form.Item name="endDate" label="結束日期（跨日選填）" className="flex-1">
               <DatePicker className="w-full" placeholder="跨日才需要" />
             </Form.Item>
           </div>
-          <div className="flex gap-2">
+          <div className={`gap-2 ${formStatus === "wishlist" ? "hidden" : "flex"}`}>
             <Form.Item name="timeStart" label="開始時間（選填）" className="flex-1">
               <TimePicker className="w-full" format="HH:mm" minuteStep={5} placeholder="選填" needConfirm={false} />
             </Form.Item>
@@ -1453,9 +1745,6 @@ export default function ItineraryTab({
               <TimePicker className="w-full" format="HH:mm" minuteStep={5} placeholder="選填" needConfirm={false} />
             </Form.Item>
           </div>
-          <Form.Item name="title" label="行程名稱" rules={[{ required: true, message: "請輸入行程名稱" }]}>
-            <Input placeholder="例如：淺草寺參觀" />
-          </Form.Item>
           <Form.Item name="category" label="類型">
             <Select placeholder="選擇類型" allowClear options={CATEGORIES} />
           </Form.Item>

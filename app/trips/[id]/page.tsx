@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
+import { GoogleAuthError, clearGoogleAccessToken, preloadGoogleAuth, requestGoogleAccessToken } from "@/lib/googleAuth";
 import { recordTripOpen } from "@/lib/recentTrips";
 import {
   Button, Typography, Input,
@@ -28,7 +29,7 @@ import PillButton from "@/app/components/PillButton";
 import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
 import {
   PlaneIcon, PlusIcon, CalendarIcon, UsersIcon, GiftIcon, CarabinerIcon,
-  CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon,
+  CoinIcon, PhotoIcon, ShareIcon, UserPlusIcon, EditIcon, TrashIcon, ChevronLeftIcon, NotepadIcon, MoreVerticalIcon, LineBotIcon, SheetIcon,
 } from "@/app/components/Icons";
 import { computeOutdoorTotals, type OutdoorTotals } from "@/lib/outdoorTotals";
 import { TRIP_TAB_KEYS, TRIP_TAB_LABEL } from "@/lib/tripTabs";
@@ -82,6 +83,30 @@ interface MemberLink {
   avatar_url: string | null;
 }
 
+const TAB_DEFS = [
+  { key: "transport", label: "路線" },
+  { key: "itinerary", label: "行程" },
+  { key: "expenses", label: "費用" },
+  { key: "photos", label: "照片" },
+  { key: "notes", label: "筆記" },
+  { key: "souvenirs", label: "伴手禮" },
+  { key: "gear", label: "裝備" },
+];
+
+const TAB_ICONS: Record<string, React.ReactNode> = {
+  transport: <PlaneIcon size={18} />, itinerary: <CalendarIcon size={18} />,
+  expenses: <CoinIcon size={18} />, photos: <PhotoIcon size={18} />,
+  notes: <NotepadIcon size={18} />, souvenirs: <GiftIcon size={18} />,
+  gear: <CarabinerIcon size={18} />,
+};
+
+const TAB_ICONS_LG: Record<string, React.ReactNode> = {
+  transport: <PlaneIcon size={20} />, itinerary: <CalendarIcon size={20} />,
+  expenses: <CoinIcon size={20} />, photos: <PhotoIcon size={20} />,
+  notes: <NotepadIcon size={20} />, souvenirs: <GiftIcon size={20} />,
+  gear: <CarabinerIcon size={20} />,
+};
+
 export default function TripPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -111,6 +136,10 @@ export default function TripPage() {
   const [leaving, setLeaving] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportTabs, setExportTabs] = useState<string[]>([]);
+  const loginEmailRef = useRef<string | null>(null);
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [itineraryStats, setItineraryStats] = useState<{ items: number; locations: number } | null>(null);
@@ -547,6 +576,79 @@ export default function TripPage() {
     }
   }
 
+  // GIS 的 script 先載好，按下匯出時彈窗才算在點擊那個手勢裡、不會被瀏覽器擋掉
+  useEffect(() => {
+    preloadGoogleAuth().catch(() => { });
+  }, []);
+
+  /**
+   * 匯出成使用者自己 Google 帳號裡的試算表：當場向 Google 要一顆只能碰自建檔案的 token，
+   * 交給後端組表格。行程資料由後端重讀，匯出的內容一定是已存檔的版本。
+   *
+   * 放在旅程層而不是行程分頁：它是「對這一趟做一件事」，和分享、邀請、編輯同一類，
+   * 而且一年用不到幾次 —— 擺在行程分頁的工具列上會跟每天都用的新增、AI 搶位置。
+   */
+  async function handleExportSheet(exportTabs: string[]) {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      if (loginEmailRef.current === null) {
+        try {
+          const meRes = await fetchWithAuth("/api/me");
+          if (meRes.ok) loginEmailRef.current = (await meRes.json()).email ?? "";
+        } catch { }
+      }
+      const accessToken = await requestGoogleAccessToken(loginEmailRef.current || undefined);
+      const res = await fetchWithAuth("/api/itinerary/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tripId: id, accessToken, tabs: exportTabs }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.code === "google_auth_required") {
+          clearGoogleAccessToken();
+          messageApi.error("Google 授權已失效，請再按一次匯出重新授權");
+        } else if (data.code === "sheets_api_disabled") {
+          messageApi.error("這個 Google 專案還沒啟用 Sheets API");
+        } else if (data.code === "empty") {
+          messageApi.info("這趟還沒有行程可以匯出");
+        } else {
+          messageApi.error("匯出失敗，請再試一次");
+        }
+        return;
+      }
+      window.open(data.url, "_blank", "noopener");
+      messageApi.success(
+        <span>
+          已匯出到你的 Google 雲端硬碟 ·{" "}
+          <a href={data.url} target="_blank" rel="noopener noreferrer" className="underline">開啟試算表</a>
+        </span>,
+        6
+      );
+    } catch (e) {
+      if (e instanceof GoogleAuthError) {
+        if (e.code === "cancelled") return;
+        messageApi.error(
+          e.code === "popup_blocked" ? "Google 授權視窗被瀏覽器擋住了，請允許彈出視窗後再試"
+            : e.code === "no_client_id" ? "這個站台還沒設定 Google 用戶端 ID，無法匯出"
+              : "Google 授權失敗，請再試一次"
+        );
+      } else {
+        messageApi.error("匯出失敗，請檢查網路連線");
+      }
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function openExportModal() {
+    // 預設全選；沒有資料的分頁後端會自己跳過，不會產生空白工作表
+    setExportTabs(exportableTabs.map((t) => t.key));
+    setExportModalOpen(true);
+    setShowMoreSheet(false);
+  }
+
   async function handleLeave() {
     setLeaving(true);
     await fetchWithAuth(`/api/trips/${id}/leave`, { method: "DELETE" });
@@ -614,6 +716,18 @@ export default function TripPage() {
   const people = trip?.people ?? [];
   // 綁定了 Google 帳號的分帳成員才認得出「我」；沒綁定時裝備頁只能顯示全隊總重
   const myPersonName = memberLinks.find((l) => l.user_id && l.user_id === userId)?.person_name ?? null;
+  /** 這趟啟用的分頁，依 enabled_tabs 的順序；只剩一個時兩條分頁列都不出現 */
+  const visibleTabs = TAB_DEFS
+    .filter((tab) => !trip?.enabled_tabs || trip.enabled_tabs.includes(tab.key))
+    .sort((a, b) => {
+      if (!trip?.enabled_tabs) return 0;
+      return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
+    })
+    .map((tab) => ({ ...tab, icon: TAB_ICONS[tab.key] }));
+
+  /** 照片沒辦法放進試算表，所以不列入匯出選項 */
+  const exportableTabs = visibleTabs.filter((t) => t.key !== "photos");
+
   const currencies = trip?.currency ? trip.currency.split(",") : ["TWD"];
   const primaryCurrency = currencies[0];
 
@@ -733,6 +847,11 @@ export default function TripPage() {
               </PillButton>
             )}
 
+            <PillButton onClick={openExportModal} disabled={exporting} title="匯出成 Google 試算表">
+              {exporting ? <LoadingOutlined style={{ fontSize: 12 }} /> : <SheetIcon size={13} />}
+              匯出
+            </PillButton>
+
             <PillButton onClick={() => pushModal("lineBot")} title="LINE Bot 記帳">
               <LineBotIcon size={13} />
               LINE Bot
@@ -818,14 +937,14 @@ export default function TripPage() {
                         okButtonProps={{ danger: true, loading: isRemoving }}
                         onConfirm={() => handleRemoveMember(m.user_id)}
                       >
-                        <Tooltip title={m.name}>
+                        <Tooltip title={m.name} placement="bottom" trigger={["hover", "click"]}>
                           <div className="relative cursor-pointer hover:opacity-75 transition-opacity" style={{ marginLeft: i === 0 ? 0 : -8, zIndex: members.length - i }}>
                             {avatar}
                           </div>
                         </Tooltip>
                       </Popconfirm>
                     ) : (
-                      <Tooltip key={m.user_id} title={`${m.name}${m.is_owner ? " (owner)" : ""}`}>
+                      <Tooltip key={m.user_id} title={`${m.name}${m.is_owner ? " (owner)" : ""}`} placement="bottom" trigger={["hover", "click"]}>
                         <div className="relative cursor-default" style={{ marginLeft: i === 0 ? 0 : -8, zIndex: members.length - i }}>
                           {avatar}
                         </div>
@@ -893,6 +1012,53 @@ export default function TripPage() {
               onClick={handleCopyShareLink}
             >
               {shareTabs.length === 0 ? "至少選一個分頁" : "複製分享連結"}
+            </Button>
+          </div>
+        </Modal>
+
+        <Modal
+          open={exportModalOpen}
+          onCancel={() => setExportModalOpen(false)}
+          footer={null}
+          title="匯出成 Google 試算表"
+          centered
+        >
+          <div className="flex flex-col gap-3 pt-1">
+            <Typography.Text className="text-zinc-500 text-[13px]">
+              選要匯出哪些分頁，每一個會變成試算表裡的一張工作表。
+            </Typography.Text>
+            <div className="flex flex-wrap gap-1.5">
+              {exportableTabs.map((tab) => {
+                const on = exportTabs.includes(tab.key);
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setExportTabs((prev) => on ? prev.filter((k) => k !== tab.key) : [...prev, tab.key])}
+                    aria-pressed={on}
+                    className={`inline-flex items-center gap-1.5 rounded-full text-[13px] font-medium h-8 px-3.5 border transition-all duration-200 cursor-pointer ${on
+                      ? "bg-white/10 border-white/20 text-white"
+                      : "bg-white/[0.03] border-white/8 text-zinc-500 hover:text-zinc-300"
+                      }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            <Typography.Text className="text-zinc-600 text-[12px] leading-relaxed">
+              沒有內容的分頁不會產生空白工作表。照片沒辦法放進試算表，所以不在選項裡。
+            </Typography.Text>
+            <Button
+              type="primary"
+              block
+              loading={exporting}
+              disabled={exportTabs.length === 0}
+              onClick={async () => {
+                setExportModalOpen(false);
+                await handleExportSheet(exportTabs);
+              }}
+            >
+              {exportTabs.length === 0 ? "至少選一個分頁" : "匯出"}
             </Button>
           </div>
         </Modal>
@@ -986,24 +1152,12 @@ export default function TripPage() {
           animate={{ clipPath: "inset(0 0 0% 0)", opacity: 1, transitionEnd: { clipPath: "none" } }}
           transition={{ duration: 0.48, ease: [0.2, 0, 0, 1], delay: 0.15 }}
         >
-          {/* 電腦版不上毛玻璃：橫幅不鋪底，框框自己是實色的，捲過去的內容不會透出來 */}
-          {!isMobile && (
+          {/* 電腦版不上毛玻璃：橫幅不鋪底，框框自己是實色的，捲過去的內容不會透出來。
+              只剩一個分頁時整條不出現 —— 一顆永遠是選中的按鈕不是導覽，只是佔掉一段高度 */}
+          {!isMobile && visibleTabs.length > 1 && (
             <div className="flex items-center justify-center mb-8 py-2 sticky top-16 z-[90]">
               <div className="flex bg-[#18181b] border border-white/8 rounded-full p-1.5 shadow-xl">
-                {[
-                  { key: "transport", label: "路線", icon: <PlaneIcon size={18} /> },
-                  { key: "itinerary", label: "行程", icon: <CalendarIcon size={18} /> },
-                  { key: "expenses", label: "費用", icon: <CoinIcon size={18} /> },
-                  { key: "photos", label: "照片", icon: <PhotoIcon size={18} /> },
-                  { key: "notes", label: "筆記", icon: <NotepadIcon size={18} /> },
-                  { key: "souvenirs", label: "伴手禮", icon: <GiftIcon size={18} /> },
-                  { key: "gear", label: "裝備", icon: <CarabinerIcon size={18} /> },
-                ]
-                  .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
-                  .sort((a, b) => {
-                    if (!trip.enabled_tabs) return 0;
-                    return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
-                  })
+                {visibleTabs
                   .map((tab) => (
                     <button
                       key={tab.key}
@@ -1077,24 +1231,11 @@ export default function TripPage() {
         )}
       </div>
 
-      {isMobile && trip && (
+      {isMobile && trip && visibleTabs.length > 1 && (
         <MobileNav
           activeKey={activeTab}
           onChange={handleTabChange}
-          tabs={[
-            { key: "transport", icon: <PlaneIcon size={20} />, label: "路線" },
-            { key: "itinerary", icon: <CalendarIcon size={20} />, label: "行程" },
-            { key: "expenses", icon: <CoinIcon size={20} />, label: "費用" },
-            { key: "photos", icon: <PhotoIcon size={20} />, label: "照片" },
-            { key: "notes", icon: <NotepadIcon size={20} />, label: "筆記" },
-            { key: "souvenirs", icon: <GiftIcon size={20} />, label: "伴手禮" },
-            { key: "gear", icon: <CarabinerIcon size={20} />, label: "裝備" },
-          ]
-            .filter(tab => !trip.enabled_tabs || trip.enabled_tabs.includes(tab.key))
-            .sort((a, b) => {
-              if (!trip.enabled_tabs) return 0;
-              return trip.enabled_tabs.indexOf(a.key) - trip.enabled_tabs.indexOf(b.key);
-            })}
+          tabs={visibleTabs.map((t) => ({ ...t, icon: TAB_ICONS_LG[t.key] }))}
         />
       )}
 
@@ -1163,6 +1304,21 @@ export default function TripPage() {
                 </div>
               </button>
             )}
+
+            {/* 匯出行程 */}
+            <button
+              onClick={openExportModal}
+              disabled={exporting}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-[14px] hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors cursor-pointer disabled:opacity-40 text-left"
+            >
+              <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(52,211,153,0.15)" }}>
+                {exporting ? <LoadingOutlined style={{ color: "#34d399", fontSize: 16 }} /> : <SheetIcon size={16} stroke="#34d399" />}
+              </div>
+              <div>
+                <div className="text-zinc-100 text-[14px] font-medium">匯出試算表</div>
+                <div className="text-zinc-500 text-[11px] mt-0.5">選要匯出哪些分頁</div>
+              </div>
+            </button>
 
             {/* 分帳綁定 */}
             {(isOwner || isMember) && people.length > 0 && (
