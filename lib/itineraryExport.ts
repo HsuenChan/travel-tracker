@@ -96,7 +96,7 @@ export function spreadsheetTitle(trip: ExportTrip): string {
  * 距離／上升／下降只在這趟真的有戶外數字時才出現，一般旅遊行程不用看三個空欄。
  */
 /**
- * 想去清單另起一張工作表。
+ * 口袋名單另起一張工作表。
  *
  * 它沒有日期，塞進「一列一天」的行程表只會多出一堆空的日期欄，排序也會亂掉。
  * 一個都沒有的話整張不出現。
@@ -106,7 +106,7 @@ function wishlistSheet(items: ExportItem[]): SheetSpec | null {
   if (wishes.length === 0) return null;
 
   return {
-    title: "想去",
+    title: "口袋名單",
     columns: [
       { label: "項目", width: 220 },
       { label: "分類", width: 62 },
@@ -209,7 +209,7 @@ function waypointSheet(items: ExportItem[], waypoints: ExportWaypoint[]): SheetS
 }
 
 export function buildSheets(items: ExportItem[], waypoints: ExportWaypoint[]): SheetSpec[] {
-  // 行程表只放有日期的；想去清單沒有日期，另起一張放在最後
+  // 行程表只放有日期的；口袋名單沒有日期，另起一張放在最後
   const scheduled = items.filter((i) => i.status !== "wishlist");
   const sheets = [itinerarySheet(scheduled)];
   if (waypoints.length > 0) sheets.push(waypointSheet(scheduled, waypoints));

@@ -393,7 +393,7 @@ export interface LogShareViewInput {
  * 能辨識的只有 IP 與裝置字串，跟登入失敗記的東西同一個層級，不會多記什麼。
  *
  * 去重是必要的而不是優化：分享頁一重整就是一次瀏覽，手機上讀個行程可以按十幾次，
- * 不擋的話「存取」頁會被同一個人洗成幾十列，真正想看的「有沒有人來看過」反而讀不出來。
+ * 不擋的話「來訪」頁會被同一個人洗成幾十列，真正想看的「有沒有人來看過」反而讀不出來。
  */
 export async function logShareView(input: LogShareViewInput): Promise<void> {
   try {

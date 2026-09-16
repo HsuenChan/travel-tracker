@@ -162,7 +162,7 @@ export function MapIcon({ size = 13, className, stroke = "currentColor", strokeW
   );
 }
 
-/** 想去清單：做夢的那種雲朵，後面跟著三顆由大到小的泡泡 */
+/** 口袋名單：做夢的那種雲朵，後面跟著兩顆由大到小的泡泡 */
 export function DreamCloudIcon({ size = 13, className, stroke = "currentColor", strokeWidth = 2 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>

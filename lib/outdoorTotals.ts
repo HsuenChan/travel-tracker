@@ -16,7 +16,7 @@ interface LegLike {
 
 export function computeOutdoorTotals(items: LegLike[]): OutdoorTotals | null {
   /*
-    備案與想去清單不算。
+    備案與口袋名單不算。
 
     一段可能不會走的溪降，它的里程與爬升不該進這趟的總計 —— 那個數字是拿來決定「這趟要練到
     什麼程度、背包揹不揹得動」的，把還沒決定的事算進去，準備的基準就是錯的。

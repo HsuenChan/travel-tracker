@@ -124,7 +124,7 @@ export async function PATCH(request: NextRequest) {
 
     沒帶 date 時要拿這一列現有的日期去驗證，不能當成沒有日期 —— 只切備案的請求本來就不會
     帶日期，而那一列明明有；用 undefined 去驗證會把「標為備案」整個擋掉。
-    帶了才動它：null 是丟回想去清單，字串是排到那一天。
+    帶了才動它：null 是丟回口袋名單，字串是排到那一天。
   */
   if (status !== undefined) {
     const effectiveDate = date !== undefined ? date : before.date;

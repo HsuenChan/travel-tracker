@@ -92,7 +92,7 @@ export async function POST(
     : null;
 
   /*
-    基準日只能從有日期的那些算。想去清單（status = wishlist）沒有日期，被當成基準的話
+    基準日只能從有日期的那些算。口袋名單（status = wishlist）沒有日期，被當成基準的話
     整份行程會位移到 NaN 去。它們照樣複製，只是不套位移 —— 對方拿到的一樣是「還沒決定哪天」。
   */
   const dated = items.filter((i) => i.date);

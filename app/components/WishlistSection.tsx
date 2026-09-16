@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LocationIcon, PlusIcon, DreamCloudIcon, MountainIcon } from "@/app/components/Icons";
 
 /**
- * 放在時間軸上面而不是另開分頁：這些東西的下一步就是被排進某一天，跨分頁就做不到
+ * 口袋名單放在時間軸上面而不是另開分頁：這些東西的下一步就是被排進某一天，跨分頁就做不到
  * 「看著行程決定放哪天」。它只是暫存，所以不該比行程本身還占版面。
  */
 
@@ -67,9 +67,9 @@ export default function WishlistSection({
       onDrop={onDropZone}
     >
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="shrink-0 flex items-center gap-1 text-zinc-500" title="想去清單">
+        <span className="shrink-0 flex items-center gap-1 text-zinc-500" title="口袋名單：還沒決定哪一天去的地方">
           <DreamCloudIcon size={13} />
-          <span className="text-[12px]">想去</span>
+          <span className="text-[12px]">口袋名單</span>
         </span>
 
         {items.length === 0 && !adding && (
@@ -123,7 +123,7 @@ export default function WishlistSection({
         {!readOnly && (
           <button
             onClick={() => setAdding((v) => !v)}
-            aria-label="加入想去清單"
+            aria-label="加入口袋名單"
             className={`inline-flex items-center justify-center w-7 h-7 rounded-full border border-dashed transition-colors cursor-pointer ${
               adding
                 ? "border-violet-500/50 text-violet-300 bg-violet-500/10"
@@ -151,7 +151,7 @@ export default function WishlistSection({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 onPressEnter={submit}
-                placeholder="想去哪裡"
+                placeholder="地點名稱"
                 maxLength={80}
               />
               <Input

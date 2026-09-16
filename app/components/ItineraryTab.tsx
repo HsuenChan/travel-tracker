@@ -40,7 +40,7 @@ function processLinks(html: string): string {
 
 /**
  *  planned   已排進行程，會去
- *  wishlist  想去，還沒決定哪一天 —— 這種沒有日期
+ *  wishlist  口袋名單，還沒決定哪一天 —— 這種沒有日期
  *  backup    已排在某一天，但可去可不去
  */
 type ItineraryStatus = "planned" | "wishlist" | "backup";
@@ -48,7 +48,7 @@ type ItineraryStatus = "planned" | "wishlist" | "backup";
 interface ItineraryItem {
   id: string;
   trip_id: string;
-  /** 想去清單還沒決定日期，所以可能是 null */
+  /** 口袋名單還沒決定日期，所以可能是 null */
   date: string;
   status?: ItineraryStatus | null;
   sort_order: number;
@@ -135,7 +135,7 @@ interface Props {
 const STATUS_OPTIONS = [
   { value: "planned", label: "正式行程" },
   { value: "backup", label: "備案" },
-  { value: "wishlist", label: "想去" },
+  { value: "wishlist", label: "口袋名單" },
 ] as const;
 
 /** 不用 antd Segmented：它自帶的淺色滑塊與外框在深色介面上是一塊突兀的方框 */
@@ -479,7 +479,7 @@ export default function ItineraryTab({
 
   // 只依賴日期範圍字串，items 參照變動不會重打天氣 API
   const weatherRange = useMemo(() => {
-    // 想去清單沒有日期，混進來會讓範圍字串變成 "undefined~..."，天氣整個查不到
+    // 口袋名單沒有日期，混進來會讓範圍字串變成 "undefined~..."，天氣整個查不到
     const dated = items.filter((item) => item.status !== "wishlist" && item.date);
     if (dated.length === 0) return null;
     const starts = dated.map((item) => item.date).sort();
@@ -643,7 +643,7 @@ export default function ItineraryTab({
     };
   }, [readOnly]);
 
-  /** 丟回想去清單：日期清掉，狀態改回 wishlist */
+  /** 丟回口袋名單：日期清掉，狀態改回 wishlist */
   async function unschedule(id: string) {
     const res = await fetchWithAuth("/api/itinerary", {
       method: "PATCH",
@@ -654,7 +654,7 @@ export default function ItineraryTab({
     fetchItems();
   }
 
-  /** 想去清單：沒有日期，所以走 status=wishlist 而不是隨便填一天 */
+  /** 口袋名單：沒有日期，所以走 status=wishlist 而不是隨便填一天 */
   async function addWishlist(title: string, location: string) {
     const res = await fetchWithAuth("/api/itinerary", {
       method: "POST",
@@ -665,7 +665,7 @@ export default function ItineraryTab({
     fetchItems();
   }
 
-  /** 排進某一天：日期與狀態一起改，中間不會出現「有日期卻還在想去清單」的狀態 */
+  /** 排進某一天：日期與狀態一起改，中間不會出現「有日期卻還在口袋名單」的狀態 */
   async function scheduleWishlist(id: string, date: string) {
     const res = await fetchWithAuth("/api/itinerary", {
       method: "PATCH",
@@ -986,7 +986,7 @@ export default function ItineraryTab({
     setAIPreview((prev) => prev.map((item) => item._id === id ? { ...item, removed: !item.removed } : item));
   }
 
-  // 想去清單沒有日期，混進分組會變成一個 key 是 undefined 的「日子」
+  // 口袋名單沒有日期，混進分組會變成一個 key 是 undefined 的「日子」
   const wishlistItems = items.filter((i) => i.status === "wishlist");
   const scheduled = items.filter((i) => i.status !== "wishlist" && i.date);
 
@@ -1559,13 +1559,13 @@ export default function ItineraryTab({
             e.preventDefault();
             setDragOverWishlist(false);
             const id = e.dataTransfer.getData("text/plain");
-            // 本來就在想去清單裡的不用打 API
+            // 本來就在口袋名單裡的不用打 API
             if (id && items.find((i) => i.id === id)?.status !== "wishlist") unschedule(id);
           }}
         />
       )}
 
-      {/* 想去清單在最上面，從下面的日子拖回去得一路等畫面爬上來；這顆讓反向永遠是一手的距離 */}
+      {/* 口袋名單在最上面，從下面的日子拖回去得一路等畫面爬上來；這顆讓反向永遠是一手的距離 */}
       {dragging && !readOnly && (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOverWishlist(true); }}
@@ -1582,7 +1582,7 @@ export default function ItineraryTab({
               : "bg-[#18181b]/95 border border-dashed border-white/25 text-zinc-400 backdrop-blur-md"
           }`}
         >
-          放回想去
+          放回口袋
         </div>
       )}
 
@@ -1684,7 +1684,7 @@ export default function ItineraryTab({
       )}
 
       <Modal
-        title={editingItem ? (editingItem.status === "wishlist" ? "想去的地方" : "編輯行程") : "新增行程"}
+        title={editingItem ? (editingItem.status === "wishlist" ? "口袋名單" : "編輯行程") : "新增行程"}
         open={showModal}
         onCancel={closeModal}
         afterClose={() => { form.resetFields(); setImageUrls([]); }}
@@ -1693,7 +1693,7 @@ export default function ItineraryTab({
         centered={true}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4" disabled={saving}>
-          {/* 狀態擺在日期之前：選「想去」會收起日期時間，控制項要在被它收掉的欄位上面 */}
+          {/* 狀態擺在日期之前：選「口袋名單」會收起日期時間，控制項要在被它收掉的欄位上面 */}
           <Form.Item name="title" label="行程名稱" rules={[{ required: true, message: "請輸入行程名稱" }]}>
             <Input placeholder="例如：淺草寺參觀" />
           </Form.Item>

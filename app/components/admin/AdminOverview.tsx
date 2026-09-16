@@ -102,9 +102,9 @@ export default function AdminOverview() {
           <SectionHead title="登入狀態" href="/admin/logins" />
           {logins.last ? (
             <div className="mt-2">
-              <p className="flex items-center gap-2 text-[17px] font-bold text-zinc-100">
-                <ShieldIcon size={15} className={suspicious ? "text-amber-300" : "text-emerald-300"} />
-                最近一次登入 {relativeTime(logins.last.created_at)}
+              <p className="flex items-center gap-2 text-[16px] font-bold text-zinc-100">
+                <ShieldIcon size={15} className={`shrink-0 ${suspicious ? "text-amber-300" : "text-emerald-300"}`} />
+                <span className="truncate">{relativeTime(logins.last.created_at)}登入</span>
               </p>
               <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-zinc-400">
                 <LaptopIcon size={13} className="text-zinc-600" />
@@ -138,15 +138,16 @@ export default function AdminOverview() {
                   <p className="mt-2 text-[13px] text-zinc-500">本月還沒有 AI 呼叫。</p>
                 ) : (
                   <div className="mt-2">
-                    <p className="flex items-center gap-2 text-[17px] font-bold text-zinc-100">
-                      <SparkleIcon size={15} className={overBudget ? "text-amber-300" : "text-violet-300"} />
-                      本月估計 <span className="admin-nums">${usd(ai.monthCostUsd)}</span>
+                    <p className="flex items-center gap-2 text-[16px] font-bold text-zinc-100">
+                      <SparkleIcon size={15} className={`shrink-0 ${overBudget ? "text-amber-300" : "text-violet-300"}`} />
+                      <span className="admin-nums">${usd(ai.monthCostUsd)}</span>
                       {ai.budgetUsd > 0 && (
-                        <span className="text-[13px] font-medium text-zinc-500">
+                        <span className="whitespace-nowrap text-[13px] font-medium text-zinc-500">
                           / 上限 <span className="admin-nums">${usd(ai.budgetUsd)}</span>
                         </span>
                       )}
                     </p>
+                    <p className="mt-0.5 text-[12px] text-zinc-500">本月估計</p>
 
                     {ai.budgetUsd > 0 && (
                       <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
@@ -182,10 +183,10 @@ export default function AdminOverview() {
           <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
             <SectionHead title="圖片儲存" href="/admin/storage" />
             <div className="mt-2">
-              <p className="flex flex-wrap items-center gap-2 text-[17px] font-bold text-zinc-100">
+              <p className="flex items-center gap-2 text-[16px] font-bold text-zinc-100">
                 <PhotoIcon size={15} stroke={storageTight ? "#fcd34d" : "#a78bfa"} />
                 <span className="admin-nums">{formatBytes(storage.totalBytes)}</span>
-                <span className="text-[13px] font-medium text-zinc-500">
+                <span className="whitespace-nowrap text-[13px] font-medium text-zinc-500">
                   / 上限 <span className="admin-nums">1 GB</span>
                 </span>
               </p>
@@ -219,9 +220,9 @@ export default function AdminOverview() {
             <SectionHead title="異常" href="/admin/errors" />
             {errors.last ? (
               <div className="mt-2">
-                <p className="flex items-center gap-2 text-[17px] font-bold text-zinc-100">
-                  <AlertTriangleIcon size={15} className="text-rose-400" />
-                  最近一次 {relativeTime(errors.last.created_at)}
+                <p className="flex items-center gap-2 text-[16px] font-bold text-zinc-100">
+                  <AlertTriangleIcon size={15} className="shrink-0 text-rose-400" />
+                  <span className="truncate">{relativeTime(errors.last.created_at)}</span>
                 </p>
                 <p className="mt-1.5 truncate text-[13px] text-zinc-400" title={errors.last.message}>
                   {errors.last.message}
