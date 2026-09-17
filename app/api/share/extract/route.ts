@@ -2,7 +2,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { aiBudgetGuard } from "@/lib/aiUsage";
 import { scrapeInstagram } from "@/lib/instagramScrape";
-import { cleanShareUrl } from "@/lib/sharedLink";
+import { scrapeThreads } from "@/lib/threadsScrape";
+import { cleanShareUrl, sourceOf } from "@/lib/sharedLink";
 import { parsePlaces } from "@/lib/placeParser";
 
 /*
@@ -20,7 +21,11 @@ export async function POST(request: NextRequest) {
   const url = typeof body?.url === "string" ? body.url.trim() : "";
   if (!url) return NextResponse.json({ error: "url required" }, { status: 400 });
 
-  const scraped = await scrapeInstagram(url);
+  /*
+    Threads 不走 Apify —— 那顆 actor 只吃 instagram.com 的網址，餵 Threads 連結進去
+    什麼都拿不到。Threads 自己的貼文頁就有完整的 og 標籤，直接讀比較快也不用錢。
+  */
+  const scraped = sourceOf(url) === "threads" ? await scrapeThreads(url) : await scrapeInstagram(url);
   if ("failure" in scraped) {
     return NextResponse.json({ reason: scraped.failure, link: cleanShareUrl(url) }, { status: 200 });
   }
