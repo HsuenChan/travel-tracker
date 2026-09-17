@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { trackGemini, type TrackMeta } from "@/lib/aiUsage";
+import { retryTransient, trackGemini, type TrackMeta } from "@/lib/aiUsage";
 
 /**
  * 收據辨識。
@@ -47,8 +47,10 @@ export async function runReceiptGemini(
   const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({ model: modelName });
-  const result = await trackGemini({ ...meta, model: modelName }, () =>
-    model.generateContent([{ inlineData: { mimeType, data: base64 } }, PROMPT])
+  const result = await retryTransient(() =>
+    trackGemini({ ...meta, model: modelName }, () =>
+      model.generateContent([{ inlineData: { mimeType, data: base64 } }, PROMPT])
+    )
   );
   return result.response.text().trim().replace(/^```json\s*/i, "").replace(/```\s*$/, "");
 }

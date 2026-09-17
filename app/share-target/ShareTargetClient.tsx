@@ -40,6 +40,7 @@ const REASON_TEXT: Record<string, string> = {
   no_ai: "AI 沒有設定，先手動輸入名稱。",
   over_budget: "AI 用量已達本月上限，先手動輸入名稱。",
   unparsable: "AI 回了看不懂的東西，先手動輸入名稱。",
+  ai_error: "AI 服務暫時忙不過來（重試過幾次了），先手動輸入名稱，或等幾分鐘再分享一次。",
   no_place: "這則裡看不出具體地點，自己打一個吧。",
 };
 

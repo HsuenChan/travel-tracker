@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { trackGemini, aiBudgetGuard, type TrackMeta } from "@/lib/aiUsage";
+import { retryTransient, trackGemini, aiBudgetGuard, type TrackMeta } from "@/lib/aiUsage";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 function extractJSON(text: string): unknown {
@@ -148,7 +148,7 @@ level 定義：
 只輸出 JSON，不要任何前言或解釋。`;
 
     try {
-      const result = await trackGemini(usageMeta, () => model.generateContent(prompt));
+      const result = await retryTransient(() => trackGemini(usageMeta, () => model.generateContent(prompt)));
       const issues = extractJSON(result.response.text().trim());
       return NextResponse.json({ issues });
     } catch (err) {
@@ -217,7 +217,7 @@ ${existingStr}
 - 必去地點必須全部出現，依地理位置安排最有效率的順序`;
 
     try {
-      const result = await trackGemini(usageMeta, () => model.generateContent(prompt));
+      const result = await retryTransient(() => trackGemini(usageMeta, () => model.generateContent(prompt)));
       const raw = extractJSON(result.response.text().trim()) as Array<{
         date: string; time: string; end_time?: string;
         title: string; category?: string; location?: string; notes?: string;
