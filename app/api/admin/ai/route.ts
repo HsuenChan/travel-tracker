@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAdminUser } from "@/lib/adminAuth";
 import { estimateCost, monthlyBudgetUsd, AI_FEATURE_LABELS, type AiFeature } from "@/lib/aiUsage";
+import { fetchApifyUsage } from "@/lib/apifyUsage";
 
 const PAGE_SIZE = 50;
 
@@ -47,8 +48,11 @@ export async function GET(request: NextRequest) {
 
   const rows = month.data ?? [];
   const todayStart = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString();
+  // Apify 拿不到就是 null，那一塊不顯示 —— 它壞掉不該讓整頁看不到 AI 用量
+  const apify = await fetchApifyUsage();
 
   return NextResponse.json({
+    apify,
     summary: {
       budgetUsd: monthlyBudgetUsd(),
       monthCalls: rows.length,
