@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAdminUser } from "@/lib/adminAuth";
 import AdminNav from "@/app/components/admin/AdminNav";
+import BuildStamp from "@/app/components/BuildStamp";
 
 /**
  * 後台的門。
@@ -27,7 +28,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         }}
       />
       <AdminNav />
-      <main className="mx-auto w-full max-w-5xl px-4 pb-24 sm:px-6">{children}</main>
+      <main className="mx-auto w-full max-w-5xl px-4 sm:px-6">{children}</main>
+      <footer className="mx-auto mt-10 w-full max-w-5xl px-4 pb-10 sm:px-6">
+        <BuildStamp showBranch className="border-t border-white/[0.05] pt-4" />
+      </footer>
     </div>
   );
 }

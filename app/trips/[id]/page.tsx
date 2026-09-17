@@ -25,6 +25,7 @@ import SegmentCard from "@/app/components/SegmentCard";
 import TripHero from "@/app/components/TripHero";
 import TripRecapCard from "@/app/components/TripRecapCard";
 import MobileNav from "@/app/components/MobileNav";
+import BuildStamp from "@/app/components/BuildStamp";
 import PillButton from "@/app/components/PillButton";
 import EmptyState, { EmptyStateAction } from "@/app/components/EmptyState";
 import {
@@ -1247,6 +1248,9 @@ export default function TripPage() {
         </motion.div>
         )}
       </div>
+
+      {/* 手機底部有導航列，留白讓它不會蓋住 */}
+      <BuildStamp className="mt-10 pb-24 md:pb-10" />
 
       {isMobile && trip && visibleTabs.length > 1 && (
         <MobileNav
