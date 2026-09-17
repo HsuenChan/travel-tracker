@@ -98,20 +98,20 @@ export default function AdminOverview() {
         刻意不加 items-start：grid 預設的 stretch 會讓同一列的卡一樣高，邊框才對得齊。
       */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-x-4">
-        <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+        <section className="min-w-0 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
           <SectionHead title="登入狀態" href="/admin/logins" />
           {logins.last ? (
             <CardBody
               headline={
                 <>
                   <ShieldIcon size={15} className={`shrink-0 ${suspicious ? "text-amber-300" : "text-emerald-300"}`} />
-                  <span className="truncate">{relativeTime(logins.last.created_at)}登入</span>
+                  <span className="min-w-0 truncate">{relativeTime(logins.last.created_at)}登入</span>
                 </>
               }
             >
-              <p className="flex items-center gap-1.5 truncate text-[13px] text-zinc-400">
+              <p className="flex min-w-0 items-center gap-1.5 text-[13px] text-zinc-400">
                 <LaptopIcon size={13} className="shrink-0 text-zinc-600" />
-                <span className="truncate">
+                <span className="min-w-0 truncate">
                   {describeDevice(logins.last.user_agent)}
                   {logins.last.ip && <span className="admin-nums text-zinc-500"> · {logins.last.ip}</span>}
                 </span>
@@ -138,7 +138,7 @@ export default function AdminOverview() {
         </section>
 
         {ai && (
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+          <section className="min-w-0 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
             <SectionHead title="AI 用量" href="/admin/ai" />
                 {ai.monthCalls === 0 ? (
                   <CardBody headline={<span className="text-zinc-400">本月沒有呼叫</span>}>
@@ -180,7 +180,7 @@ export default function AdminOverview() {
         )}
 
         {storage && (
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+          <section className="min-w-0 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
             <SectionHead title="圖片儲存" href="/admin/storage" />
             <CardBody
               headline={
@@ -213,14 +213,14 @@ export default function AdminOverview() {
         )}
 
         {errors && (
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+          <section className="min-w-0 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
             <SectionHead title="異常" href="/admin/errors" />
             {errors.last ? (
               <CardBody
                 headline={
                   <>
                     <AlertTriangleIcon size={15} className="shrink-0 text-rose-400" />
-                    <span className="truncate">{relativeTime(errors.last.created_at)}</span>
+                    <span className="min-w-0 truncate">{relativeTime(errors.last.created_at)}</span>
                   </>
                 }
               >
@@ -293,7 +293,7 @@ function CardBody({
 }) {
   return (
     <div className="mt-2">
-      <p className="flex h-6 items-center gap-2 text-[16px] font-bold text-zinc-100">{headline}</p>
+      <p className="flex h-6 min-w-0 items-center gap-2 text-[16px] font-bold text-zinc-100">{headline}</p>
       <div className="mt-2.5 h-1.5">
         {meter && (
           <div className="h-full w-full overflow-hidden rounded-full bg-white/[0.06]">
