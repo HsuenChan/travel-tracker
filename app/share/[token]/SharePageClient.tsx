@@ -7,6 +7,7 @@ import dayjs, { type Dayjs } from "dayjs";
 import SegmentCard from "@/app/components/SegmentCard";
 import TripHero from "@/app/components/TripHero";
 import MobileNav from "@/app/components/MobileNav";
+import PublicFooter from "@/app/components/PublicFooter";
 import PillButton from "@/app/components/PillButton";
 import { PlaneIcon, PhotoIcon, CalendarIcon, CoinIcon, NotepadIcon, GiftIcon, CarabinerIcon } from "@/app/components/Icons";
 import PhotoWall from "@/app/components/PhotoWall";
@@ -452,6 +453,8 @@ export default function SharePageClient() {
             </Button>
           </div>
         </Modal>
+
+        <PublicFooter />
 
         {tabs.length > 1 && (
           <MobileNav
