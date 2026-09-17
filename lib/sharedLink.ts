@@ -23,6 +23,21 @@ export interface ParsedShare {
 
 const URL_RE = /https?:\/\/[^\s]+/;
 
+/**
+ * 去掉分享網址上的追蹤參數。
+ *
+ * IG 分享會帶 ?stkn=、?igsh= 之類，那些對誰都沒用而且每次分享都不一樣 —— 不清掉的話，
+ * 同一則貼文分享兩次會被當成兩個不同的連結。
+ */
+export function cleanShareUrl(raw: string): string {
+  try {
+    const u = new URL(raw.trim());
+    return `${u.origin}${u.pathname}`.replace(/\/+$/, "");
+  } catch {
+    return raw.trim();
+  }
+}
+
 export function sourceOf(link: string | null): ShareSource {
   if (!link) return "other";
   if (/(^|\.)instagram\.com/i.test(link)) return "instagram";
@@ -35,7 +50,8 @@ export function sourceOf(link: string | null): ShareSource {
 
 export function parseShare(payload: SharePayload): ParsedShare {
   const fields = [payload.url, payload.text, payload.title];
-  const link = fields.map((f) => f?.match(URL_RE)?.[0] ?? null).find(Boolean) ?? null;
+  const found = fields.map((f) => f?.match(URL_RE)?.[0] ?? null).find(Boolean) ?? null;
+  const link = found ? cleanShareUrl(found) : null;
 
   // 網址之外的文字才可能有地點名稱；標題與內文都留著，之後由使用者或 AI 挑
   const note = [payload.title, payload.text]

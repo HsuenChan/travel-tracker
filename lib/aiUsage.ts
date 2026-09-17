@@ -10,13 +10,14 @@
 
 import { createServiceClient } from "@/lib/supabase/service";
 
-export type AiFeature = "itinerary" | "notes" | "receipt" | "flight";
+export type AiFeature = "itinerary" | "notes" | "receipt" | "flight" | "place";
 
 export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
   itinerary: "AI 排行程",
   notes: "AI 筆記",
   receipt: "收據辨識",
   flight: "機票辨識",
+  place: "分享抽地點",
 };
 
 /**

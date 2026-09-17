@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { relativeTime } from "@/app/components/admin/parts";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { AI_FEATURE_LABELS } from "@/lib/aiUsage";
+import type { ApifyUsage } from "@/lib/apifyUsage";
 import { SparkleIcon } from "@/app/components/Icons";
 
 interface AiCall {
@@ -38,6 +39,7 @@ const kTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String
 
 export default function AiUsageConsole() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [apify, setApify] = useState<ApifyUsage | null>(null);
   const [calls, setCalls] = useState<AiCall[]>([]);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,7 @@ export default function AiUsageConsole() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setSummary(data.summary);
+      setApify(data.apify ?? null);
       setCalls(data.calls);
       setNextOffset(data.nextOffset);
     } catch {
@@ -84,6 +87,7 @@ export default function AiUsageConsole() {
       <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
         每一次 Gemini 呼叫的 token 與估計花費，含失敗的呼叫。金額是依公告費率換算的估計值，不是帳單金額。
       </p>
+
 
       {loading ? (
         <ul aria-hidden className="mt-5 space-y-3">
@@ -137,7 +141,11 @@ export default function AiUsageConsole() {
                 </>
               )}
             </p>
+
+            <ConsoleLink href="https://aistudio.google.com/usage">Gemini 用量後台</ConsoleLink>
           </section>
+
+          {apify && <ApifyBlock usage={apify} />}
 
           {/* 依功能與依帳號並排：兩份都是短清單，電腦版分兩欄就不用捲 */}
           <div className="mt-6 grid items-start gap-6 lg:grid-cols-2 lg:gap-x-10">
@@ -305,5 +313,67 @@ function CallCard({ call }: { call: AiCall }) {
       </p>
       {call.error && <p className="mt-1 text-[12px] leading-relaxed text-rose-300/80">{call.error}</p>}
     </li>
+  );
+}
+
+/** 各自的官方後台。放在自己那張卡後面，才知道點下去看到的是哪一份帳 */
+function ConsoleLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="admin-focus mt-2.5 inline-block text-[12px] !text-zinc-500 underline decoration-white/15 underline-offset-2 transition-colors hover:!text-zinc-300"
+    >
+      {children} ↗
+    </a>
+  );
+}
+
+/**
+ * Apify 的額度。
+ *
+ * 免費方案用完是直接停止服務、不會超收 —— 但停掉的時候分享頁只會說「讀取失敗」，
+ * 沒有人會聯想到是額度，所以這個數字要看得到。週期從帳號開通日起算，不是日曆月。
+ */
+function ApifyBlock({ usage }: { usage: ApifyUsage }) {
+  const pct = usage.maxUsd > 0 ? Math.min(100, (usage.usedUsd / usage.maxUsd) * 100) : 0;
+  const tight = pct >= 80;
+  const until = usage.cycleEnd
+    ? new Intl.DateTimeFormat("zh-TW", { timeZone: "Asia/Taipei", month: "2-digit", day: "2-digit" })
+        .format(new Date(usage.cycleEnd))
+    : null;
+
+  return (
+    <section className="mt-6 border-t border-white/[0.05] pt-5">
+      <h2 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">
+        Apify（分享抓取）
+      </h2>
+      <p className="mt-2 flex flex-wrap items-baseline gap-2 text-[17px] font-bold text-zinc-100">
+        <span className="admin-nums">${usage.usedUsd.toFixed(3)}</span>
+        <span className="text-[13px] font-medium text-zinc-500">
+          / 額度 <span className="admin-nums">${usage.maxUsd.toFixed(2)}</span>
+        </span>
+      </p>
+      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+        <div
+          className={`h-full rounded-full ${tight ? "bg-amber-400" : "bg-violet-400/70"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="mt-2.5 text-[13px] text-zinc-500">
+        已用 <span className="admin-nums text-zinc-300">{pct.toFixed(1)}%</span>
+        {until && (
+          <>
+            <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+            本週期到 <span className="admin-nums text-zinc-300">{until}</span>
+          </>
+        )}
+        <span aria-hidden className="mx-1.5 text-zinc-700">·</span>
+        用完會停止服務，不會超收
+      </p>
+
+      <ConsoleLink href="https://console.apify.com/billing">Apify 用量後台</ConsoleLink>
+    </section>
   );
 }
