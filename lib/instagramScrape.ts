@@ -23,6 +23,8 @@ export interface ScrapedPost {
   /** IG 的地點標籤。有標的話這是最可信的一欄，比從內文猜準得多 */
   locationName: string | null;
   ownerUsername: string | null;
+  /** 封面圖。IG 的 CDN 網址簽名過、約四天就過期，所以存之前要先收進自己的 Storage */
+  imageUrl: string | null;
 }
 
 export type ScrapeFailure = "no_token" | "timeout" | "not_found" | "error";
@@ -78,6 +80,7 @@ export async function scrapeInstagram(
       hashtags: asStringArray(first.hashtags),
       locationName,
       ownerUsername: typeof first.ownerUsername === "string" ? first.ownerUsername : null,
+      imageUrl: typeof first.displayUrl === "string" ? first.displayUrl : null,
     },
   };
 }
