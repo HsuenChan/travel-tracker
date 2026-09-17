@@ -19,7 +19,7 @@ Return ONLY a valid JSON object (no markdown, no explanation):
       "city": "City or area, empty string if unknown",
       "country": "Country in Chinese, empty string if unknown",
       "category": "food | attraction | shopping | hotel | activity | outdoor | other",
-      "note": "One short line in Chinese on why this post singled the place out — what the poster actually said about it. Empty string if the post says nothing specific."
+      "note": "What the post actually tells you about this place, in Chinese. Keep the practical detail: where to buy tickets, when to go, prices, queues, how to get there, what to order, what to watch out for. Keep numbers, site names and times exactly as given. Several lines when the post gives several — separate them with \\n. Empty string only when the post says nothing beyond naming the place."
     }
   ]
 }
@@ -30,7 +30,9 @@ Rules:
 - Several places is normal for a list-style post. Keep the order they appear in.
 - No place at all is a valid answer: return {"places": []}. Do not invent one to be helpful.
 - Do not copy hashtags in as places.
-- note is what the post claims, not your own description.`;
+- note is what the post claims, not your own description. Do not summarise a how-to into a slogan: a post explaining how to get tickets should come out with the steps, not the words "buy early".
+- Leave out the poster's self-promotion, follow-me lines and hashtags.
+- Write every Chinese string in Traditional Chinese as used in Taiwan. Say 貼文 not 帖子, 影片 not 视频, 餐廳 not 饭店.`;
 
 export interface ParsedPlace {
   name: string;
