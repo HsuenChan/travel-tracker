@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { trackGemini, aiBudgetGuard } from "@/lib/aiUsage";
+import { retryTransient, trackGemini, aiBudgetGuard } from "@/lib/aiUsage";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const VALID_SECTIONS = ["travel_tips", "packing_list", "driving", "metro", "bus", "transit"];
@@ -134,9 +134,11 @@ export async function POST(
     const modelName = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({ model: modelName });
-    const result = await trackGemini(
-      { feature: "notes", model: modelName, actorId: user.id, actorName: user.email ?? null, tripId: id, tripName: trip.name },
-      () => model.generateContent(prompt)
+    const result = await retryTransient(() =>
+      trackGemini(
+        { feature: "notes", model: modelName, actorId: user.id, actorName: user.email ?? null, tripId: id, tripName: trip.name },
+        () => model.generateContent(prompt)
+      )
     );
     const content = result.response.text().trim();
     return NextResponse.json({ content });

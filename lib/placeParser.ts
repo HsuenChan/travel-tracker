@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { trackGemini, type TrackMeta } from "@/lib/aiUsage";
+import { retryTransient, trackGemini, type TrackMeta } from "@/lib/aiUsage";
 import type { ScrapedPost } from "@/lib/instagramScrape";
 
 /**
@@ -61,8 +61,10 @@ export async function parsePlaces(
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({ model: modelName });
 
-  const result = await trackGemini({ ...meta, model: modelName }, () =>
-    model.generateContent([PROMPT, sourceText(post)])
+  const result = await retryTransient(() =>
+    trackGemini({ ...meta, model: modelName }, () =>
+      model.generateContent([PROMPT, sourceText(post)])
+    )
   );
   const raw = result.response.text().trim()
     .replace(/^```json\s*/i, "").replace(/```\s*$/, "");

@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@/lib/supabase/server";
-import { trackGemini, aiBudgetGuard, type TrackMeta } from "@/lib/aiUsage";
+import { retryTransient, trackGemini, aiBudgetGuard, type TrackMeta } from "@/lib/aiUsage";
 
 const PROMPT = `Extract ALL flight segments from this document or image (including connecting flights).
 Return ONLY a JSON array. Each element represents one flight leg:
@@ -27,8 +27,10 @@ async function runGemini(mimeType: string, base64: string, meta: Omit<TrackMeta,
   const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({ model: modelName });
-  const result = await trackGemini({ ...meta, model: modelName }, () =>
-    model.generateContent([{ inlineData: { mimeType, data: base64 } }, PROMPT])
+  const result = await retryTransient(() =>
+    trackGemini({ ...meta, model: modelName }, () =>
+      model.generateContent([{ inlineData: { mimeType, data: base64 } }, PROMPT])
+    )
   );
   return result.response.text().trim().replace(/^```json\s*/i, "").replace(/```\s*$/, "");
 }

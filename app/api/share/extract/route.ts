@@ -32,11 +32,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ reason: "over_budget", post: scraped.post, link: scraped.post.url });
   }
 
-  const places = await parsePlaces(scraped.post, {
-    feature: "place",
-    actorId: user.id,
-    actorName: user.email ?? null,
-  });
+  /*
+    AI 掛掉不該讓整支 route 500 —— 抓回來的貼文還在，使用者仍然可以自己打名稱把連結存下來。
+    先前這裡沒有接住例外，Gemini 回 503 時畫面就變成一個沒有出路的錯誤。
+  */
+  let places: Awaited<ReturnType<typeof parsePlaces>>;
+  try {
+    places = await parsePlaces(scraped.post, {
+      feature: "place",
+      actorId: user.id,
+      actorName: user.email ?? null,
+    });
+  } catch {
+    return NextResponse.json({
+      link: scraped.post.url,
+      post: scraped.post,
+      places: [],
+      reason: "ai_error",
+    });
+  }
 
   return NextResponse.json({
     link: scraped.post.url,

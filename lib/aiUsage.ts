@@ -181,6 +181,31 @@ export async function trackGemini<R extends GeminiResult>(
   }
 }
 
+/*
+  Gemini 偶爾回 503「service is currently unavailable」，那是它那邊過載、和請求本身無關，
+  重試一次通常就過了。額度不足的 429 不在這裡重試 —— 那個再打幾次也不會變。
+
+  包在 trackGemini 外面而不是裡面：每一次嘗試都會各留一筆用量紀錄，後台才看得出
+  503 到底多常發生，而不是只看到最後成功的那次。
+
+  間隔帶隨機抖動：固定間隔會讓所有失敗的客戶端在同一個時間點一起回來，把第二波尖峰
+  疊在第一波還沒退的時候 —— 過載時那正是最不該做的事。
+*/
+const TRANSIENT = /\b(500|502|503|504)\b|overloaded|unavailable|try again/i;
+
+export async function retryTransient<R>(call: () => Promise<R>, attempts = 3): Promise<R> {
+  for (let i = 0; ; i++) {
+    try {
+      return await call();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (i >= attempts - 1 || !TRANSIENT.test(message)) throw e;
+      const backoff = 600 * 2 ** i;
+      await new Promise((r) => setTimeout(r, backoff * (0.5 + Math.random())));
+    }
+  }
+}
+
 /** 四支 API 開頭共用：超過預算就回 429，附上講得清楚的訊息 */
 export async function aiBudgetGuard(): Promise<{ error: string; status: 429 } | null> {
   const state = await checkAiBudget();
