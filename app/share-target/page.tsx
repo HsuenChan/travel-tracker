@@ -1,7 +1,7 @@
 import { parseShare, type SharePayload } from "@/lib/sharedLink";
 import ShareTargetClient from "@/app/share-target/ShareTargetClient";
 
-export const metadata = { title: "存進口袋名單 · Travel Tracker" };
+export const metadata = { title: "存進旅程 · Travel Tracker" };
 
 /**
  * 系統分享的落點。
@@ -25,7 +25,7 @@ export default async function ShareTargetPage({
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-8">
-      <h1 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">存進口袋名單</h1>
+      <h1 className="text-[13px] font-bold uppercase tracking-[0.14em] text-zinc-500">存進旅程</h1>
       <ShareTargetClient parsed={parseShare(payload)} />
     </div>
   );
