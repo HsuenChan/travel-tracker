@@ -7,13 +7,20 @@ import { Button, Input } from "antd";
 
 type QuillRange = { index: number; length: number };
 type QuillToolbar = { container?: HTMLElement };
-type QuillLine = { length: () => number };
+type QuillBlot = { length: () => number; statics?: { blotName?: string }; parent?: QuillBlot | null };
+type QuillLine = QuillBlot;
 type QuillOp = { insert?: string | Record<string, unknown>; attributes?: Record<string, unknown> };
 type QuillDelta = { ops: QuillOp[] };
 
 type QuillLike = {
-  format: (name: string, value: unknown) => void;
+  format: (name: string, value: unknown, source?: string) => void;
+  formatLine: {
+    (index: number, length: number, formats: Record<string, unknown>, source: string): void;
+    (index: number, length: number, format: string, value: unknown, source: string): void;
+  };
   formatText: (index: number, length: number, format: string, value: unknown, source: string) => void;
+  updateContents: (delta: unknown, source: string) => void;
+  getIndex: (blot: QuillBlot) => number;
   getSelection: (focus?: boolean) => QuillRange | null;
   insertText: (index: number, text: string, format: string, value: string, source: string) => void;
   insertEmbed: (index: number, type: string, value: unknown, source: string) => void;
@@ -62,9 +69,24 @@ type QuillProps = {
   forwardedRef?: React.Ref<ReactQuillInstance>;
 };
 
+const COLLAPSE_CONTAINER = "collapse-container";
+const COLLAPSE_TITLE = "collapse-title";
+const COLLAPSE_BODY = "collapse";
+
+function newCollapseId() {
+  return `c-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** 同一個折疊區塊的每一行都帶同一個 id，用來決定哪些行要收進同一個 <details> */
+function collapseGroupId(blot: { domNode?: Node } | null | undefined) {
+  const node = blot?.domNode;
+  return node instanceof HTMLElement ? node.getAttribute("data-collapse") : null;
+}
+
 /**
  * Quill 沒有內建分隔線，自己註冊一個輸出 <hr> 的 block embed；
  * 軟換行（Shift+Enter）也沒有，一併補一個行內 <br>；
+ * 折疊區塊是原生 <details>／<summary>，用 container blot 把同一組的行收在一起；
  * table 是內建 module 但沒有 icon，一起補上。
  * 必須用 react-quill-new re-export 的同一個 Quill，否則會註冊到別的 registry。
  */
@@ -92,9 +114,100 @@ function registerCustomFormats(Quill: typeof import("quill").default) {
   }
   Quill.register("formats/softbreak", SoftBreakBlot);
 
+  const Block = Quill.import("blots/block") as typeof import("quill/blots/block").default;
+  const Container = Quill.import("blots/container") as typeof import("quill/blots/container").default;
+
+  type BlotContext = Parameters<InstanceType<typeof Container>["optimize"]>[0];
+
+  class CollapseContainer extends Container {
+    static blotName = COLLAPSE_CONTAINER;
+    static tagName = "DETAILS";
+    static className = "ql-collapse";
+
+    /* container 預設會跟相鄰的同類合併，這裡限定只有同一組（同 id）才併 */
+    checkMerge() {
+      const next = this.next as CollapseContainer | null;
+      if (!super.checkMerge() || !this.children.head || !next?.children.head) return false;
+      return collapseGroupId(this.children.head) === collapseGroupId(next.children.head);
+    }
+
+    optimize(context: BlotContext) {
+      super.optimize(context);
+      /* 編輯器裡一律當展開狀態，open 只要出現就會被存進 HTML，直接拿掉 */
+      if (this.domNode.hasAttribute("open")) this.domNode.removeAttribute("open");
+      /* 不同組的行被擠進同一個 <details> 時切開（同 Quill table-row 的作法） */
+      this.children.forEach((child) => {
+        if (child.next == null || collapseGroupId(child) === collapseGroupId(child.next)) return;
+        this.splitAfter(child).optimize({});
+        this.prev?.optimize({});
+      });
+      /* <summary> 只能有一個而且要在最前面：第一行升級成標題，其餘標題降級成內容行
+         （在標題行按 Enter 會切出第二個 <summary>，靠這裡轉成第一行內容） */
+      this.children.forEach((child) => {
+        const isTitle = child.statics.blotName === COLLAPSE_TITLE;
+        if (child === this.children.head) {
+          if (!isTitle) child.replaceWith(COLLAPSE_TITLE, collapseGroupId(child));
+        } else if (isTitle) {
+          child.replaceWith(COLLAPSE_BODY, collapseGroupId(child));
+        }
+      });
+    }
+  }
+
+  class CollapseLine extends Block {
+    static create(value?: unknown) {
+      const node = super.create() as HTMLElement;
+      node.setAttribute("data-collapse", typeof value === "string" && value ? value : newCollapseId());
+      return node;
+    }
+    static formats(domNode: HTMLElement) {
+      return domNode.getAttribute("data-collapse") || undefined;
+    }
+    format(name: string, value: unknown) {
+      if (name === this.statics.blotName && typeof value === "string") {
+        this.domNode.setAttribute("data-collapse", value);
+      } else {
+        super.format(name, value);
+      }
+    }
+  }
+
+  class CollapseTitle extends CollapseLine {
+    static blotName = COLLAPSE_TITLE;
+    static tagName = "SUMMARY";
+    static className = "ql-collapse-title";
+
+    constructor(...args: ConstructorParameters<typeof Block>) {
+      super(...args);
+      /* 點 <summary> 會觸發瀏覽器的開合，在編輯器裡只想把游標放進標題 */
+      this.domNode.addEventListener("click", (e) => e.preventDefault());
+    }
+  }
+
+  /* 內建的 <p> 是 tagName 註冊、這個是 className 註冊，registry 查 class 優先所以不會互相蓋掉 */
+  class CollapseBody extends CollapseLine {
+    static blotName = COLLAPSE_BODY;
+    static tagName = "P";
+    static className = "ql-collapse-body";
+  }
+
+  CollapseContainer.allowedChildren = [CollapseTitle, CollapseBody];
+  CollapseTitle.requiredContainer = CollapseContainer;
+  CollapseBody.requiredContainer = CollapseContainer;
+  Quill.register(CollapseContainer);
+  Quill.register(CollapseTitle);
+  Quill.register(CollapseBody);
+
   const icons = Quill.import("ui/icons") as Record<string, string>;
   icons.divider =
     '<svg viewBox="0 0 18 18"><line class="ql-stroke" x1="3" y1="9" x2="15" y2="9"></line></svg>';
+  icons.collapse =
+    '<svg viewBox="0 0 18 18">' +
+    '<polygon class="ql-fill" points="3,4 3,12 9,8"></polygon>' +
+    '<line class="ql-stroke" x1="11" y1="5" x2="15" y2="5"></line>' +
+    '<line class="ql-stroke" x1="11" y1="9" x2="15" y2="9"></line>' +
+    '<line class="ql-stroke" x1="11" y1="13" x2="15" y2="13"></line>' +
+    "</svg>";
   icons.table =
     '<svg viewBox="0 0 18 18">' +
     '<rect class="ql-stroke" fill="none" x="3" y="4" width="12" height="10"></rect>' +
@@ -168,6 +281,58 @@ function insertSoftBreak(
   if (atLineEnd) quill.insertEmbed(range.index + 1, "softbreak", true, "user");
   quill.setSelection(range.index + 1, 0);
   return false;
+}
+
+/** 游標所在的折疊區塊（標題 + 所有內容行）在文件裡的範圍 */
+function collapseRangeAt(quill: QuillLike, index: number): QuillRange | null {
+  const [line] = quill.getLine(index);
+  const container = line?.parent;
+  if (!container || container.statics?.blotName !== COLLAPSE_CONTAINER) return null;
+  return { index: quill.getIndex(container), length: container.length() };
+}
+
+/**
+ * 整塊拆回普通段落。標題與內容行是兩種 blot，但一定要在同一次 formatLine 清掉 ——
+ * 分兩次的話第一次結束後 optimize 會把下一行升級成標題，第二次就清不到它。
+ */
+function unwrapCollapse(quill: QuillLike, index: number) {
+  const range = collapseRangeAt(quill, index);
+  if (!range) return;
+  quill.formatLine(range.index, range.length, { [COLLAPSE_TITLE]: false, [COLLAPSE_BODY]: false }, "user");
+}
+
+/**
+ * 工具列的折疊按鈕：已經在折疊區塊裡就整塊拆掉，否則
+ * 有選取 → 第一行當標題、其餘當內容；沒選取 → 游標那行拆成「標題 + 第一行內容」。
+ */
+function toggleCollapse(quill: QuillLike) {
+  const range = quill.getSelection(true);
+  if (!range || !Delta) return;
+  if (collapseRangeAt(quill, range.index)) {
+    unwrapCollapse(quill, range.index);
+    return;
+  }
+  const [line, offset] = quill.getLine(range.index);
+  /* 表格儲存格本身就是一行，套下去會把儲存格換掉 */
+  if (line?.parent?.statics?.blotName === "table-row") return;
+
+  const id = newCollapseId();
+  if (range.length > 0) {
+    quill.formatLine(range.index, range.length, COLLAPSE_BODY, id, "user");
+    quill.formatLine(range.index, 0, COLLAPSE_TITLE, id, "user");
+    quill.setSelection(range.index, range.length);
+    return;
+  }
+  const rest = line ? Math.max(line.length() - offset - 1, 0) : 0;
+  quill.updateContents(
+    new Delta()
+      .retain(range.index)
+      .insert("\n", { [COLLAPSE_TITLE]: id })
+      .retain(rest)
+      .retain(1, { [COLLAPSE_BODY]: id }),
+    "user"
+  );
+  quill.setSelection(range.index, 0);
 }
 
 const POP_WIDTH = 264;
@@ -269,6 +434,26 @@ export default function QuillEditor({ value, onChange, placeholder, extraClass =
     keyboard: {
       bindings: {
         softBreak: { key: "Enter", shiftKey: true, handler: insertSoftBreak },
+        /* 折疊區塊的空行按 Enter 就跳出區塊，比照 Quill 內建的 blockquote／list */
+        collapseExit: {
+          key: "Enter",
+          collapsed: true,
+          format: [COLLAPSE_BODY],
+          empty: true,
+          handler(this: { quill: QuillLike }) {
+            this.quill.format(COLLAPSE_BODY, false, "user");
+          },
+        },
+        /* 標題行開頭按 Backspace → 整塊拆回普通段落 */
+        collapseBackspace: {
+          key: "Backspace",
+          collapsed: true,
+          offset: 0,
+          format: [COLLAPSE_TITLE],
+          handler(this: { quill: QuillLike }, range: QuillRange) {
+            unwrapCollapse(this.quill, range.index);
+          },
+        },
       },
     },
     clipboard: { matchers: [["br", keepSoftBreak]] },
@@ -279,7 +464,7 @@ export default function QuillEditor({ value, onChange, placeholder, extraClass =
         [{ color: [] }],
         ["link"],
         [{ list: "ordered" }, { list: "bullet" }],
-        ["blockquote", "divider", "table"],
+        ["blockquote", "collapse", "divider", "table"],
         ["clean"],
       ],
       handlers: {
@@ -299,6 +484,9 @@ export default function QuillEditor({ value, onChange, placeholder, extraClass =
         table(this: { quill: QuillLike }) {
           this.quill.getSelection(true);
           openTableRef.current(this.quill);
+        },
+        collapse(this: { quill: QuillLike }) {
+          toggleCollapse(this.quill);
         },
       },
     },

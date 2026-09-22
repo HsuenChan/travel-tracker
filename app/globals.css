@@ -389,6 +389,73 @@ body {
 }
 
 /*
+  折疊區塊：存出去的是原生 <details>／<summary>，閱讀模式不用任何 JS 就能點開；
+  編輯器裡不能真的收合（收合後游標進不去內容行），所以強制展開。
+*/
+.notes-content details.ql-collapse,
+.custom-quill .ql-editor details.ql-collapse {
+  margin: 0.8em 0;
+  padding: 0.5em 0.9em;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.notes-content details.ql-collapse>summary,
+.custom-quill .ql-editor details.ql-collapse>summary {
+  position: relative;
+  padding-left: 1.1em;
+  list-style: none;
+  font-weight: 600;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+
+.notes-content details.ql-collapse>summary::-webkit-details-marker,
+.custom-quill .ql-editor details.ql-collapse>summary::-webkit-details-marker {
+  display: none;
+}
+
+.notes-content details.ql-collapse>summary::before,
+.custom-quill .ql-editor details.ql-collapse>summary::before {
+  content: "";
+  position: absolute;
+  left: 0.15em;
+  top: 0.45em;
+  border-left: 5px solid rgba(167, 139, 250, 0.75);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s ease;
+}
+
+.notes-content details.ql-collapse>summary+*,
+.custom-quill .ql-editor details.ql-collapse>summary+* {
+  margin-top: 0.45em;
+}
+
+.notes-content details.ql-collapse[open]>summary::before {
+  transform: rotate(90deg);
+}
+
+/* 編輯器內一律當成展開狀態：新版瀏覽器是 ::details-content，舊版是直接藏子元素 */
+.custom-quill .ql-editor details.ql-collapse::details-content {
+  content-visibility: visible;
+  display: block;
+}
+
+.custom-quill .ql-editor details.ql-collapse:not([open])>*:not(summary) {
+  display: block;
+}
+
+.custom-quill .ql-editor details.ql-collapse>summary {
+  cursor: text;
+}
+
+.custom-quill .ql-editor details.ql-collapse>summary::before {
+  transform: rotate(90deg);
+}
+
+/*
   表格：兩邊的黑線來源不同 —
   編輯器是 quill.core 的 .ql-editor td{border:1px solid #000}；
   閱讀模式是 getSemanticHTML() 硬把 border:1px solid #000 寫成 inline style 存進 DB
